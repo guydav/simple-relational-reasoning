@@ -76,12 +76,92 @@ class BalancedBatchObjectGenerator(ObjectGenerator):
                 negative_examples.append(data[~positive_locations])
                 negative_count += batch_size - batch_positive_count
 
-        batch = torch.cat((torch.cat(positive_examples)[:half_batch_size],
+        data = torch.cat((torch.cat(positive_examples)[:half_batch_size],
                            torch.cat(negative_examples)[:half_batch_size]))
         labels = torch.cat((torch.ones(half_batch_size, dtype=self.label_dtype),
                             torch.zeros(half_batch_size, dtype=self.label_dtype)))
         perm = torch.randperm(batch_size)
-        return batch[perm], labels[perm]
+        return data[perm], labels[perm]
+
+
+# class SmartBalancedBatchObjectGenerator(ObjectGenerator):
+#     def __init__(self, n, field_configs, relation_evaluator, balancer, negative_to_positive=True,
+#                  batch_size=1, object_dtype=None, label_dtype=None, max_recursion_depth=20):
+#         super(SmartBalancedBatchObjectGenerator, self).__init__(
+#             n=n, field_configs=field_configs, relation_evaluator=relation_evaluator, batch_size=batch_size,
+#             object_dtype=object_dtype, label_dtype=label_dtype)
+#         self.balancer = balancer
+#         self.negative_to_positive = negative_to_positive
+#         self.max_recursion_depth = max_recursion_depth
+#
+#     def __call__(self, batch_size=None, recursion_depth=0):
+#         if batch_size is None:
+#             batch_size = self.batch_size
+#
+#         if batch_size == 1:
+#             return super(SmartBalancedBatchObjectGenerator, self).__call__(1)
+#
+#         if recursion_depth > self.max_recursion_depth:
+#             raise ValueError('Object generator max recursion depth exceeded...')
+#
+#         data, labels = super(SmartBalancedBatchObjectGenerator, self).__call__(batch_size)
+#         positive_count = int(labels.sum())
+#         half_batch_size = int(batch_size / 2)
+#         if positive_count == half_batch_size:
+#             return data, labels
+#
+#         more_positive_examples = positive_count > half_batch_size
+#         if more_positive_examples == self.negative_to_positive:
+#             return self(batch_size, recursion_depth + 1)
+#
+#         indices_to_modify = (labels.bool() == (not self.negative_to_positive)).nonzero().squeeze()
+#         num_samples_to_modify = abs(positive_count - half_batch_size)
+#         target_indices = indices_to_modify[torch.randperm(indices_to_modify.shape[0])[:num_samples_to_modify]]
+#         for index in target_indices:
+#             self.balancer(data, index, self.field_slices, self.field_generators)
+#             labels[index] = self.negative_to_positive
+#
+#         return data, labels
+
+
+class SmartBalancedBatchObjectGenerator(ObjectGenerator):
+    def __init__(self, n, field_configs, relation_evaluator, balancer, negative_to_positive=True,
+                 batch_size=1, object_dtype=None, label_dtype=None, max_recursion_depth=20):
+        super(SmartBalancedBatchObjectGenerator, self).__init__(
+            n=n, field_configs=field_configs, relation_evaluator=relation_evaluator, batch_size=batch_size,
+            object_dtype=object_dtype, label_dtype=label_dtype)
+        self.balancer = balancer
+        self.negative_to_positive = negative_to_positive
+        self.max_recursion_depth = max_recursion_depth
+
+    def __call__(self, batch_size=None, recursion_depth=0):
+        if batch_size is None:
+            batch_size = self.batch_size
+
+        if batch_size == 1:
+            return super(SmartBalancedBatchObjectGenerator, self).__call__(1)
+
+        if recursion_depth > self.max_recursion_depth:
+            raise ValueError('Object generator max recursion depth exceeded...')
+
+        data, labels = super(SmartBalancedBatchObjectGenerator, self).__call__(batch_size)
+        positive_count = int(labels.sum())
+        half_batch_size = int(batch_size / 2)
+        if positive_count == half_batch_size:
+            return data, labels
+
+        more_positive_examples = positive_count > half_batch_size
+        if more_positive_examples == self.negative_to_positive:
+            return self(batch_size, recursion_depth + 1)
+
+        indices_to_modify = (labels.bool() == (not self.negative_to_positive)).nonzero().squeeze()
+        num_samples_to_modify = abs(positive_count - half_batch_size)
+        target_indices = indices_to_modify[torch.randperm(indices_to_modify.shape[0])[:num_samples_to_modify]]
+        for index in target_indices:
+            data[index] = self.balancer(data[index], self.field_slices, self.field_generators)
+            labels[index] = self.negative_to_positive
+
+        return data, labels
 
 
 # Implementing a quick example one, this one checks that two fields named 'x' and 'y' differ by some minimal amount
@@ -92,6 +172,56 @@ def adjacent_relation_evaluator(objects, field_slices, x_field_name='x', y_field
     object_positions = torch.cat((objects[:, field_slices[x_field_name]], objects[:, field_slices[y_field_name]]), dim=1).to(torch.float).unsqueeze(0)
     l1_distances = torch.cdist(object_positions, object_positions, 1)
     return torch.any(torch.isclose(l1_distances, torch.tensor([1.0])))
+
+
+# def adjacent_relation_balancer(data, batch_index, field_slices, field_generators, x_field_name='x', y_field_name='y'):
+#     n_objects = data.shape[1]
+#     index_to_modify, index_to_set_next_to = torch.randperm(n_objects)[:2]
+#     # set x and y to be the same, then modify one
+#     data[batch_index, index_to_modify, field_slices[x_field_name]] = data[batch_index, index_to_set_next_to,
+#                                                                           field_slices[x_field_name]]
+#     data[batch_index, index_to_modify, field_slices[y_field_name]] = data[batch_index, index_to_set_next_to,
+#                                                                           field_slices[y_field_name]]
+#     # pick which field ot modify
+#     field_name_to_modify = (torch.rand(tuple()) < 0.5) and x_field_name or y_field_name
+#     field_generator = field_generators[field_name_to_modify]
+#     field_slice = field_slices[field_name_to_modify]
+#
+#     # if at the edge of the grid, shift in the only valid direction
+#     if data[batch_index, index_to_modify, field_slice] == field_generator.min_coord:
+#         data[batch_index, index_to_modify, field_slice] = 1
+#
+#     elif data[batch_index, index_to_modify, field_slice] == field_generator.max_coord - 1:
+#         data[batch_index, index_to_modify, field_slice] = field_generator.max_coord - 1
+#
+#     # if not, shift in either direction
+#     else:
+#         data[batch_index, index_to_modify, field_slice] = torch.sign(torch.rand(tuple()) - 0.5)
+
+
+def adjacent_relation_balancer(sample, field_slices, field_generators, x_field_name='x', y_field_name='y'):
+    n_objects = sample.shape[0]
+    index_to_modify, index_to_set_next_to = torch.randperm(n_objects)[:2]
+    # set x and y to be the same, then modify one
+    sample[index_to_modify, field_slices[x_field_name]] = sample[index_to_set_next_to, field_slices[x_field_name]]
+    sample[index_to_modify, field_slices[y_field_name]] = sample[index_to_set_next_to, field_slices[y_field_name]]
+    # pick which field ot modify
+    field_name_to_modify = (torch.rand(tuple()) < 0.5) and x_field_name or y_field_name
+    field_generator = field_generators[field_name_to_modify]
+    field_slice = field_slices[field_name_to_modify]
+
+    # if at the edge of the grid, shift in the only valid direction
+    if sample[index_to_modify, field_slice] == field_generator.min_coord:
+        sample[index_to_modify, field_slice] = 1
+
+    elif sample[index_to_modify, field_slice] == field_generator.max_coord - 1:
+        sample[index_to_modify, field_slice] = field_generator.max_coord - 1
+
+    # if not, shift in either direction
+    else:
+        sample[index_to_modify, field_slice] = torch.sign(torch.rand(tuple()) - 0.5)
+
+    return sample
 
 
 class ObjectGeneratorDataset(torch.utils.data.Dataset):
