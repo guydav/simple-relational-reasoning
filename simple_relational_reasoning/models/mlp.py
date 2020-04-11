@@ -1,3 +1,5 @@
+from abc import abstractmethod
+
 import torch
 import pytorch_lightning as pl
 from torch import nn
@@ -6,20 +8,14 @@ from torch.utils.data import DataLoader
 from simple_relational_reasoning.datagen import ObjectGeneratorDataset
 
 
-class MLPAverageModel(pl.LightningModule):
-    def __init__(self, object_generator, representation_size, representation_activation,
-                 prediction_size=1, prediction_activation=torch.sigmoid,
-                 loss=F.mse_loss, optimizer_class=torch.optim.Adam, lr=1e-4,
+class BaseObjectModel(pl.LightningModule):
+    def __init__(self, object_generator, loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
                  batch_size=32, train_epoch_size=1024, validation_epoch_size=128):
-        super(MLPAverageModel, self).__init__()
+        super(BaseObjectModel, self).__init__()
 
         self.object_generator = object_generator
-
-        self.representation_layer = nn.Linear(self.object_generator.object_size, representation_size)
-        self.representation_activation = representation_activation
-
-        self.prediction_layer = nn.Linear(representation_size, prediction_size)
-        self.prediction_activation = prediction_activation
+        self.object_size = self.object_generator.object_size
+        self.num_objects = self.object_generator.n
 
         self.loss = loss
         self.optimizer_class = optimizer_class
@@ -31,25 +27,32 @@ class MLPAverageModel(pl.LightningModule):
         self.train_datset = ObjectGeneratorDataset(self.object_generator, self.train_epoch_size)
         self.validation_dataset = ObjectGeneratorDataset(self.object_generator, self.validation_epoch_size)
 
+    @abstractmethod
+    def embed(self, x):
+        pass
+
+    @abstractmethod
+    def predict(self, x):
+        pass
+
     def forward(self, x):
         """
         :param x: a batch, expected to be of shape (B, N, F): B sets per batch, N objects per set, F features per object
         :return: The prediction for each object
         """
-        B, N, F = x.shape
-        x = x.reshape(B * N, F)
-        representations = self.representation_activation(self.representation_layer(x))
-        # TODO: verify this reshapes correctly
-        reshaped_representations = representations.reshape(B, N, -1)
-        # will be (B, self.representation_size)
-        set_representations = reshaped_representations.mean(1)
-        # will be (B, self.prediction_size)
-        return self.prediction_activation(self.prediction_layer(set_representations))
+        # B, N, F = x.shape
+        # After the next call, x should be of shape (B, N, E) where E is the embedding size
+        x = self.embed(x)
+        # The returned value should be of shape (B, L), where L is the shape the loss function expects
+        return self.predict(x)
+
+    def _compute_accuracy(self, target, preds):
+        return torch.eq(target, preds.argmax(1)).float().mean()
 
     def training_step(self, batch, batch_idx):
         data, target = batch
-        preds = self.forward(data).squeeze()
-        return dict(loss=self.loss(preds, target), acc=(target == torch.round(preds)).float().mean())
+        preds = self.forward(data)
+        return dict(loss=self.loss(preds, target), acc=self._compute_accuracy(target, preds))
 
     def configure_optimizers(self):
         return self.optimizer_class(self.parameters(), self.lr)
@@ -77,3 +80,33 @@ class MLPAverageModel(pl.LightningModule):
     def on_epoch_start(self):
         self.train_datset.regenerate()
         self.validation_dataset.regenerate()
+
+
+class MLPModel(BaseObjectModel):
+    def __init__(self, object_generator, embedding_size, embedding_activation,
+                 prediction_size=2, prediction_activation=None,
+                 loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
+                 batch_size=32, train_epoch_size=1024, validation_epoch_size=128):
+        super(MLPModel, self).__init__(object_generator, loss=loss, optimizer_class=optimizer_class,
+                                       lr=lr, batch_size=batch_size, train_epoch_size=train_epoch_size,
+                                       validation_epoch_size=validation_epoch_size)
+
+        self.embedding_size = embedding_size
+        self.embedding_layer = nn.Linear(self.object_size, self.embedding_size)
+
+        self.embedding_activation = embedding_activation
+
+        self.prediction_size = prediction_size
+        self.prediction_layer = nn.Linear(self.embedding_size * self.num_objects, self.prediction_size)
+
+        if prediction_activation is None:
+            prediction_activation = nn.Identity()
+        self.prediction_activation = prediction_activation
+
+    def embed(self, x):
+        return self.embedding_activation(self.embedding_layer(x))
+
+    def predict(self, x):
+        B = x.shape[0]
+        return self.prediction_activation(self.prediction_layer(x.view(B, -1)))
+

@@ -10,7 +10,7 @@ FieldConfig.__new__.__defaults__ = (None, None, dict())
 
 
 class ObjectGenerator:
-    def __init__(self, n, field_configs, relation_evaluator, batch_size=1, object_dtype=None, label_dtype=torch.bool):
+    def __init__(self, n, field_configs, relation_evaluator, batch_size=1, object_dtype=None, label_dtype=None):
         self.n = n
         self.field_configs = field_configs
         assert(all([cfg.type in FIELD_TYPES for cfg in field_configs]))
@@ -29,12 +29,12 @@ class ObjectGenerator:
         self.relation_evaluator = relation_evaluator
         self.batch_size = batch_size
         self.object_dtype = object_dtype
-        if object_dtype is not None:
-            self.label_dtype = object_dtype
-        else:
-            self.label_dtype = label_dtype
 
-        self.object_size = self()[0].shape[-1]
+        if label_dtype is None:
+            label_dtype = object_dtype
+        self.label_dtype = label_dtype
+
+        self.object_size = self(1)[0].shape[-1]
 
     def __call__(self, batch_size=None):
         if batch_size is None:

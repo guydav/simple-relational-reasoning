@@ -1,1 +1,1 @@
-from simple_relational_reasoning.models.mlp import MLPAverageModel
+from simple_relational_reasoning.models.mlp import BaseObjectModel, MLPModel
