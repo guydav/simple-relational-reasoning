@@ -47,6 +47,43 @@ class ObjectGenerator:
         return batch_tensor, batch_labels
 
 
+class BalancedBatchObjectGenerator(ObjectGenerator):
+    def __init__(self, n, field_configs, relation_evaluator, batch_size=1, object_dtype=None, label_dtype=None):
+        super(BalancedBatchObjectGenerator, self).__init__(
+            n=n, field_configs=field_configs, relation_evaluator=relation_evaluator, batch_size=batch_size,
+            object_dtype=object_dtype, label_dtype=label_dtype)
+
+    def __call__(self, batch_size=None):
+        if batch_size is None:
+            batch_size = self.batch_size
+
+        if batch_size == 1:
+            return super(BalancedBatchObjectGenerator, self).__call__(1)
+
+        half_batch_size = int(batch_size / 2)
+        negative_examples, positive_examples = [], []
+        negative_count, positive_count = 0, 0
+        while negative_count < half_batch_size or positive_count < half_batch_size:
+            data, labels = super(BalancedBatchObjectGenerator, self).__call__(batch_size)
+            positive_locations = labels.bool()
+            batch_positive_count = labels.sum()
+
+            if positive_count < half_batch_size:
+                positive_examples.append(data[positive_locations])
+                positive_count += batch_positive_count
+
+            if negative_count < half_batch_size:
+                negative_examples.append(data[~positive_locations])
+                negative_count += batch_size - batch_positive_count
+
+        batch = torch.cat((torch.cat(positive_examples)[:half_batch_size],
+                           torch.cat(negative_examples)[:half_batch_size]))
+        labels = torch.cat((torch.ones(half_batch_size, dtype=self.label_dtype),
+                            torch.zeros(half_batch_size, dtype=self.label_dtype)))
+        perm = torch.randperm(batch_size)
+        return batch[perm], labels[perm]
+
+
 # Implementing a quick example one, this one checks that two fields named 'x' and 'y' differ by some minimal amount
 def adjacent_relation_evaluator(objects, field_slices, x_field_name='x', y_field_name='y'):
     assert(x_field_name in field_slices)
