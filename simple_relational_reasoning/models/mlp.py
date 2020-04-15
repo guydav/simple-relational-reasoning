@@ -83,8 +83,9 @@ class BaseObjectModel(pl.LightningModule):
 
 
 class MLPModel(BaseObjectModel):
-    def __init__(self, object_generator, embedding_size, embedding_activation,
-                 prediction_size=2, prediction_activation=None,
+    def __init__(self, object_generator, embedding_size, embedding_activation_class,
+                 prediction_sizes=None, prediction_activation_class=None,
+                 output_size=2, output_activation_class=None,
                  loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
                  batch_size=32, train_epoch_size=1024, validation_epoch_size=128):
         super(MLPModel, self).__init__(object_generator, loss=loss, optimizer_class=optimizer_class,
@@ -93,20 +94,35 @@ class MLPModel(BaseObjectModel):
 
         self.embedding_size = embedding_size
         self.embedding_layer = nn.Linear(self.object_size, self.embedding_size)
+        self.embedding_activation = embedding_activation_class
 
-        self.embedding_activation = embedding_activation
+        output_layer_input_size = self.embedding_size * self.num_objects
 
-        self.prediction_size = prediction_size
-        self.prediction_layer = nn.Linear(self.embedding_size * self.num_objects, self.prediction_size)
+        self.prediction_module = None
+        if prediction_sizes is not None:
+            in_size = output_layer_input_size
+            prediction_layers = []
+            for size in prediction_sizes:
+                prediction_layers.append(nn.Linear(in_size, size))
+                prediction_layers.append(prediction_activation_class())
+                in_size = size
 
-        if prediction_activation is None:
-            prediction_activation = nn.Identity()
-        self.prediction_activation = prediction_activation
+            self.prediction_module = nn.Sequential(*prediction_layers)
+            output_layer_input_size = in_size
+
+        self.output_size = output_size
+        self.output_layer = nn.Linear(output_layer_input_size, self.output_size)
+
+        if output_activation_class is None:
+            output_activation_class = nn.Identity
+        self.output_activation = output_activation_class()
 
     def embed(self, x):
         return self.embedding_activation(self.embedding_layer(x))
 
     def predict(self, x):
-        B = x.shape[0]
-        return self.prediction_activation(self.prediction_layer(x.view(B, -1)))
+        x = x.view(x.shape[0], -1)
+        if self.prediction_module is not None:
+            x = self.prediction_module(x)
+        return self.output_activation(self.output_layer(x))
 
