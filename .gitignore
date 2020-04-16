@@ -1,3 +1,4 @@
 notebooks/lightning_logs
 notebooks/.ipynb_checkpoints
 */__pycache__
+*/*/__pycache__
