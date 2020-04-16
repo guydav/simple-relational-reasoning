@@ -94,7 +94,7 @@ class MLPModel(BaseObjectModel):
 
         self.embedding_size = embedding_size
         self.embedding_layer = nn.Linear(self.object_size, self.embedding_size)
-        self.embedding_activation = embedding_activation_class
+        self.embedding_activation = embedding_activation_class()
 
         output_layer_input_size = self.embedding_size * self.num_objects
 
