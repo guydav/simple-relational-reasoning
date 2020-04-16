@@ -1,1 +1,3 @@
-from simple_relational_reasoning.models.mlp import BaseObjectModel, MLPModel
+from simple_relational_reasoning.models.base import BaseObjectModel
+from simple_relational_reasoning.models.mlp import MLPModel
+from simple_relational_reasoning.models.relation_net import RelationNetModel
