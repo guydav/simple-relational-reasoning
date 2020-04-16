@@ -166,9 +166,8 @@ class SmartBalancedBatchObjectGenerator(ObjectGenerator):
 
 # Implementing a quick example one, this one checks that two fields named 'x' and 'y' differ by some minimal amount
 def adjacent_relation_evaluator(objects, field_slices, x_field_name='x', y_field_name='y'):
-    assert(x_field_name in field_slices)
-    assert(y_field_name in field_slices)
-
+    # assert(x_field_name in field_slices)
+    # assert(y_field_name in field_slices)
     object_positions = torch.cat((objects[:, field_slices[x_field_name]], objects[:, field_slices[y_field_name]]), dim=1).to(torch.float).unsqueeze(0)
     l1_distances = torch.cdist(object_positions, object_positions, 1)
     return torch.any(torch.isclose(l1_distances, torch.tensor([1.0])))
