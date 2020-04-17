@@ -76,6 +76,7 @@ class BaseObjectModel(pl.LightningModule):
         avg_acc = torch.stack([x['acc'] for x in outputs]).mean()
         logs = dict(train_loss=avg_loss, train_acc=avg_acc)
         print(logs)
+        import ipdb; ipdb.set_trace()
         return dict(log=logs)
 
     def validation_epoch_end(self, outputs):
