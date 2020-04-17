@@ -71,12 +71,17 @@ class BaseObjectModel(pl.LightningModule):
         # TODO: this also seems to assume that the dataset is not an iterable one.
         return DataLoader(self.validation_dataset, batch_size=self.batch_size)
 
+    def training_epoch_end(self, outputs):
+        avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
+        avg_acc = torch.stack([x['val_acc'] for x in outputs]).mean()
+        logs = dict(train_loss=avg_loss, train_acc=avg_acc)
+        return dict(log=logs)
+
     def validation_epoch_end(self, outputs):
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         avg_acc = torch.stack([x['val_acc'] for x in outputs]).mean()
         logs = dict(val_loss=avg_loss, val_acc=avg_acc)
-        print(logs)
-        return logs
+        return dict(log=logs)
 
     def on_epoch_start(self):
         if self.regenerate_every_epoch:
