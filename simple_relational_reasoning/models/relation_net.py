@@ -14,7 +14,7 @@ class RelationNetModel(BaseObjectModel):
                  object_pair_layer_sizes=DEFAULT_OBJECT_PAIR_LAYER_SIZES,
                  object_pair_layer_activation_class=nn.ReLU,
                  combined_object_layer_sizes=DEFAULT_COMBINED_OBJECT_LAYER_SIZES,
-                 combined_object_layer_activation_class=nn.ReLU,
+                 combined_object_layer_activation_class=nn.ReLU, combined_object_dropout=True,
                  output_size=2, output_activation_class=None,
                  loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
                  batch_size=32, train_epoch_size=1024, validation_epoch_size=128):
@@ -43,6 +43,9 @@ class RelationNetModel(BaseObjectModel):
             combined_object_layers.append(nn.Linear(in_size, size))
             combined_object_layers.append(combined_object_layer_activation_class())
             in_size = size
+
+        if combined_object_dropout:
+            combined_object_layers.append(nn.Dropout())
 
         self.combined_object_module = nn.Sequential(*combined_object_layers)
 
