@@ -59,7 +59,7 @@ class RelationNetModel(BaseObjectModel):
 
     def embed(self, x):
         if self.embedding_module is not None:
-            return self.embedding_activation(self.embedding_layer(x))
+            return self.embedding_activation(self.embedding_module(x))
 
         return x
 
