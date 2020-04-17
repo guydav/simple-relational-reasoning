@@ -23,6 +23,7 @@ class RelationNetModel(BaseObjectModel):
                                                validation_epoch_size=validation_epoch_size)
 
         self.object_input_size = self.object_size
+        self.embedding_size = embedding_size
         self.embedding_module = None
         if embedding_size is not None:
             self.embedding_module = nn.Linear(self.object_size, self.embedding_size)
