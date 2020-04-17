@@ -63,8 +63,8 @@ class BaseObjectModel(pl.LightningModule):
                           batch_size=self.batch_size)
 
     def validation_step(self, batch, batch_idx):
-        results = self.training_step(batch, batch_idx)
-        return dict(val_loss=results['loss'], val_acc=results['acc'])
+        return self.training_step(batch, batch_idx)
+        # return dict(val_loss=results['loss'], val_acc=results['acc'])
 
     def val_dataloader(self):
         # TODO: why is this val_ while the other methods are validation_
@@ -72,14 +72,14 @@ class BaseObjectModel(pl.LightningModule):
         return DataLoader(self.validation_dataset, batch_size=self.batch_size)
 
     def training_epoch_end(self, outputs):
-        avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
-        avg_acc = torch.stack([x['val_acc'] for x in outputs]).mean()
+        avg_loss = torch.stack([x['loss'] for x in outputs]).mean()
+        avg_acc = torch.stack([x['acc'] for x in outputs]).mean()
         logs = dict(train_loss=avg_loss, train_acc=avg_acc)
         return dict(log=logs)
 
     def validation_epoch_end(self, outputs):
-        avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
-        avg_acc = torch.stack([x['val_acc'] for x in outputs]).mean()
+        avg_loss = torch.stack([x['loss'] for x in outputs]).mean()
+        avg_acc = torch.stack([x['acc'] for x in outputs]).mean()
         logs = dict(val_loss=avg_loss, val_acc=avg_acc)
         return dict(log=logs)
 
