@@ -10,7 +10,7 @@ from simple_relational_reasoning.datagen import ObjectGeneratorDataset
 
 class BaseObjectModel(pl.LightningModule):
     def __init__(self, object_generator, loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
-                 batch_size=32, train_epoch_size=1024, validation_epoch_size=128):
+                 batch_size=32, train_epoch_size=1024, validation_epoch_size=128, regenerate_every_epoch=False):
         super(BaseObjectModel, self).__init__()
 
         self.object_generator = object_generator
@@ -26,6 +26,7 @@ class BaseObjectModel(pl.LightningModule):
         self.validation_epoch_size = validation_epoch_size
         self.train_datset = ObjectGeneratorDataset(self.object_generator, self.train_epoch_size)
         self.validation_dataset = ObjectGeneratorDataset(self.object_generator, self.validation_epoch_size)
+        self.regenerate_every_epoch = regenerate_every_epoch
 
     @abstractmethod
     def embed(self, x):
@@ -78,5 +79,6 @@ class BaseObjectModel(pl.LightningModule):
         return logs
 
     def on_epoch_start(self):
-        self.train_datset.regenerate()
-        self.validation_dataset.regenerate()
+        if self.regenerate_every_epoch:
+            self.train_datset.regenerate()
+            self.validation_dataset.regenerate()

@@ -9,10 +9,11 @@ class MLPModel(BaseObjectModel):
                  prediction_sizes=None, prediction_activation_class=None,
                  output_size=2, output_activation_class=None,
                  loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
-                 batch_size=32, train_epoch_size=1024, validation_epoch_size=128):
+                 batch_size=32, train_epoch_size=1024, validation_epoch_size=128, regenerate_every_epoch=False):
         super(MLPModel, self).__init__(object_generator, loss=loss, optimizer_class=optimizer_class,
                                        lr=lr, batch_size=batch_size, train_epoch_size=train_epoch_size,
-                                       validation_epoch_size=validation_epoch_size)
+                                       validation_epoch_size=validation_epoch_size,
+                                       regenerate_every_epoch=regenerate_every_epoch)
 
         self.embedding_size = embedding_size
         self.embedding_module = nn.Linear(self.object_size, self.embedding_size)
