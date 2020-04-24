@@ -10,7 +10,7 @@ FieldConfig.__new__.__defaults__ = (None, None, dict())
 
 
 class ObjectGenerator:
-    def __init__(self, n, field_configs, relation_evaluator, batch_size=1, object_dtype=None, label_dtype=None):
+    def __init__(self, n, field_configs, relation, batch_size=1, object_dtype=None, label_dtype=None):
         self.n = n
         self.field_configs = field_configs
         assert(all([cfg.type in FIELD_TYPES for cfg in field_configs]))
@@ -26,7 +26,7 @@ class ObjectGenerator:
         slices = [slice(start, end) for start, end in zip(cum_lengths[:-1], cum_lengths[1:])]
         self.field_slices = {name: slices[i] for i, name in enumerate(self.field_generators)}
 
-        self.relation_evaluator = relation_evaluator
+        self.relation = relation
         self.batch_size = batch_size
         self.object_dtype = object_dtype
 
@@ -42,15 +42,15 @@ class ObjectGenerator:
 
         batch_tensor = torch.stack([torch.cat([gen() for gen in self.field_generators.values()], dim=1)
                                     for _ in range(batch_size)])
-        batch_labels = torch.tensor([self.relation_evaluator(batch_tensor[i], self.field_slices)
+        batch_labels = torch.tensor([self.relation.evaluate(batch_tensor[i])
                                      for i in range(batch_size)], dtype=self.label_dtype)
         return batch_tensor, batch_labels
 
 
 class BalancedBatchObjectGenerator(ObjectGenerator):
-    def __init__(self, n, field_configs, relation_evaluator, batch_size=1, object_dtype=None, label_dtype=None):
+    def __init__(self, n, field_configs, relation, batch_size=1, object_dtype=None, label_dtype=None):
         super(BalancedBatchObjectGenerator, self).__init__(
-            n=n, field_configs=field_configs, relation_evaluator=relation_evaluator, batch_size=batch_size,
+            n=n, field_configs=field_configs, relation=relation, batch_size=batch_size,
             object_dtype=object_dtype, label_dtype=label_dtype)
 
     def __call__(self, batch_size=None):
@@ -125,12 +125,11 @@ class BalancedBatchObjectGenerator(ObjectGenerator):
 
 
 class SmartBalancedBatchObjectGenerator(ObjectGenerator):
-    def __init__(self, n, field_configs, relation_evaluator, balancer, negative_to_positive=True,
+    def __init__(self, n, field_configs, relation, negative_to_positive=True,
                  batch_size=1, object_dtype=None, label_dtype=None, max_recursion_depth=20):
         super(SmartBalancedBatchObjectGenerator, self).__init__(
-            n=n, field_configs=field_configs, relation_evaluator=relation_evaluator, batch_size=batch_size,
+            n=n, field_configs=field_configs, relation=relation, batch_size=batch_size,
             object_dtype=object_dtype, label_dtype=label_dtype)
-        self.balancer = balancer
         self.negative_to_positive = negative_to_positive
         self.max_recursion_depth = max_recursion_depth
 
@@ -158,19 +157,10 @@ class SmartBalancedBatchObjectGenerator(ObjectGenerator):
         num_samples_to_modify = abs(positive_count - half_batch_size)
         target_indices = indices_to_modify[torch.randperm(indices_to_modify.shape[0])[:num_samples_to_modify]]
         for index in target_indices:
-            data[index] = self.balancer(data[index], self.field_slices, self.field_generators)
+            data[index] = self.relation.balance(data[index], not self.negative_to_positive)
             labels[index] = self.negative_to_positive
 
         return data, labels
-
-
-# Implementing a quick example one, this one checks that two fields named 'x' and 'y' differ by some minimal amount
-def adjacent_relation_evaluator(objects, field_slices, x_field_name='x', y_field_name='y'):
-    # assert(x_field_name in field_slices)
-    # assert(y_field_name in field_slices)
-    object_positions = torch.cat((objects[:, field_slices[x_field_name]], objects[:, field_slices[y_field_name]]), dim=1).to(torch.float).unsqueeze(0)
-    l1_distances = torch.cdist(object_positions, object_positions, 1)
-    return torch.any(torch.isclose(l1_distances, torch.tensor([1.0])))
 
 
 # def adjacent_relation_balancer(data, batch_index, field_slices, field_generators, x_field_name='x', y_field_name='y'):
@@ -198,29 +188,29 @@ def adjacent_relation_evaluator(objects, field_slices, x_field_name='x', y_field
 #         data[batch_index, index_to_modify, field_slice] = torch.sign(torch.rand(tuple()) - 0.5)
 
 
-def adjacent_relation_balancer(sample, field_slices, field_generators, x_field_name='x', y_field_name='y'):
-    n_objects = sample.shape[0]
-    index_to_modify, index_to_set_next_to = torch.randperm(n_objects)[:2]
-    # set x and y to be the same, then modify one
-    sample[index_to_modify, field_slices[x_field_name]] = sample[index_to_set_next_to, field_slices[x_field_name]]
-    sample[index_to_modify, field_slices[y_field_name]] = sample[index_to_set_next_to, field_slices[y_field_name]]
-    # pick which field ot modify
-    field_name_to_modify = (torch.rand(tuple()) < 0.5) and x_field_name or y_field_name
-    field_generator = field_generators[field_name_to_modify]
-    field_slice = field_slices[field_name_to_modify]
-
-    # if at the edge of the grid, shift in the only valid direction
-    if sample[index_to_modify, field_slice] == field_generator.min_coord:
-        sample[index_to_modify, field_slice] = 1
-
-    elif sample[index_to_modify, field_slice] == field_generator.max_coord - 1:
-        sample[index_to_modify, field_slice] = field_generator.max_coord - 1
-
-    # if not, shift in either direction
-    else:
-        sample[index_to_modify, field_slice] = torch.sign(torch.rand(tuple()) - 0.5)
-
-    return sample
+# def adjacent_relation_balancer(sample, field_slices, field_generators, x_field_name='x', y_field_name='y'):
+#     n_objects = sample.shape[0]
+#     index_to_modify, index_to_set_next_to = torch.randperm(n_objects)[:2]
+#     # set x and y to be the same, then modify one
+#     sample[index_to_modify, field_slices[x_field_name]] = sample[index_to_set_next_to, field_slices[x_field_name]]
+#     sample[index_to_modify, field_slices[y_field_name]] = sample[index_to_set_next_to, field_slices[y_field_name]]
+#     # pick which field ot modify
+#     field_name_to_modify = (torch.rand(tuple()) < 0.5) and x_field_name or y_field_name
+#     field_generator = field_generators[field_name_to_modify]
+#     field_slice = field_slices[field_name_to_modify]
+#
+#     # if at the edge of the grid, shift in the only valid direction
+#     if sample[index_to_modify, field_slice] == field_generator.min_coord:
+#         sample[index_to_modify, field_slice] = field_generator.min_coord + 1
+#
+#     elif sample[index_to_modify, field_slice] == field_generator.max_coord - 1:
+#         sample[index_to_modify, field_slice] = field_generator.max_coord - 2
+#
+#     # if not, shift in either direction
+#     else:
+#         sample[index_to_modify, field_slice] += torch.sign(torch.rand(tuple()) - 0.5)
+#
+#     return sample
 
 
 class ObjectGeneratorDataset(torch.utils.data.Dataset):
