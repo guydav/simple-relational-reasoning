@@ -10,7 +10,8 @@ FieldConfig.__new__.__defaults__ = (None, None, dict())
 
 
 class ObjectGenerator:
-    def __init__(self, n, field_configs, relation, batch_size=1, object_dtype=None, label_dtype=None):
+    def __init__(self, n, field_configs, relation_class, batch_size=1, object_dtype=None, label_dtype=None,
+                 relation_kwargs=None):
         self.n = n
         self.field_configs = field_configs
         assert(all([cfg.type in FIELD_TYPES for cfg in field_configs]))
@@ -26,7 +27,11 @@ class ObjectGenerator:
         slices = [slice(start, end) for start, end in zip(cum_lengths[:-1], cum_lengths[1:])]
         self.field_slices = {name: slices[i] for i, name in enumerate(self.field_generators)}
 
-        self.relation = relation
+        if relation_kwargs is None:
+            relation_kwargs = {}
+
+        self.relation_class = relation_class
+        self.relation = self.relation_class(self.field_slices, self.field_generators, **relation_kwargs)
         self.batch_size = batch_size
         self.object_dtype = object_dtype
 
@@ -48,10 +53,11 @@ class ObjectGenerator:
 
 
 class BalancedBatchObjectGenerator(ObjectGenerator):
-    def __init__(self, n, field_configs, relation, batch_size=1, object_dtype=None, label_dtype=None):
+    def __init__(self, n, field_configs, relation_class, batch_size=1, object_dtype=None, label_dtype=None,
+                 relation_kwargs=None):
         super(BalancedBatchObjectGenerator, self).__init__(
-            n=n, field_configs=field_configs, relation=relation, batch_size=batch_size,
-            object_dtype=object_dtype, label_dtype=label_dtype)
+            n=n, field_configs=field_configs, relation_class=relation_class, batch_size=batch_size,
+            object_dtype=object_dtype, label_dtype=label_dtype, relation_kwargs=relation_kwargs)
 
     def __call__(self, batch_size=None):
         if batch_size is None:
@@ -125,11 +131,12 @@ class BalancedBatchObjectGenerator(ObjectGenerator):
 
 
 class SmartBalancedBatchObjectGenerator(ObjectGenerator):
-    def __init__(self, n, field_configs, relation, negative_to_positive=True,
-                 batch_size=1, object_dtype=None, label_dtype=None, max_recursion_depth=20):
+    def __init__(self, n, field_configs, relation_class, negative_to_positive=True,
+                 batch_size=1, object_dtype=None, label_dtype=None, relation_kwargs=None,
+                 max_recursion_depth=20):
         super(SmartBalancedBatchObjectGenerator, self).__init__(
-            n=n, field_configs=field_configs, relation=relation, batch_size=batch_size,
-            object_dtype=object_dtype, label_dtype=label_dtype)
+            n=n, field_configs=field_configs, relation_class=relation_class, batch_size=batch_size,
+            object_dtype=object_dtype, label_dtype=label_dtype, relation_kwargs=relation_kwargs)
         self.negative_to_positive = negative_to_positive
         self.max_recursion_depth = max_recursion_depth
 
