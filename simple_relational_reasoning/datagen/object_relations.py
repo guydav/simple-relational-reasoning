@@ -136,10 +136,10 @@ class ColorAboveColorRelation(ObjectRelation):
         below_color_y_positions = objects[colors.eq(self.below_color_tensor).all(dim=1), self.y_field_slice]
 
         if len(above_color_y_positions) == 0:
-            return False
+            return torch.tensor(False)
 
         if len(below_color_y_positions) == 0:
-            return True
+            return torch.tensor(True)
 
         return (above_color_y_positions.view(-1, 1) >= below_color_y_positions.view(1, -1)).all(dim=1).any()
 
@@ -152,11 +152,11 @@ class ColorAboveColorRelation(ObjectRelation):
 
         # If no objects in the above color exist, create one
         if len(above_color_y_positions) == 0:
-            objects[random.randint(0, objects.shape[0]), self.color_field_slice] = self.above_color_tensor
+            objects[random.randint(0, objects.shape[0] - 1), self.color_field_slice] = self.above_color_tensor
 
         below_color_y_positions = objects[colors.eq(self.below_color_tensor).all(dim=1), self.y_field_slice]
-        max_below_color_position = below_color_y_positions.max()
-        new_above_color_position = torch.randint(max_below_color_position, self.y_field_gen.max_coord)
+        max_below_color_position = int(below_color_y_positions.max())
+        new_above_color_position = random.randint(max_below_color_position, self.y_field_gen.max_coord - 1)
 
         above_object_indices = torch.nonzero(colors.eq(self.above_color_tensor).all(dim=1)).squeeze()
         index_to_modify = above_object_indices[torch.randperm(above_object_indices.shape[0])][0]
