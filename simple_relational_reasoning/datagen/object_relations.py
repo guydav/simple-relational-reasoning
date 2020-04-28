@@ -155,12 +155,14 @@ class ColorAboveColorRelation(ObjectRelation):
             idx = random.randint(0, objects.shape[0] - 1)
             objects[idx, self.color_field_slice] = self.above_color_tensor
             colors[idx, :] = self.above_color_tensor
+            print('Added object')
 
         below_color_y_positions = objects[colors.eq(self.below_color_tensor).all(dim=1), self.y_field_slice]
         max_below_color_position = int(below_color_y_positions.max())
         new_above_color_position = random.randint(max_below_color_position, self.y_field_gen.max_coord - 1)
 
         above_object_indices = torch.nonzero(colors.eq(self.above_color_tensor).all(dim=1)).squeeze()
+        print(above_object_indices)
         index_to_modify = above_object_indices[torch.randperm(above_object_indices.shape[0])[0]]
         objects[index_to_modify, self.y_field_slice] = new_above_color_position
 
