@@ -90,7 +90,7 @@ class MultipleDAdjacentRelation(ObjectRelation):
         for field_slice in self.field_slices.values():
             objects[index_to_modify, field_slice] = objects[index_to_set_next_to, field_slice]
 
-        slice_index = random.randint(0, len(self.relevant_field_names))
+        slice_index = random.randint(0, len(self.relevant_field_names) - 1)
         slice_to_modify = self.relevant_field_slices[slice_index]
         generator_to_modify = self.relevant_field_generator[slice_index]
 
