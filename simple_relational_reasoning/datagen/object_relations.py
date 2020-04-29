@@ -211,7 +211,7 @@ class ObjectCountRelation(ObjectRelation):
         first_object_count = first_objects.eq(self.first_object_tensor).all(dim=1).sum()
         second_object_count = second_objects.eq(self.second_object_tensor).all(dim=1).sum()
 
-        min_objects_to_modify = second_object_count - first_object_count
+        min_objects_to_modify = second_object_count - first_object_count + 1
         if min_objects_to_modify <= 0:
             raise ValueError('Must be able to modify at least one object')
 
