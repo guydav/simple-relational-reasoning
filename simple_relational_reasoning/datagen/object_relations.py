@@ -228,13 +228,16 @@ class ObjectCountRelation(ObjectRelation):
 
         if min_objects_to_modify <= 0:
             return objects
-            
+
         max_objects_to_modify = objects.shape[0] - first_object_count
         num_objects_to_modify = random.randint(min_objects_to_modify, max_objects_to_modify)
 
         valid_indices_to_modify = torch.nonzero(~ (first_objects.eq(self.first_object_tensor).all(dim=1))).squeeze()
-        indices_to_modify = valid_indices_to_modify[torch.randperm(valid_indices_to_modify.shape[0])][:num_objects_to_modify]
-        objects[indices_to_modify, self.first_field_slice] = self.first_object_tensor
+        if len(valid_indices_to_modify.shape) == 0:
+            objects[valid_indices_to_modify, self.first_field_slice] = self.first_object_tensor
+        else:
+            indices_to_modify = valid_indices_to_modify[torch.randperm(valid_indices_to_modify.shape[0])][:num_objects_to_modify]
+            objects[indices_to_modify, self.first_field_slice] = self.first_object_tensor
 
         return objects
 
