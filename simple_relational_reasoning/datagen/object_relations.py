@@ -200,7 +200,7 @@ class ObjectCountRelation(ObjectRelation):
         second_objects = objects[:, self.second_field_slice]
         first_object_count = first_objects.eq(self.first_object_tensor).all(dim=1).sum()
         second_object_count = second_objects.eq(self.second_object_tensor).all(dim=1).sum()
-        return first_object_count >= second_object_count
+        return first_object_count > second_object_count
 
     def balance(self, objects, current_label):
         if current_label != 0:
