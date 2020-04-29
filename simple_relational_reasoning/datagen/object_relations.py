@@ -215,7 +215,7 @@ class ObjectCountRelation(ObjectRelation):
         if min_objects_to_modify <= 0:
             raise ValueError('Must be able to modify at least one object')
 
-        if min_objects_to_modify == objects.shape[0]:
+        if second_object_count == objects.shape[0]:  # min_objects_to_modify > objects.shape[0]:
             second_object_indices = torch.nonzero(second_objects.eq(self.second_object_tensor).all(dim=1)).squeeze()
             num_second_objects_to_modify = random.randint(1, len(second_object_indices) - 1)
             second_object_indices_to_modify = second_object_indices[torch.randperm(len(second_object_indices))[:num_second_objects_to_modify]]
