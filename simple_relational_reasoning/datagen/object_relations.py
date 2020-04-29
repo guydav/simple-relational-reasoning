@@ -212,9 +212,6 @@ class ObjectCountRelation(ObjectRelation):
         second_object_count = second_objects.eq(self.second_object_tensor).all(dim=1).sum()
 
         min_objects_to_modify = second_object_count - first_object_count + 1
-        if min_objects_to_modify <= 0:
-            raise ValueError('Must be able to modify at least one object')
-
         if second_object_count == objects.shape[0]:  # min_objects_to_modify > objects.shape[0]:
             second_object_indices = torch.nonzero(second_objects.eq(self.second_object_tensor).all(dim=1)).squeeze()
             num_second_objects_to_modify = random.randint(1, len(second_object_indices) - 1)
@@ -229,6 +226,9 @@ class ObjectCountRelation(ObjectRelation):
             objects[second_object_indices_to_modify, new_assignments] = 1
             min_objects_to_modify -= num_second_objects_to_modify
 
+        if min_objects_to_modify <= 0:
+            return objects
+            
         max_objects_to_modify = objects.shape[0] - first_object_count
         num_objects_to_modify = random.randint(min_objects_to_modify, max_objects_to_modify)
 
