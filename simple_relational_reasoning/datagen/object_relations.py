@@ -71,12 +71,12 @@ class OneDAdjacentRelation(ObjectRelation):
 class MultipleDAdjacentRelation(ObjectRelation):
     def __init__(self, field_slices, field_generators, field_names=('x', 'y')):
         super(MultipleDAdjacentRelation, self).__init__(field_slices, field_generators)
-        self.relevant_field_names = field_names
-        self.relevant_field_slices = [self.field_slices[name] for name in self.relevant_field_names]
-        self.relevant_field_generator = [self.field_generators[name] for name in self.relevant_field_names]
+        self.position_field_names = field_names
+        self.position_field_slices = [self.field_slices[name] for name in self.position_field_names]
+        self.position_field_generators = [self.field_generators[name] for name in self.position_field_names]
 
     def evaluate(self, objects):
-        positions = torch.cat([objects[:, field_slice] for field_slice in self.relevant_field_slices],
+        positions = torch.cat([objects[:, field_slice] for field_slice in self.position_field_slices],
                               dim=1).to(torch.float).unsqueeze(0)
         l1_distances = torch.cdist(positions, positions, 1)
         return torch.any(torch.isclose(l1_distances, torch.tensor([1.0])))
@@ -87,12 +87,12 @@ class MultipleDAdjacentRelation(ObjectRelation):
 
         index_to_modify, index_to_set_next_to = torch.randperm(objects.shape[0])[:2]
         # set x and y to be the same, then modify one
-        for field_slice in self.field_slices.values():
+        for field_slice in self.position_field_slices.values():
             objects[index_to_modify, field_slice] = objects[index_to_set_next_to, field_slice]
 
-        slice_index = random.randint(0, len(self.relevant_field_names) - 1)
-        slice_to_modify = self.relevant_field_slices[slice_index]
-        generator_to_modify = self.relevant_field_generator[slice_index]
+        slice_index = random.randint(0, len(self.position_field_names) - 1)
+        slice_to_modify = self.position_field_slices[slice_index]
+        generator_to_modify = self.position_field_generators[slice_index]
 
         # if at the edge of the grid, shift in the only valid direction
         if objects[index_to_modify, slice_to_modify] == generator_to_modify.min_coord:
