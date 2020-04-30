@@ -42,7 +42,7 @@ class ObjectRelation:
                                      dim=1).to(torch.float).unsqueeze(0)
 
         matching_indices = torch.nonzero((object_positions == position).all(dim=1)).squeeze()
-        return len(matching_indices.shape) > 0, matching_indices
+        return len(matching_indices) > 0, matching_indices
 
 
 class OneDAdjacentRelation(ObjectRelation):
