@@ -87,7 +87,7 @@ class MultipleDAdjacentRelation(ObjectRelation):
 
         index_to_modify, index_to_set_next_to = torch.randperm(objects.shape[0])[:2]
         # set x and y to be the same, then modify one
-        for field_slice in self.position_field_slices.values():
+        for field_slice in self.position_field_slices:
             objects[index_to_modify, field_slice] = objects[index_to_set_next_to, field_slice]
 
         slice_index = random.randint(0, len(self.position_field_names) - 1)
@@ -265,7 +265,7 @@ class IdenticalObjectsRelation(ObjectRelation):
 
         index_to_modify, index_to_set_next_to = torch.randperm(objects.shape[0])[:2]
 
-        for field_slice in self.property_field_slices.values():
+        for field_slice in self.property_field_slices:
             objects[index_to_modify, field_slice] = objects[index_to_set_next_to, field_slice]
 
         return objects
