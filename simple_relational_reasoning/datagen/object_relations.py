@@ -241,3 +241,31 @@ class ObjectCountRelation(ObjectRelation):
 
         return objects
 
+
+class IdenticalObjectsRelation(ObjectRelation):
+    def __init__(self, field_slices, field_generators, field_names=('color', 'shape')):
+        super(IdenticalObjectsRelation, self).__init__(field_slices, field_generators)
+        self.property_field_names = field_names
+        self.property_field_slices = [self.field_slices[name] for name in self.property_field_names]
+        self.property_field_generators = [self.field_generators[name] for name in self.property_field_names]
+
+    def evaluate(self, objects):
+        object_properties = torch.cat([objects[:, field_slice] for field_slice in self.property_field_slices],
+                                      dim=1).to(torch.float).unsqueeze(0)
+
+        for i in range(object_properties.shape[0]):
+            if (object_properties[i:] == object_properties[i]).all(dim=1).sum() > 1:
+                return True
+
+        return False
+
+    def balance(self, objects, current_label):
+        if current_label != 0:
+            raise ValueError('Can only balance negative cases to positive ones for the time being')
+
+        index_to_modify, index_to_set_next_to = torch.randperm(objects.shape[0])[:2]
+
+        for field_slice in self.property_field_slices.values():
+            objects[index_to_modify, field_slice] = objects[index_to_set_next_to, field_slice]
+
+        return objects
