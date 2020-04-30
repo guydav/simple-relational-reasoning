@@ -28,7 +28,7 @@ def no_position_collision_constraint(object_batch, relevant_indices, field_slice
 
 
 DEFAULT_CONSTRAINTS = (
-    no_position_collision_constraint
+    no_position_collision_constraint,
 )
 
 
