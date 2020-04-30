@@ -4,7 +4,7 @@ import torch
 
 
 class ObjectRelation:
-    def __init__(self, field_slices, field_generators):
+    def __init__(self, field_slices, field_generators, position_field_names=('x', 'y')):
         """
         :param field_slices: A dict from str -> slice, where each field is in the vector objects
         :param field_generators: A dict from str -> field generator object, useful if you need access to field
@@ -12,6 +12,10 @@ class ObjectRelation:
         """
         self.field_slices = field_slices
         self.field_generators = field_generators
+
+        self.position_field_names = position_field_names
+        self.position_field_slices = [self.field_slices[name] for name in self.position_field_names]
+        self.position_field_generators = [self.field_generators[name] for name in self.position_field_names]
 
     @abstractmethod
     def evaluate(self, objects):
@@ -33,10 +37,17 @@ class ObjectRelation:
         """
         pass
 
+    def _object_in_position(self, objects, position):
+        object_positions = torch.cat([objects[:, field_slice] for field_slice in self.position_field_slices],
+                                     dim=1).to(torch.float).unsqueeze(0)
+
+        matching_indices = torch.nonzero((object_positions == position).all(dim=1)).squeeze()
+        return len(matching_indices.shape) > 0, matching_indices
+
 
 class OneDAdjacentRelation(ObjectRelation):
-    def __init__(self, field_slices, field_generators, field_name='x'):
-        super(OneDAdjacentRelation, self).__init__(field_slices, field_generators)
+    def __init__(self, field_slices, field_generators, field_name='x', position_field_names=('x', 'y')):
+        super(OneDAdjacentRelation, self).__init__(field_slices, field_generators, position_field_names)
         self.relevant_field_name = field_name
         self.relevant_field_slice = self.field_slices[self.relevant_field_name]
         self.relevant_field_generator = self.field_generators[self.relevant_field_name]
@@ -69,11 +80,8 @@ class OneDAdjacentRelation(ObjectRelation):
 
 
 class MultipleDAdjacentRelation(ObjectRelation):
-    def __init__(self, field_slices, field_generators, field_names=('x', 'y')):
-        super(MultipleDAdjacentRelation, self).__init__(field_slices, field_generators)
-        self.position_field_names = field_names
-        self.position_field_slices = [self.field_slices[name] for name in self.position_field_names]
-        self.position_field_generators = [self.field_generators[name] for name in self.position_field_names]
+    def __init__(self, field_slices, field_generators, position_field_names=('x', 'y')):
+        super(MultipleDAdjacentRelation, self).__init__(field_slices, field_generators, position_field_names)
 
     def evaluate(self, objects):
         positions = torch.cat([objects[:, field_slice] for field_slice in self.position_field_slices],
@@ -110,8 +118,8 @@ class MultipleDAdjacentRelation(ObjectRelation):
 
 class ColorAboveColorRelation(ObjectRelation):
     def __init__(self, field_slices, field_generators, y_field_name='y', color_field_name='color',
-                 above_color_index=0, below_color_index=1, dtype=torch.float):
-        super(ColorAboveColorRelation, self).__init__(field_slices, field_generators)
+                 above_color_index=0, below_color_index=1, dtype=torch.float, position_field_names=('x', 'y')):
+        super(ColorAboveColorRelation, self).__init__(field_slices, field_generators, position_field_names)
         self.y_field_name = y_field_name
         self.y_field_slice = self.field_slices[self.y_field_name]
         self.y_field_gen = self.field_generators[self.y_field_name]
@@ -163,13 +171,18 @@ class ColorAboveColorRelation(ObjectRelation):
         else:
             max_below_color_position = int(below_color_y_positions.max())
 
-        new_above_color_position = random.randint(max_below_color_position, self.y_field_gen.max_coord - 1)
-
         above_object_indices = torch.nonzero(colors.eq(self.above_color_tensor).all(dim=1)).squeeze()
         if len(above_object_indices.shape) == 0:
             index_to_modify = int(above_object_indices)
         else:
             index_to_modify = above_object_indices[torch.randperm(above_object_indices.shape[0])[0]]
+
+        collision = True
+        while collision:
+            new_above_color_position = random.randint(max_below_color_position, self.y_field_gen.max_coord - 1)
+            tentative_new_position = torch.tensor([objects[index_to_modify, self.position_field_slices[0]],
+                                                   new_above_color_position])
+            collision, _ = self._object_in_position(objects, tentative_new_position)
 
         objects[index_to_modify, self.y_field_slice] = new_above_color_position
         return objects
@@ -177,8 +190,8 @@ class ColorAboveColorRelation(ObjectRelation):
 
 class ObjectCountRelation(ObjectRelation):
     def __init__(self, field_slices, field_generators, first_field_name='color', first_field_index=0,
-                 second_field_name='shape', second_field_index=0, dtype=torch.float):
-        super(ObjectCountRelation, self).__init__(field_slices, field_generators)
+                 second_field_name='shape', second_field_index=0, dtype=torch.float, position_field_names=('x', 'y')):
+        super(ObjectCountRelation, self).__init__(field_slices, field_generators, position_field_names)
         self.dtype = dtype
 
         self.first_field_name = first_field_name
@@ -243,8 +256,8 @@ class ObjectCountRelation(ObjectRelation):
 
 
 class IdenticalObjectsRelation(ObjectRelation):
-    def __init__(self, field_slices, field_generators, field_names=('color', 'shape')):
-        super(IdenticalObjectsRelation, self).__init__(field_slices, field_generators)
+    def __init__(self, field_slices, field_generators, field_names=('color', 'shape'), position_field_names=('x', 'y')):
+        super(IdenticalObjectsRelation, self).__init__(field_slices, field_generators, position_field_names)
         self.property_field_names = field_names
         self.property_field_slices = [self.field_slices[name] for name in self.property_field_names]
         self.property_field_generators = [self.field_generators[name] for name in self.property_field_names]
@@ -253,8 +266,8 @@ class IdenticalObjectsRelation(ObjectRelation):
         object_properties = torch.cat([objects[:, field_slice] for field_slice in self.property_field_slices],
                                       dim=1).to(torch.float).unsqueeze(0)
 
-        for i in range(object_properties.shape[0]):
-            if (object_properties[i:] == object_properties[i]).all(dim=1).sum() > 1:
+        for i in range(object_properties.shape[0] - 1):
+            if (object_properties[i + 1:] == object_properties[i]).all(dim=1).any():
                 return True
 
         return False

@@ -9,9 +9,32 @@ FieldConfig = namedtuple('FieldConfig', ('name', 'type', 'kwargs'))
 FieldConfig.__new__.__defaults__ = (None, None, dict())
 
 
+def no_position_collision_constraint(object_batch, relevant_indices, field_slices, position_fields=('x', 'y')):
+    violating_indices = []
+
+    if relevant_indices is None:
+        relevant_indices = range(object_batch.shape[0])
+
+    for idx in relevant_indices:
+        object_positions = torch.cat([object_batch[idx, :, field_slices[pos]] for pos in position_fields],
+                                     dim=1).to(torch.float).unsqueeze(0)
+
+        for obj_idx in range(object_positions.shape[0] - 1):
+            if (object_positions[obj_idx + 1:] == object_positions[obj_idx]).any():
+                violating_indices.append(idx)
+                break
+
+    return violating_indices
+
+
+DEFAULT_CONSTRAINTS = (
+    no_position_collision_constraint
+)
+
+
 class ObjectGenerator:
-    def __init__(self, n, field_configs, relation_class, batch_size=1, object_dtype=None, label_dtype=None,
-                 relation_kwargs=None):
+    def __init__(self, n, field_configs, relation_class, constraints=DEFAULT_CONSTRAINTS,
+                 batch_size=1, object_dtype=None, label_dtype=None, relation_kwargs=None):
         self.n = n
         self.field_configs = field_configs
         assert(all([cfg.type in FIELD_TYPES for cfg in field_configs]))
@@ -32,6 +55,7 @@ class ObjectGenerator:
 
         self.relation_class = relation_class
         self.relation = self.relation_class(self.field_slices, self.field_generators, **relation_kwargs)
+        self.constraints = constraints
         self.batch_size = batch_size
         self.object_dtype = object_dtype
 
@@ -47,17 +71,40 @@ class ObjectGenerator:
 
         batch_tensor = torch.stack([torch.cat([gen() for gen in self.field_generators.values()], dim=1)
                                     for _ in range(batch_size)])
+
+        if self.constraints is not None:
+            any_violations = True
+            prev_violating_indices = None
+
+            while any_violations:
+                violating_indices = set()
+
+                for constraint in self.constraints:
+                    violating_indices.update(constraint(batch_tensor, prev_violating_indices, self.field_slices))
+
+                n_violations = len(violating_indices)
+
+                if n_violations == 0:
+                    any_violations = False
+
+                else:
+                    violating_indices = sorted(violating_indices)
+                    new_elements = torch.stack([torch.cat([gen() for gen in self.field_generators.values()], dim=1)
+                                    for _ in range(n_violations)])
+                    batch_tensor[violating_indices] = new_elements
+                    prev_violating_indices = violating_indices
+
         batch_labels = torch.tensor([self.relation.evaluate(batch_tensor[i])
                                      for i in range(batch_size)], dtype=self.label_dtype)
         return batch_tensor, batch_labels
 
 
 class BalancedBatchObjectGenerator(ObjectGenerator):
-    def __init__(self, n, field_configs, relation_class, batch_size=1, object_dtype=None, label_dtype=None,
-                 relation_kwargs=None):
+    def __init__(self, n, field_configs, relation_class, batch_size=1, constraints=DEFAULT_CONSTRAINTS,
+                 object_dtype=None, label_dtype=None, relation_kwargs=None):
         super(BalancedBatchObjectGenerator, self).__init__(
-            n=n, field_configs=field_configs, relation_class=relation_class, batch_size=batch_size,
-            object_dtype=object_dtype, label_dtype=label_dtype, relation_kwargs=relation_kwargs)
+            n=n, field_configs=field_configs, relation_class=relation_class, constraints=constraints,
+            batch_size=batch_size, object_dtype=object_dtype, label_dtype=label_dtype, relation_kwargs=relation_kwargs)
 
     def __call__(self, batch_size=None):
         if batch_size is None:
@@ -91,12 +138,12 @@ class BalancedBatchObjectGenerator(ObjectGenerator):
 
 
 class SmartBalancedBatchObjectGenerator(ObjectGenerator):
-    def __init__(self, n, field_configs, relation_class, negative_to_positive=True,
+    def __init__(self, n, field_configs, relation_class, negative_to_positive=True, constraints=DEFAULT_CONSTRAINTS,
                  batch_size=1, object_dtype=None, label_dtype=None, relation_kwargs=None,
                  max_recursion_depth=20):
         super(SmartBalancedBatchObjectGenerator, self).__init__(
-            n=n, field_configs=field_configs, relation_class=relation_class, batch_size=batch_size,
-            object_dtype=object_dtype, label_dtype=label_dtype, relation_kwargs=relation_kwargs)
+            n=n, field_configs=field_configs, relation_class=relation_class, constraints=constraints,
+            batch_size=batch_size, object_dtype=object_dtype, label_dtype=label_dtype, relation_kwargs=relation_kwargs)
         self.negative_to_positive = negative_to_positive
         self.max_recursion_depth = max_recursion_depth
 
@@ -149,7 +196,6 @@ class SmartBalancedBatchObjectGenerator(ObjectGenerator):
         return data, labels
 
 
-
 class ObjectGeneratorDataset(torch.utils.data.Dataset):
     def __init__(self, object_generator, epoch_size):
         super(ObjectGeneratorDataset, self).__init__()
@@ -183,5 +229,3 @@ class ObjectGeneratorIterableDataset(torch.utils.data.IterableDataset):
                 yield objects[i], labels[i]
 
         return generator()
-
-
