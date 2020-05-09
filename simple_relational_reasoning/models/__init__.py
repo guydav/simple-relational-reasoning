@@ -2,4 +2,5 @@ from simple_relational_reasoning.models.base import BaseObjectModel, ObjectCombi
 from simple_relational_reasoning.models.mlp import MLPModel, CombinedObjectMLPModel
 from simple_relational_reasoning.models.relation_net import RelationNetModel
 from simple_relational_reasoning.models.transformer import TransformerModel
+from simple_relational_reasoning.models.cnn import CNNModel
 
