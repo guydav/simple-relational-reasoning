@@ -223,13 +223,13 @@ class SpatialObjectGeneratorDataset(ObjectGeneratorDataset):
     def __init__(self, object_generator, epoch_size, position_fields=DEFAULT_POSITION_FIELDS):
         super(SpatialObjectGeneratorDataset, self).__init__(object_generator=object_generator, epoch_size=epoch_size)
         self.position_fields = position_fields
+        self.position_field_generators = [self.object_generator.field_generators[p] for p in self.position_fields]
 
     def regenerate(self):
         super(SpatialObjectGeneratorDataset, self).regenerate()
 
         D, N, O = self.objects.shape
-        position_shape = [field.max_coord - field.min_coord
-                          for field in [self.object_generator.field_generators[p] for name in self.position_fields]]
+        position_shape = [field.max_coord - field.min_coord for field in self.position_field_generators]
         spatial_shape = (D, *position_shape, O)
         spatial_objects = torch.zeros(spatial_shape, dtype=self.objects.dtype)
         for ex_index in range(D):
