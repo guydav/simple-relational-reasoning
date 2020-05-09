@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from enum import Enum, auto
 
 import torch
 import pytorch_lightning as pl
@@ -8,9 +9,26 @@ from torch.utils.data import DataLoader
 from simple_relational_reasoning.datagen import ObjectGeneratorDataset
 
 
+class ObjectCombinationMethod(Enum):
+    SUM = auto()
+    MEAN = auto()
+    CONCAT = auto()
+
+    def combine(self, x, dim=1):
+        if self.value == ObjectCombinationMethod.SUM.value:
+            return x.sum(dim=dim)
+
+        if self.value == ObjectCombinationMethod.MEAN.value:
+            return x.mean(dim=dim)
+
+        if self.value == ObjectCombinationMethod.CONCAT.value:
+            return x.view(x.shape[0], -1)
+
+
 class BaseObjectModel(pl.LightningModule):
     def __init__(self, object_generator, loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
-                 batch_size=32, train_epoch_size=1024, validation_epoch_size=128, regenerate_every_epoch=False):
+                 batch_size=32, train_epoch_size=1024, validation_epoch_size=128, regenerate_every_epoch=False,
+                 dataset_class=ObjectGeneratorDataset):
         super(BaseObjectModel, self).__init__()
 
         self.object_generator = object_generator
@@ -24,8 +42,8 @@ class BaseObjectModel(pl.LightningModule):
         self.batch_size = batch_size
         self.train_epoch_size = train_epoch_size
         self.validation_epoch_size = validation_epoch_size
-        self.train_datset = ObjectGeneratorDataset(self.object_generator, self.train_epoch_size)
-        self.validation_dataset = ObjectGeneratorDataset(self.object_generator, self.validation_epoch_size)
+        self.train_dataset = dataset_class(self.object_generator, self.train_epoch_size)
+        self.validation_dataset = dataset_class(self.object_generator, self.validation_epoch_size)
         self.regenerate_every_epoch = regenerate_every_epoch
 
     @abstractmethod
@@ -59,8 +77,7 @@ class BaseObjectModel(pl.LightningModule):
         return self.optimizer_class(self.parameters(), self.lr)
 
     def train_dataloader(self):
-        return DataLoader(ObjectGeneratorDataset(self.object_generator, self.train_epoch_size),
-                          batch_size=self.batch_size)
+        return DataLoader(self.train_dataset, batch_size=self.batch_size)
 
     def validation_step(self, batch, batch_idx):
         return self.training_step(batch, batch_idx)

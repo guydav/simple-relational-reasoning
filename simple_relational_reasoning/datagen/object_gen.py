@@ -9,7 +9,11 @@ FieldConfig = namedtuple('FieldConfig', ('name', 'type', 'kwargs'))
 FieldConfig.__new__.__defaults__ = (None, None, dict())
 
 
-def no_position_collision_constraint(object_batch, relevant_indices, field_slices, position_fields=('x', 'y')):
+DEFAULT_POSITION_FIELDS = ('x', 'y')
+
+
+def no_position_collision_constraint(object_batch, relevant_indices, field_slices,
+                                     position_fields=DEFAULT_POSITION_FIELDS):
     violating_indices = []
 
     if relevant_indices is None:
@@ -213,6 +217,55 @@ class ObjectGeneratorDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return self.epoch_size
+
+
+class SpatialObjectGeneratorDataset(ObjectGeneratorDataset):
+    def __init__(self, object_generator, epoch_size, position_fields=DEFAULT_POSITION_FIELDS):
+        super(SpatialObjectGeneratorDataset, self).__init__(object_generator=object_generator, epoch_size=epoch_size)
+        self.position_fields = position_fields
+
+    def regenerate(self):
+        super(SpatialObjectGeneratorDataset, self).regenerate()
+
+        D, N, O = self.objects.shape
+        position_shape = [field.max_coord - field.min_coord
+                          for field in [self.object_generator.field_generators[p] for name in self.position_fields]]
+        spatial_shape = (D, *position_shape, O)
+        spatial_objects = torch.zeros(spatial_shape, dtype=self.objects.dtype)
+        for ex_index in range(D):
+            # TODO: if this work, could probably flatten it again, but I don't think it's worth optimizing
+            position_lists = [self.objects[ex_index, :, self.object_generator.field_slices[name]]
+                              for name in self.position_fields]
+
+            if len(position_lists) == 1:
+                spatial_objects[ex_index, position_lists[0]] = self.objects[ex_index]
+
+            elif len(position_lists) == 2:
+                spatial_objects[ex_index, position_lists[0],
+                                position_lists[1]] = self.objects[ex_index]
+
+            elif len(position_lists) == 3:
+                spatial_objects[ex_index, position_lists[0],
+                                position_lists[1], position_lists[2]] = self.objects[ex_index]
+
+            # for obj_index in range(N):
+            #     object_position = [self.objects[ex_index, obj_index, self.object_generator.field_slices[name]]
+            #                        for name in self.position_fields]
+            #     if len(object_position) == 1:
+            #         spatial_objects[ex_index, object_position[0]] = self.objects[ex_index, obj_index]
+            #
+            #     elif len(object_position) == 2:
+            #         spatial_objects[ex_index, object_position[0],
+            #                         object_position[1]] = self.objects[ex_index, obj_index]
+            #
+            #     elif len(object_position) == 3:
+            #         spatial_objects[ex_index, object_position[0],
+            #                         object_position[1], object_position[2]] = self.objects[ex_index, obj_index]
+            #
+            #     else:
+            #         raise ValueError(f'Currently only accounting for up to 3D positions, got {len(object_position)} dimensions: {object_position}')
+
+        self.objects = spatial_objects
 
 
 class ObjectGeneratorIterableDataset(torch.utils.data.IterableDataset):

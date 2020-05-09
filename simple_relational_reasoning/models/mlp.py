@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-from simple_relational_reasoning.models.base import BaseObjectModel
+from simple_relational_reasoning.models.base import BaseObjectModel, ObjectCombinationMethod
 
 
 class MLPModel(BaseObjectModel):
@@ -49,3 +49,57 @@ class MLPModel(BaseObjectModel):
             x = self.prediction_module(x)
         return self.output_activation(self.output_layer(x))
 
+
+class CombinedObjectMLPModel(BaseObjectModel):
+    def __init__(self, object_generator,
+                 embedding_size=None, embedding_activation_class=nn.ReLU,
+                 object_combiner=ObjectCombinationMethod.MEAN,
+                 prediction_sizes=None, prediction_activation_class=None,
+                 output_size=2, output_activation_class=None,
+                 loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
+                 batch_size=32, train_epoch_size=1024, validation_epoch_size=128, regenerate_every_epoch=False):
+        super(CombinedObjectMLPModel, self).__init__(object_generator, loss=loss, optimizer_class=optimizer_class,
+                                                     lr=lr, batch_size=batch_size, train_epoch_size=train_epoch_size,
+                                                     validation_epoch_size=validation_epoch_size,
+                                                     regenerate_every_epoch=regenerate_every_epoch)
+
+        self.embedding_size = embedding_size
+        self.embedding_module = nn.Identity()
+
+        if self.embedding_size is not None:
+            self.embedding_module = nn.Sequential(
+                nn.Linear(self.object_size, self.embedding_size),
+                embedding_activation_class()
+            )
+
+        self.object_combiner = object_combiner
+
+        output_layer_input_size = (self.embedding_size is not None) and self.embedding_size or self.object_size
+        if self.object_combiner == ObjectCombinationMethod.CONCAT:
+            output_layer_input_size *= self.num_objects
+
+        self.prediction_module = nn.Identity()
+
+        if prediction_sizes is not None:
+            prediction_layers = []
+            for size in prediction_sizes:
+                prediction_layers.append(nn.Linear(output_layer_input_size, size))
+                prediction_layers.append(prediction_activation_class())
+                output_layer_input_size = size
+
+            self.prediction_module = nn.Sequential(*prediction_layers)
+
+        self.output_size = output_size
+        self.output_layer = nn.Linear(output_layer_input_size, self.output_size)
+
+        if output_activation_class is None:
+            output_activation_class = nn.Identity
+        self.output_activation = output_activation_class()
+
+    def embed(self, x):
+        return self.embedding_module(x)
+
+    def predict(self, x):
+        x = self.object_combiner.combine(x)
+        x = self.prediction_module(x)
+        return self.output_activation(self.output_layer(x))
