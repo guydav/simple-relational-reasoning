@@ -110,18 +110,16 @@ class TransformerModel(BaseObjectModel):
                                                lr=lr, batch_size=batch_size, train_epoch_size=train_epoch_size,
                                                validation_epoch_size=validation_epoch_size,
                                                regenerate_every_epoch=regenerate_every_epoch)
-        if embedding_size is None:
-            embedding_size = self.object_size
 
-        self.embedding_size = embedding_size
+        self.embedding_module = nn.Identity()
+        self.embedding_size = self.object_size
 
-        # Optional pre-transformer embedding function
-        self.pre_embedding_module = nn.Identity()
-        if pre_embed:
-                self.pre_embedding_module = nn.Sequential(
-                    nn.Linear(self.object_size, self.embedding_size),
-                    pre_embedding_activation_class()
-                )
+        if embedding_size is not None:
+            self.embedding_size = embedding_size
+            self.embedding_module = nn.Sequential(
+                nn.Linear(self.object_size, self.embedding_size),
+                embedding_activation_class()
+            )
 
         if num_transformer_layers > 1:
             if transformer_mlp_sizes is not None and transformer_mlp_sizes[-1] != embedding_size:
@@ -129,7 +127,7 @@ class TransformerModel(BaseObjectModel):
 
         # Transformer setup
         self.transformer_module = nn.Sequential(
-            *[TransformerEncoder(embedding_size, num_heads, transformer_mlp_sizes,
+            *[TransformerEncoder(self.embedding_size, num_heads, transformer_mlp_sizes,
                                  transformer_mlp_activation_class, transformer_mlp_activation_output)
                 for _ in range(num_transformer_layers)]
         )
