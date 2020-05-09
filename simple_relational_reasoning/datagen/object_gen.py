@@ -238,8 +238,6 @@ class SpatialObjectGeneratorDataset(ObjectGeneratorDataset):
             position_lists = [self.objects[ex_index, :, self.object_generator.field_slices[name]].long()
                               for name in self.position_fields]
 
-            print(position_lists)
-
             if len(position_lists) == 1:
                 spatial_objects[ex_index, position_lists[0]] = self.objects[ex_index].unsqueeze(1)
 
