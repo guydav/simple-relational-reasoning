@@ -225,13 +225,12 @@ class SpatialObjectGeneratorDataset(ObjectGeneratorDataset):
         self.position_field_generators = [object_generator.field_generators[p] for p in self.position_fields]
         super(SpatialObjectGeneratorDataset, self).__init__(object_generator=object_generator, epoch_size=epoch_size)
 
-
     def regenerate(self):
         super(SpatialObjectGeneratorDataset, self).regenerate()
 
         D, N, O = self.objects.shape
         position_shape = [field.max_coord - field.min_coord for field in self.position_field_generators]
-        spatial_shape = (D, *position_shape, O)
+        spatial_shape = (D, O, *position_shape)
         spatial_objects = torch.zeros(spatial_shape, dtype=self.objects.dtype)
         for ex_index in range(D):
             # TODO: if this work, could probably flatten it again, but I don't think it's worth optimizing
@@ -239,14 +238,14 @@ class SpatialObjectGeneratorDataset(ObjectGeneratorDataset):
                               for name in self.position_fields]
 
             if len(position_lists) == 1:
-                spatial_objects[ex_index, position_lists[0]] = self.objects[ex_index].unsqueeze(1)
+                spatial_objects[ex_index, :, position_lists[0]] = self.objects[ex_index].unsqueeze(1)
 
             elif len(position_lists) == 2:
-                spatial_objects[ex_index, position_lists[0],
+                spatial_objects[ex_index, :, position_lists[0],
                                 position_lists[1]] = self.objects[ex_index].unsqueeze(1)
 
             elif len(position_lists) == 3:
-                spatial_objects[ex_index, position_lists[0],
+                spatial_objects[ex_index, :, position_lists[0],
                                 position_lists[1], position_lists[2]] = self.objects[ex_index].unsqueeze(1)
 
             # for obj_index in range(N):
