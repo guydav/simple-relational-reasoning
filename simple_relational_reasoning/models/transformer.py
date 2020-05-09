@@ -157,7 +157,7 @@ class TransformerModel(BaseObjectModel):
         self.output_activation = output_activation_class()
 
     def embed(self, x):
-        x = self.pre_embedding_module(x)
+        x = self.embedding_module(x)
         return self.transformer_module(x)
 
     def predict(self, x):
