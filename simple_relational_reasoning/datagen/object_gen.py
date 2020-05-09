@@ -238,15 +238,15 @@ class SpatialObjectGeneratorDataset(ObjectGeneratorDataset):
                               for name in self.position_fields]
 
             if len(position_lists) == 1:
-                spatial_objects[ex_index, :, position_lists[0]] = self.objects[ex_index].unsqueeze(1)
+                spatial_objects[ex_index, :, position_lists[0]] = self.objects[ex_index].unsqueeze(2)
 
             elif len(position_lists) == 2:
                 spatial_objects[ex_index, :, position_lists[0],
-                                position_lists[1]] = self.objects[ex_index].unsqueeze(1)
+                                position_lists[1]] = self.objects[ex_index].unsqueeze(2)
 
             elif len(position_lists) == 3:
                 spatial_objects[ex_index, :, position_lists[0],
-                                position_lists[1], position_lists[2]] = self.objects[ex_index].unsqueeze(1)
+                                position_lists[1], position_lists[2]] = self.objects[ex_index].unsqueeze(2)
 
             # for obj_index in range(N):
             #     object_position = [self.objects[ex_index, obj_index, self.object_generator.field_slices[name]]
