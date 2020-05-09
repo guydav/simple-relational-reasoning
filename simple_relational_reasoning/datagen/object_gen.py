@@ -221,9 +221,10 @@ class ObjectGeneratorDataset(torch.utils.data.Dataset):
 
 class SpatialObjectGeneratorDataset(ObjectGeneratorDataset):
     def __init__(self, object_generator, epoch_size, position_fields=DEFAULT_POSITION_FIELDS):
-        super(SpatialObjectGeneratorDataset, self).__init__(object_generator=object_generator, epoch_size=epoch_size)
         self.position_fields = position_fields
-        self.position_field_generators = [self.object_generator.field_generators[p] for p in self.position_fields]
+        self.position_field_generators = [object_generator.field_generators[p] for p in self.position_fields]
+        super(SpatialObjectGeneratorDataset, self).__init__(object_generator=object_generator, epoch_size=epoch_size)
+
 
     def regenerate(self):
         super(SpatialObjectGeneratorDataset, self).regenerate()
