@@ -47,6 +47,7 @@ class CNNModel(BaseObjectModel):
         for size, kernel_size, stride, padding in zip(conv_sizes, conv_kernel_size, conv_stride, conv_padding):
             conv_layers.append(nn.Conv2d(conv_input_size, size, kernel_size, stride, padding))
             conv_layers.append(conv_activation_class())
+            conv_layers.append(nn.MaxPool2d(2))
             # TODO: normalization? pooling?
             conv_input_size = size
 
