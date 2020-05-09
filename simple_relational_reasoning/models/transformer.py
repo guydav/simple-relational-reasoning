@@ -97,8 +97,8 @@ class TransformerEncoder(nn.Module):
 
 class TransformerModel(BaseObjectModel):
     def __init__(self, object_generator,
-                 pre_embed=False, pre_embedding_activation_class=nn.ReLU,
-                 embedding_size=None, num_transformer_layers=1, num_heads=1,
+                 embedding_size=None, embedding_activation_class=nn.ReLU,
+                 num_transformer_layers=1, num_heads=1,
                  transformer_mlp_sizes=TRANSFORMER_MLP_SIZES, transformer_mlp_activation_class=nn.ReLU,
                  transformer_mlp_activation_output=False, object_combiner=ObjectCombinationMethod.MEAN,
                  mlp_sizes=DEFAULT_MLP_SIZES, mlp_activation_class=nn.ReLU,
