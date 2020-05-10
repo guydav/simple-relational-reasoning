@@ -27,7 +27,7 @@ parser.add_argument('--seed', type=int, default=DEFAULT_SEED, help='Random seed 
 DEFAULT_MAX_EPOCHS = 10000
 parser.add_argument('--max-epochs', type=int, default=DEFAULT_MAX_EPOCHS, help='After how many epochs should we stop')
 
-DEFAULT_PATIENCE_EPOCHS = 50
+DEFAULT_PATIENCE_EPOCHS = 100
 parser.add_argument('--patience-epochs', type=int, default=DEFAULT_PATIENCE_EPOCHS,
                     help='How many patience epochs (stop after this many epochs with no improvement)')
 
@@ -148,7 +148,7 @@ def main():
 
         # TODO: run with wandb logger
         trainer = Trainer(logger=logger, gpus=use_gpu, max_epochs=args.max_epochs,
-                          early_stop_callback=EarlyStopping('val_loss', patience=args.patience_epochs))
+                          early_stop_callback=EarlyStopping('val_loss', patience=args.patience_epochs, verbose=True))
 
         trainer.fit(model)
 
