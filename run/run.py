@@ -36,7 +36,10 @@ parser.add_argument('--batch-size', type=int, default=DEFAULT_BATCH_SIZE,
 
 DEFAULT_DATASET_SIZE = 2 ** 14
 parser.add_argument('--dataset-size', type=int, default=DEFAULT_DATASET_SIZE,
-                    help='Datset size to generate')
+                    help='Dataset size to generate')
+
+parser.add_argument('--validation-size', type=int, default=None,
+                    help='Validation size to generate (if different from regular dataset)')
 
 DEFAULT_LEARNING_RATE = 1e-3
 parser.add_argument('--learning-rate', type=float, default=DEFAULT_LEARNING_RATE,
@@ -115,7 +118,10 @@ def run_single_relation(args):
                                                                     max_recursion_depth=args.max_recursion_depth)
 
     train_dataset = datagen.ObjectGeneratorDataset(object_generator, args.dataset_size)
-    validation_dataset = datagen.ObjectGeneratorDataset(object_generator, args.dataset_size)
+    if args.validation_size is None:
+        args.validation_size = args.dataset_size
+
+    validation_dataset = datagen.ObjectGeneratorDataset(object_generator, args.validation_size)
 
     # TODO: for each model configuration
     model_configurations = MODEL_CONFIGURATIONS[args.model_configuration]
