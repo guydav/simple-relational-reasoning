@@ -100,7 +100,7 @@ CLASS_NAME_SPLIT_WORDS = ('net', 'object', 'mlp')
 
 
 def prettify_class_name(cls):
-    name = cls.__name__.lower()
+    name = cls.__name__.lower().replace('model', '')
     for word in CLASS_NAME_SPLIT_WORDS:
         name = name.replace(word, f'-{word}')
 
