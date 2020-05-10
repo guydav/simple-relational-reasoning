@@ -142,7 +142,7 @@ def main():
         # TODO: create model
         model = model_class(object_generator, **model_kwargs)
 
-        logger = WandbLogger(wandb_run_name, args.wandb_save_dir, project=args.wandb_project, entity=args.wandb_entity)
+        logger = WandbLogger(wandb_run_name, args.wandb_dir, project=args.wandb_project, entity=args.wandb_entity)
         logger.log_hyperparams(vars(args))
         use_gpu = int(torch.cuda.is_available())
 
