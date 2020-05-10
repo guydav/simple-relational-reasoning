@@ -38,7 +38,7 @@ DEFAULT_CONSTRAINTS = (
 
 class ObjectGenerator:
     def __init__(self, n, field_configs, relation_class, constraints=DEFAULT_CONSTRAINTS,
-                 batch_size=1, object_dtype=None, label_dtype=None, relation_kwargs=None):
+                 batch_size=1, object_dtype=torch.float, label_dtype=torch.long, relation_kwargs=None):
         self.n = n
         self.field_configs = field_configs
         assert(all([cfg.type in FIELD_TYPES for cfg in field_configs]))
@@ -105,7 +105,7 @@ class ObjectGenerator:
 
 class BalancedBatchObjectGenerator(ObjectGenerator):
     def __init__(self, n, field_configs, relation_class, batch_size=1, constraints=DEFAULT_CONSTRAINTS,
-                 object_dtype=None, label_dtype=None, relation_kwargs=None):
+                 object_dtype=torch.float, label_dtype=torch.long, relation_kwargs=None):
         super(BalancedBatchObjectGenerator, self).__init__(
             n=n, field_configs=field_configs, relation_class=relation_class, constraints=constraints,
             batch_size=batch_size, object_dtype=object_dtype, label_dtype=label_dtype, relation_kwargs=relation_kwargs)
@@ -143,7 +143,7 @@ class BalancedBatchObjectGenerator(ObjectGenerator):
 
 class SmartBalancedBatchObjectGenerator(ObjectGenerator):
     def __init__(self, n, field_configs, relation_class, negative_to_positive=True, constraints=DEFAULT_CONSTRAINTS,
-                 batch_size=1, object_dtype=None, label_dtype=None, relation_kwargs=None,
+                 batch_size=1, object_dtype=torch.float, label_dtype=torch.long, relation_kwargs=None,
                  max_recursion_depth=20):
         super(SmartBalancedBatchObjectGenerator, self).__init__(
             n=n, field_configs=field_configs, relation_class=relation_class, constraints=constraints,
@@ -227,7 +227,9 @@ class SpatialObjectGeneratorDataset(ObjectGeneratorDataset):
 
     def regenerate(self):
         super(SpatialObjectGeneratorDataset, self).regenerate()
+        self.convert_objects()
 
+    def convert_objects(self):
         D, N, O = self.objects.shape
         position_shape = [field.max_coord - field.min_coord for field in self.position_field_generators]
         spatial_shape = (D, O, *position_shape)
@@ -242,11 +244,11 @@ class SpatialObjectGeneratorDataset(ObjectGeneratorDataset):
 
             elif len(position_lists) == 2:
                 spatial_objects[ex_index, :, position_lists[0],
-                                position_lists[1]] = self.objects[ex_index].transpose(0, 1).unsqueeze(-1)
+                position_lists[1]] = self.objects[ex_index].transpose(0, 1).unsqueeze(-1)
 
             elif len(position_lists) == 3:
                 spatial_objects[ex_index, :, position_lists[0],
-                                position_lists[1], position_lists[2]] = self.objects[ex_index].transpose(0, 1).unsqueeze(-1)
+                position_lists[1], position_lists[2]] = self.objects[ex_index].transpose(0, 1).unsqueeze(-1)
 
             # for obj_index in range(N):
             #     object_position = [self.objects[ex_index, obj_index, self.object_generator.field_slices[name]]
@@ -264,7 +266,6 @@ class SpatialObjectGeneratorDataset(ObjectGeneratorDataset):
             #
             #     else:
             #         raise ValueError(f'Currently only accounting for up to 3D positions, got {len(object_position)} dimensions: {object_position}')
-
         self.objects = spatial_objects
 
 

@@ -28,7 +28,7 @@ class ObjectCombinationMethod(Enum):
 class BaseObjectModel(pl.LightningModule):
     def __init__(self, object_generator, loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
                  batch_size=32, train_epoch_size=1024, validation_epoch_size=128, regenerate_every_epoch=False,
-                 dataset_class=ObjectGeneratorDataset):
+                 dataset_class=ObjectGeneratorDataset, train_dataset=None, validation_dataset=None):
         super(BaseObjectModel, self).__init__()
 
         self.object_generator = object_generator
@@ -42,9 +42,15 @@ class BaseObjectModel(pl.LightningModule):
         self.batch_size = batch_size
         self.train_epoch_size = train_epoch_size
         self.validation_epoch_size = validation_epoch_size
-        self.train_dataset = dataset_class(self.object_generator, self.train_epoch_size)
-        self.validation_dataset = dataset_class(self.object_generator, self.validation_epoch_size)
         self.regenerate_every_epoch = regenerate_every_epoch
+
+        if train_dataset is None:
+            train_dataset = dataset_class(self.object_generator, self.train_epoch_size)
+        self.train_dataset = train_dataset
+
+        if validation_dataset is None:
+            validation_dataset = dataset_class(self.object_generator, self.validation_epoch_size)
+        self.validation_dataset = validation_dataset
 
     @abstractmethod
     def embed(self, x):
