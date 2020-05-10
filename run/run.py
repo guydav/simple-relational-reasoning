@@ -1,7 +1,6 @@
 import argparse
 import os
 import random
-import re
 import sys
 
 sys.path.append(os.path.abspath('..'))
@@ -52,15 +51,15 @@ RELATION_NAMES_TO_CLASSES = {
     'above': datagen.ColorAboveColorRelation,
     'count': datagen.ObjectCountRelation
 }
-parser.add_argument('--relation', type=str, required=True, choices=list(RELATION_NAMES_TO_CLASSES.keys()),
+parser.add_argument('--relation', type=str, default=None, choices=list(RELATION_NAMES_TO_CLASSES.keys()),
                     help='Which relation to use')
 
 MODEL_CONFIGURATIONS = {
     'default': {
-        # models.CombinedObjectMLPModel: dict(embedding_size=8, prediction_sizes=[32, 32]),
-        # models.RelationNetModel: dict(embedding_size=8, object_pair_layer_sizes=[32], combined_object_layer_sizes=[32]),
-        # models.TransformerModel: dict(embedding_size=8, transformer_mlp_sizes=[8], mlp_sizes=[32]),
-        models.CNNModel: dict(conv_output_size=256)
+        models.CombinedObjectMLPModel: dict(embedding_size=8, prediction_sizes=[32, 32]),
+        models.RelationNetModel: dict(embedding_size=8, object_pair_layer_sizes=[32], combined_object_layer_sizes=[32]),
+        models.TransformerModel: dict(embedding_size=8, transformer_mlp_sizes=[8], mlp_sizes=[32]),
+        models.CNNModel: dict(conv_sizes=[16, 16], conv_output_size=256)
     }
 }
 
@@ -97,21 +96,18 @@ parser.add_argument('--wandb-dir', default=DEFAULT_WANDB_DIR)
 parser.add_argument('--wandb-omit-watch', action='store_true')
 
 
-def main():
-    args = parser.parse_args()
+CLASS_NAME_SPLIT_WORDS = ('net', 'object', 'mlp')
 
-    # Handle slurm array ids
-    array_id = os.getenv('SLURM_ARRAY_TASK_ID')
-    if array_id is not None:
-        args.seed = args.seed + int(array_id)
 
-    random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    torch.cuda.manual_seed_all(args.seed)
+def prettify_class_name(cls):
+    name = cls.__name__.lower()
+    for word in CLASS_NAME_SPLIT_WORDS:
+        name = name.replace(word, f'-{word}')
 
-    # TODO: create wandb project name
-    args.wandb_project = f'{args.relation}-relation-{args.model_configuration}-models-{args.num_objects}-objects-{args.dataset_size}-dataset'
+    return name
 
+
+def run_single_relation(args):
     # TODO: create dataset
     field_configs = FIELD_CONFIGURATIONS[args.field_configuration]
     relation_class = RELATION_NAMES_TO_CLASSES[args.relation]
@@ -134,15 +130,18 @@ def main():
         model_kwargs['train_dataset'] = train_dataset
         model_kwargs['validation_dataset'] = validation_dataset
 
+        # TODO: create wandb project name
+        args.wandb_project = f'{args.relation}-relation-{args.model_configuration}-models-{args.num_objects}-objects-{args.dataset_size}-dataset'
+
         # TODO: create wandb run with name appropriate for model and random seed
-        name_parts = re.findall('[A-Z][^A-Z]*', model_class.__name__)
-        class_name = '-'.join(name_parts).lower()
-        wandb_run_name = f'{class_name}-{args.seed}'
+        args.wandb_run_name = f'{prettify_class_name(model_class)}-{args.seed}'
 
         # TODO: create model
         model = model_class(object_generator, **model_kwargs)
+        args.total_params = sum(p.numel() for p in model.parameters())
+        print(f'For {model_class.__name__} there are {args.total_params} total parameters')
 
-        logger = WandbLogger(wandb_run_name, args.wandb_dir, project=args.wandb_project, entity=args.wandb_entity)
+        logger = WandbLogger(args.wandb_run_name, args.wandb_dir, project=args.wandb_project, entity=args.wandb_entity)
         logger.log_hyperparams(vars(args))
         use_gpu = int(torch.cuda.is_available())
 
@@ -154,6 +153,29 @@ def main():
 
         del trainer
         del model
+
+
+def main():
+    args = parser.parse_args()
+
+    # Handle slurm array ids
+    array_id = os.getenv('SLURM_ARRAY_TASK_ID')
+    if array_id is not None:
+        args.seed = args.seed + int(array_id)
+
+    random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
+
+    if args.relation is not None and len(args.relation) > 0:
+        print(f'Running single relation: {args.relation}')
+        run_single_relation(args)
+
+    else:
+        for relation in RELATION_NAMES_TO_CLASSES:
+            args.relation = relation
+            print(f'Running all {len(RELATION_NAMES_TO_CLASSES)} relations, current relation: {args.relation}')
+            run_single_relation(args)
 
 
 if __name__ == '__main__':

@@ -5,7 +5,7 @@ from simple_relational_reasoning.models.base import BaseObjectModel
 from simple_relational_reasoning.datagen import SpatialObjectGeneratorDataset
 
 
-DEFAULT_CONV_SIZES = [32, 16]
+DEFAULT_CONV_SIZES = [16, 32]
 DEFAULT_MLP_SIZES = [32, 32]
 
 
