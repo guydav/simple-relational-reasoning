@@ -8,7 +8,7 @@ sys.path.append(os.path.abspath('..'))
 import torch
 
 from pytorch_lightning import Trainer
-from pytorch_lightning.callbacks import EarlyStopping
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers.wandb import WandbLogger
 
 from simple_relational_reasoning import datagen
@@ -138,16 +138,26 @@ def run_single_relation(args):
 
         # TODO: create model
         model = model_class(object_generator, **model_kwargs)
+
         args.total_params = sum(p.numel() for p in model.parameters())
         print(f'For {model_class.__name__} there are {args.total_params} total parameters')
 
-        logger = WandbLogger(args.wandb_run_name, args.wandb_dir, project=args.wandb_project, entity=args.wandb_entity)
+        args.save_folder = os.path.join(SCRATCH_FOLDER, 'simple-relational-reasoning-checkpoints', args.wandb_project,
+                                        args.wandb_run_name)
+
+        args.use_gpu = int(torch.cuda.is_available())
+
+        logger = WandbLogger(args.wandb_run_name, args.wandb_dir, project=args.wandb_project,
+                             entity=args.wandb_entity, log_model=True)
         logger.log_hyperparams(vars(args))
-        use_gpu = int(torch.cuda.is_available())
+
+        checkpoint_callback = ModelCheckpoint(filepath=os.path.join(args.save_folder, f'{args.wandb_run_name}_epoch-{{epoch:d}}_val-loss-{{val_loss:.3f}}'),
+                                              save_top_k=2, verbose=True, monitor='val_loss', mode='min')
+        early_stopping_callback = EarlyStopping('val_loss', patience=args.patience_epochs, verbose=True)
 
         # TODO: run with wandb logger
-        trainer = Trainer(logger=logger, gpus=use_gpu, max_epochs=args.max_epochs,
-                          early_stop_callback=EarlyStopping('val_loss', patience=args.patience_epochs, verbose=True))
+        trainer = Trainer(logger=logger, gpus=args.use_gpu, max_epochs=args.max_epochs,
+                          checkpoint_callback=checkpoint_callback, early_stop_callback=early_stopping_callback)
 
         trainer.fit(model)
 
