@@ -58,8 +58,8 @@ parser.add_argument('--relation', type=str, required=True, choices=list(RELATION
 MODEL_CONFIGURATIONS = {
     'default': {
         # models.CombinedObjectMLPModel: dict(embedding_size=8, prediction_sizes=[32, 32]),
-        models.RelationNetModel: dict(embedding_size=8, object_pair_layer_sizes=[32], combined_object_layer_sizes=[32]),
-        models.TransformerModel: dict(embedding_size=8, transformer_mlp_sizes=[8], mlp_sizes=[32]),
+        # models.RelationNetModel: dict(embedding_size=8, object_pair_layer_sizes=[32], combined_object_layer_sizes=[32]),
+        # models.TransformerModel: dict(embedding_size=8, transformer_mlp_sizes=[8], mlp_sizes=[32]),
         models.CNNModel: dict(conv_output_size=256)
     }
 }

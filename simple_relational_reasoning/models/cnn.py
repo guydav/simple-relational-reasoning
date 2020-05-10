@@ -73,13 +73,13 @@ class CNNModel(BaseObjectModel):
         self.output_activation = output_activation_class()
 
         if not isinstance(self.train_dataset, SpatialObjectGeneratorDataset):
-            spatial_train_dataset = SpatialObjectGeneratorDataset(self.object_size, self.train_epoch_size)
+            spatial_train_dataset = SpatialObjectGeneratorDataset(self.object_generator, self.train_epoch_size)
             spatial_train_dataset.objects = self.train_dataset.objects.clone()
             spatial_train_dataset.convert_objects()
             self.train_dataset = spatial_train_dataset
 
         if not isinstance(self.validation_dataset, SpatialObjectGeneratorDataset):
-            spatial_validation_dataset = SpatialObjectGeneratorDataset(self.object_size, self.validation_epoch_size)
+            spatial_validation_dataset = SpatialObjectGeneratorDataset(self.object_generator, self.validation_epoch_size)
             spatial_validation_dataset.objects = self.validation_dataset.objects.clone()
             spatial_validation_dataset.convert_objects()
             self.validation_dataset = spatial_validation_dataset
