@@ -65,10 +65,24 @@ MODEL_CONFIGURATIONS = {
         models.CNNModel: dict(conv_sizes=[16, 16], conv_output_size=256)
     }
 }
-
-
 parser.add_argument('--model-configuration', type=str, required=True, choices=list(MODEL_CONFIGURATIONS.keys()),
                     help='Which model configuration to use')
+
+
+CLASS_NAME_SPLIT_WORDS = ('net', 'object', 'mlp')
+
+
+def prettify_class_name(cls):
+    name = cls.__name__.lower().replace('model', '')
+    for word in CLASS_NAME_SPLIT_WORDS:
+        name = name.replace(word, f'-{word}')
+
+    return name
+
+
+MODEL_NAMES = [prettify_class_name(model_class) for model_class in MODEL_CONFIGURATIONS['default'].keys()]
+parser.add_argument('--model', type=str, default=None, choices=MODEL_NAMES, help='Which model to use (default: all)')
+
 
 FIELD_CONFIGURATIONS = {
     'default': (
@@ -78,7 +92,6 @@ FIELD_CONFIGURATIONS = {
         object_gen.FieldConfig('shape', 'one_hot', dict(n_types=2))
     )
 }
-
 parser.add_argument('--field-configuration', type=str, required=True, choices=list(FIELD_CONFIGURATIONS.keys()),
                     help='Which field configuration to use')
 
@@ -99,17 +112,6 @@ parser.add_argument('--wandb-dir', default=DEFAULT_WANDB_DIR)
 parser.add_argument('--wandb-omit-watch', action='store_true')
 
 
-CLASS_NAME_SPLIT_WORDS = ('net', 'object', 'mlp')
-
-
-def prettify_class_name(cls):
-    name = cls.__name__.lower().replace('model', '')
-    for word in CLASS_NAME_SPLIT_WORDS:
-        name = name.replace(word, f'-{word}')
-
-    return name
-
-
 def run_single_relation(args):
     # TODO: create dataset
     field_configs = FIELD_CONFIGURATIONS[args.field_configuration]
@@ -127,11 +129,14 @@ def run_single_relation(args):
     model_configurations = MODEL_CONFIGURATIONS[args.model_configuration]
 
     for model_class, model_kwargs in model_configurations.items():
+        if args.model is not None and args.model.lower() != prettify_class_name(model_class):
+            continue
+
         # TODO: add in learning rate, batch size, dataset size to the per-model kwargs
         model_kwargs['lr'] = args.learning_rate
         model_kwargs['batch_size'] = args.batch_size
         model_kwargs['train_epoch_size'] = args.dataset_size
-        model_kwargs['validation_epoch_size'] = args.dataset_size
+        model_kwargs['validation_epoch_size'] = args.validation_size
         model_kwargs['regenerate_every_epoch'] = False
         model_kwargs['train_dataset'] = train_dataset
         model_kwargs['validation_dataset'] = validation_dataset
