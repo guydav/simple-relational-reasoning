@@ -26,10 +26,6 @@ parser.add_argument('--seed', type=int, default=DEFAULT_SEED, help='Random seed 
 DEFAULT_MAX_EPOCHS = 10000
 parser.add_argument('--max-epochs', type=int, default=DEFAULT_MAX_EPOCHS, help='After how many epochs should we stop')
 
-DEFAULT_PATIENCE_EPOCHS = 50
-parser.add_argument('--patience-epochs', type=int, default=DEFAULT_PATIENCE_EPOCHS,
-                    help='How many patience epochs (stop after this many epochs with no improvement)')
-
 DEFAULT_BATCH_SIZE = 2 ** 10
 parser.add_argument('--batch-size', type=int, default=DEFAULT_BATCH_SIZE,
                     help='Batch size to run with')
@@ -44,6 +40,10 @@ parser.add_argument('--validation-size', type=int, default=None,
 DEFAULT_LEARNING_RATE = 1e-3
 parser.add_argument('--learning-rate', type=float, default=DEFAULT_LEARNING_RATE,
                     help='Learning rate to run with')
+
+DEFAULT_MIN_DELTA = 1e-5
+parser.add_argument('--early-stopping-min-delta', type=float, default=DEFAULT_MIN_DELTA,
+                    help='What minimal improvement in the metric to consider as an actualy improvement')
 
 # Relation-related arguments
 
@@ -167,7 +167,8 @@ def run_single_relation(args):
 
         checkpoint_callback = ModelCheckpoint(filepath=os.path.join(args.save_folder, f'{args.wandb_run_name}_epoch-{{epoch:d}}_val-loss-{{val_loss:.3f}}'),
                                               save_top_k=2, verbose=True, monitor='val_loss', mode='min')
-        early_stopping_callback = EarlyStopping('val_loss', patience=args.patience_epochs, verbose=True)
+        early_stopping_callback = EarlyStopping('val_loss', patience=args.patience_epochs, verbose=True,
+                                                min_delta=args.early_stopping_min_delta)
 
         # TODO: run with wandb logger
         trainer = Trainer(logger=logger, gpus=args.use_gpu, max_epochs=args.max_epochs,
