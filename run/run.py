@@ -114,6 +114,10 @@ parser.add_argument('--wandb-omit-watch', action='store_true')
 
 
 def run_single_relation(args):
+    print(' ' * 26 + 'Options')
+    for k, v in vars(args).items():
+        print(' ' * 26 + k + ': ' + str(v))
+
     # TODO: create dataset
     field_configs = FIELD_CONFIGURATIONS[args.field_configuration]
     relation_class = RELATION_NAMES_TO_CLASSES[args.current_relation]
