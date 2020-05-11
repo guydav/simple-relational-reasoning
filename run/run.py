@@ -54,8 +54,8 @@ RELATION_NAMES_TO_CLASSES = {
     'above': datagen.ColorAboveColorRelation,
     'count': datagen.ObjectCountRelation
 }
-parser.add_argument('--relation', type=str, default=None, choices=list(RELATION_NAMES_TO_CLASSES.keys()),
-                    help='Which relation to use')
+parser.add_argument('--relation', type=str, action='append', choices=list(RELATION_NAMES_TO_CLASSES.keys()),
+                    help='Which relation(s) to run (default: all)')
 
 MODEL_CONFIGURATIONS = {
     'default': {
@@ -81,7 +81,8 @@ def prettify_class_name(cls):
 
 
 MODEL_NAMES = [prettify_class_name(model_class) for model_class in MODEL_CONFIGURATIONS['default'].keys()]
-parser.add_argument('--model', type=str, default=None, choices=MODEL_NAMES, help='Which model to use (default: all)')
+parser.add_argument('--model', type=str, action='append', choices=MODEL_NAMES,
+                    help='Which model(s) to use (default: all)')
 
 
 FIELD_CONFIGURATIONS = {
@@ -115,7 +116,7 @@ parser.add_argument('--wandb-omit-watch', action='store_true')
 def run_single_relation(args):
     # TODO: create dataset
     field_configs = FIELD_CONFIGURATIONS[args.field_configuration]
-    relation_class = RELATION_NAMES_TO_CLASSES[args.relation]
+    relation_class = RELATION_NAMES_TO_CLASSES[args.current_relation]
     object_generator = object_gen.SmartBalancedBatchObjectGenerator(args.num_objects, field_configs, relation_class,
                                                                     max_recursion_depth=args.max_recursion_depth)
 
@@ -129,7 +130,9 @@ def run_single_relation(args):
     model_configurations = MODEL_CONFIGURATIONS[args.model_configuration]
 
     for model_class, model_kwargs in model_configurations.items():
-        if args.model is not None and args.model.lower() != prettify_class_name(model_class):
+        model_class_name = prettify_class_name(model_class)
+        if args.model is not None and len(args.model) > 0 and model_class_name not in args.model:
+            print(f'Skipping model {model_class_name} because it is not in {args.model}')
             continue
 
         # TODO: add in learning rate, batch size, dataset size to the per-model kwargs
@@ -142,10 +145,10 @@ def run_single_relation(args):
         model_kwargs['validation_dataset'] = validation_dataset
 
         # TODO: create wandb project name
-        args.wandb_project = f'{args.relation}-relation-{args.model_configuration}-models-{args.num_objects}-objects-{args.dataset_size}-dataset'
+        args.wandb_project = f'{args.current_relation}-relation-{args.model_configuration}-models-{args.num_objects}-objects-{args.dataset_size}-dataset'
 
         # TODO: create wandb run with name appropriate for model and random seed
-        args.wandb_run_name = f'{prettify_class_name(model_class)}-{args.seed}'
+        args.wandb_run_name = f'{model_class_name}-{args.seed}'
 
         # TODO: create model
         model = model_class(object_generator, **model_kwargs)
@@ -188,18 +191,17 @@ def main():
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
 
-    if args.relation is not None and len(args.relation) > 0:
-        print(f'Running single relation: {args.relation}')
-        run_single_relation(args)
+    if args.relation is None or len(args.relation) == 0:
+        args.relation = list(RELATION_NAMES_TO_CLASSES.keys())
 
-    else:
-        for relation in RELATION_NAMES_TO_CLASSES:
-            args.relation = relation
-            print(f'Running all {len(RELATION_NAMES_TO_CLASSES)} relations, current relation: {args.relation}')
-            run_single_relation(args)
+    print(f'Running the following relation(s): {args.relation}')
+
+    for relation in args.relation:
+        args.current_relation = relation
+        print(f'Current relation: {args.current_relation}')
+        run_single_relation(args)
 
 
 if __name__ == '__main__':
     main()
-
 
