@@ -117,10 +117,15 @@ class MultipleDAdjacentRelation(ObjectRelation):
 
 
 class ColorAboveColorRelation(ObjectRelation):
-    def __init__(self, field_slices, field_generators, y_field_name='y', color_field_name='color',
-                 above_color_index=0, below_color_index=1, dtype=torch.float, position_field_names=('x', 'y')):
+    def __init__(self, field_slices, field_generators, color_field_name='color',
+                 above_color_index=0, below_color_index=1, dtype=torch.float, position_field_names=('x', 'y'),
+                 stuck_count_to_perturb_x=10):
         super(ColorAboveColorRelation, self).__init__(field_slices, field_generators, position_field_names)
-        self.y_field_name = y_field_name
+        self.x_field_name = position_field_names[0]
+        self.x_field_slice = self.field_slices[self.x_field_name]
+        self.x_field_gen = self.field_generators[self.x_field_name]
+
+        self.y_field_name = position_field_names[1]
         self.y_field_slice = self.field_slices[self.y_field_name]
         self.y_field_gen = self.field_generators[self.y_field_name]
 
@@ -137,6 +142,8 @@ class ColorAboveColorRelation(ObjectRelation):
         self.below_color_index = below_color_index
         self.below_color_tensor = torch.zeros(self.color_field_gen.n_types, dtype=self.dtype)
         self.below_color_tensor[self.below_color_index] = 1
+
+        self.stuck_count_to_perturb_x = stuck_count_to_perturb_x
 
     def evaluate(self, objects):
         colors = objects[:, self.color_field_slice]
@@ -171,20 +178,27 @@ class ColorAboveColorRelation(ObjectRelation):
         else:
             max_below_color_position = int(below_color_y_positions.max())
 
-        collision = True
-        while collision:
-            above_object_indices = torch.nonzero(colors.eq(self.above_color_tensor).all(dim=1)).squeeze()
-            if len(above_object_indices.shape) == 0:
-                index_to_modify = int(above_object_indices)
-            else:
-                index_to_modify = above_object_indices[torch.randperm(above_object_indices.shape[0])[0]]
+        above_object_indices = torch.nonzero(colors.eq(self.above_color_tensor).all(dim=1)).squeeze()
+        if len(above_object_indices.shape) == 0:
+            index_to_modify = int(above_object_indices)
+        else:
+            index_to_modify = above_object_indices[torch.randperm(above_object_indices.shape[0])[0]]
 
-            new_above_color_position = random.randint(max_below_color_position, self.y_field_gen.max_coord - 1)
-            tentative_new_position = torch.tensor([objects[index_to_modify, self.position_field_slices[0]],
-                                                   new_above_color_position])
+        collision = True
+        stuck_count = 0
+        while collision:
+            stuck_count += 1
+
+            new_above_color_x_position = objects[index_to_modify, self.x_field_slice]
+            if stuck_count > self.stuck_count_to_perturb_x:
+                new_above_color_x_position = random.randint(self.x_field_gen.min_coord, self.x_field_gen.max_coord - 1)
+
+            new_above_color_y_position = random.randint(max_below_color_position, self.y_field_gen.max_coord - 1)
+            tentative_new_position = torch.tensor([new_above_color_x_position, new_above_color_y_position])
             collision, _ = self._object_in_position(objects, tentative_new_position)
 
-        objects[index_to_modify, self.y_field_slice] = new_above_color_position
+        objects[index_to_modify, self.x_field_slice] = new_above_color_x_position
+        objects[index_to_modify, self.y_field_slice] = new_above_color_y_position
         return objects
 
 
