@@ -41,6 +41,10 @@ DEFAULT_LEARNING_RATE = 1e-3
 parser.add_argument('--learning-rate', type=float, default=DEFAULT_LEARNING_RATE,
                     help='Learning rate to run with')
 
+DEFAULT_PATIENCE_EPOCHS = 50
+parser.add_argument('--patience-epochs', type=int, default=DEFAULT_PATIENCE_EPOCHS,
+                    help='How many patience epochs (stop after this many epochs with no improvement)')
+
 DEFAULT_MIN_DELTA = 1e-5
 parser.add_argument('--early-stopping-min-delta', type=float, default=DEFAULT_MIN_DELTA,
                     help='What minimal improvement in the metric to consider as an actualy improvement')
