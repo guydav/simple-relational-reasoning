@@ -171,14 +171,14 @@ class ColorAboveColorRelation(ObjectRelation):
         else:
             max_below_color_position = int(below_color_y_positions.max())
 
-        above_object_indices = torch.nonzero(colors.eq(self.above_color_tensor).all(dim=1)).squeeze()
-        if len(above_object_indices.shape) == 0:
-            index_to_modify = int(above_object_indices)
-        else:
-            index_to_modify = above_object_indices[torch.randperm(above_object_indices.shape[0])[0]]
-
         collision = True
         while collision:
+            above_object_indices = torch.nonzero(colors.eq(self.above_color_tensor).all(dim=1)).squeeze()
+            if len(above_object_indices.shape) == 0:
+                index_to_modify = int(above_object_indices)
+            else:
+                index_to_modify = above_object_indices[torch.randperm(above_object_indices.shape[0])[0]]
+
             new_above_color_position = random.randint(max_below_color_position, self.y_field_gen.max_coord - 1)
             tentative_new_position = torch.tensor([objects[index_to_modify, self.position_field_slices[0]],
                                                    new_above_color_position])
