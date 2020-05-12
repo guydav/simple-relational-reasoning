@@ -47,7 +47,7 @@ class CNNModel(BaseObjectModel):
         conv_layers = []
         for size, kernel_size, stride, padding in zip(conv_sizes, conv_kernel_size, conv_stride, conv_padding):
             conv_layers.append(nn.Conv2d(in_channels=conv_input_size, out_channels=size, kernel_size=kernel_size,
-                                         stride=conv_stride, padding=conv_padding))
+                                         stride=stride, padding=padding))
 
             conv_layers.append(conv_activation_class())
             conv_layers.append(nn.MaxPool2d(2))

@@ -67,6 +67,13 @@ MODEL_CONFIGURATIONS = {
         models.RelationNetModel: dict(embedding_size=8, object_pair_layer_sizes=[32], combined_object_layer_sizes=[32]),
         models.TransformerModel: dict(embedding_size=8, transformer_mlp_sizes=[8], mlp_sizes=[32]),
         models.CNNModel: dict(conv_sizes=[16, 16], conv_output_size=256)
+    },
+    'larger': {
+        models.CombinedObjectMLPModel: dict(embedding_size=16, prediction_sizes=[64, 32, 16]),
+        models.RelationNetModel: dict(embedding_size=16, object_pair_layer_sizes=[64, 32], combined_object_layer_sizes=[64, 32]),
+        models.TransformerModel: dict(embedding_size=16, num_transformer_layers=2, num_heads=2,
+                                      transformer_mlp_sizes=[32, 16], mlp_sizes=[64, 32]),
+        models.CNNModel: dict(conv_sizes=[16, 32, 64], conv_output_size=256)
     }
 }
 parser.add_argument('--model-configuration', type=str, required=True, choices=list(MODEL_CONFIGURATIONS.keys()),
