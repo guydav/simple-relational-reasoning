@@ -1,4 +1,8 @@
 notebooks/lightning_logs
 notebooks/.ipynb_checkpoints
+notebooks/*Logger*
+wandb
+*/wandb
+*/*/wandb
 */__pycache__
 */*/__pycache__
