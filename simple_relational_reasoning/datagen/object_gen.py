@@ -21,10 +21,10 @@ def no_position_collision_constraint(object_batch, relevant_indices, field_slice
 
     for idx in relevant_indices:
         object_positions = torch.cat([object_batch[idx, :, field_slices[pos]] for pos in position_fields],
-                                     dim=1).to(torch.float).unsqueeze(0)
+                                     dim=1).to(torch.float)
 
         for obj_idx in range(object_positions.shape[0] - 1):
-            if (object_positions[obj_idx + 1:] == object_positions[obj_idx]).any():
+            if (object_positions[obj_idx + 1:] == object_positions[obj_idx]).all(dim=1).any():
                 violating_indices.append(idx)
                 break
 
@@ -92,6 +92,7 @@ class ObjectGenerator:
                     any_violations = False
 
                 else:
+
                     violating_indices = sorted(violating_indices)
                     new_elements = torch.stack([torch.cat([gen() for gen in self.field_generators.values()], dim=1)
                                     for _ in range(n_violations)])
