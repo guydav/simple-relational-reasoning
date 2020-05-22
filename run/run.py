@@ -75,9 +75,9 @@ def run_single_relation(args):
 
         # TODO: is this supposed to work without this hack?
         run = logger.experiment
-        wandb.save(os.path.join(args.save_folder, '*.ckpt'))
+        wandb.save('*.ckpt', base_path=args.save_folder)
 
-        checkpoint_callback = ModelCheckpoint(filepath=os.path.join(args.save_folder, f'{args.wandb_run_name}_epoch-{{epoch:d}}_val-loss-{{val_loss:.3f}}.ckpt'),
+        checkpoint_callback = ModelCheckpoint(filepath=os.path.join(args.save_folder, f'{args.wandb_run_name}_epoch-{{epoch:d}}_val-loss-{{val_loss:.3f}}'),
                                               save_top_k=2, verbose=True, monitor='val_loss', mode='min')
         early_stopping_callback = EarlyStopping('val_loss', patience=args.patience_epochs, verbose=True,
                                                 min_delta=args.early_stopping_min_delta)
