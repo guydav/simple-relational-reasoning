@@ -3,6 +3,7 @@ import random
 import sys
 import wandb
 
+sys.path.append(os.path.abspath('.'))
 sys.path.append(os.path.abspath('..'))
 
 import torch
@@ -11,7 +12,7 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers.wandb import WandbLogger
 
-from .defaults import *
+from defaults import *
 
 
 def run_single_relation(args):
