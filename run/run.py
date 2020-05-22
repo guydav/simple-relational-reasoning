@@ -72,7 +72,7 @@ def run_single_relation(args):
         run = logger.experiment
         wandb.save(os.path.join(wandb.run.dir, '*.ckpt'))
 
-        checkpoint_callback = ModelCheckpoint(filepath=os.path.join(wandb.run.dir, f'{args.wandb_run_name}_epoch-{{epoch:d}}_val-loss-{{val_loss:.3f}}'),
+        checkpoint_callback = ModelCheckpoint(filepath=os.path.join(wandb.run.dir, f'{args.wandb_run_name}-{{epoch:d}}-{{val_loss:.3f}}'),
                                               save_top_k=1, verbose=True, monitor='val_loss', mode='min')
         early_stopping_callback = EarlyStopping('val_loss', patience=args.patience_epochs, verbose=True,
                                                 min_delta=args.early_stopping_min_delta)
