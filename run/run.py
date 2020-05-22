@@ -60,14 +60,9 @@ def run_single_relation(args):
 
         # TODO: create model
         model = model_class(object_generator, **model_kwargs)
-
+        args.use_gpu = int(torch.cuda.is_available())
         args.total_params = sum(p.numel() for p in model.parameters())
         print(f'For {model_class.__name__} there are {args.total_params} total parameters')
-
-        args.save_folder = os.path.join(SCRATCH_FOLDER, 'simple-relational-reasoning-checkpoints', args.wandb_project,
-                                        args.wandb_run_name)
-
-        args.use_gpu = int(torch.cuda.is_available())
 
         logger = WandbLogger(args.wandb_run_name, args.wandb_dir, project=args.wandb_project,
                              entity=args.wandb_entity, log_model=True)
@@ -75,10 +70,10 @@ def run_single_relation(args):
 
         # TODO: is this supposed to work without this hack?
         run = logger.experiment
-        wandb.save('*.ckpt', base_path=args.save_folder)
+        wandb.save(os.path.join(wandb.run.dir, '*.ckpt'))
 
-        checkpoint_callback = ModelCheckpoint(filepath=os.path.join(args.save_folder, f'{args.wandb_run_name}_epoch-{{epoch:d}}_val-loss-{{val_loss:.3f}}'),
-                                              save_top_k=2, verbose=True, monitor='val_loss', mode='min')
+        checkpoint_callback = ModelCheckpoint(filepath=os.path.join(wandb.run.dir, f'{args.wandb_run_name}_epoch-{{epoch:d}}_val-loss-{{val_loss:.3f}}'),
+                                              save_top_k=1, verbose=True, monitor='val_loss', mode='min')
         early_stopping_callback = EarlyStopping('val_loss', patience=args.patience_epochs, verbose=True,
                                                 min_delta=args.early_stopping_min_delta)
 
