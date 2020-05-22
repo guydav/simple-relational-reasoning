@@ -290,9 +290,127 @@ class IdenticalObjectsRelation(ObjectRelation):
         if current_label != 0:
             raise ValueError('Can only balance negative cases to positive ones for the time being')
 
-        index_to_modify, index_to_set_next_to = torch.randperm(objects.shape[0])[:2]
+        index_to_modify, index_to_copy_from = torch.randperm(objects.shape[0])[:2]
 
         for field_slice in self.property_field_slices:
-            objects[index_to_modify, field_slice] = objects[index_to_set_next_to, field_slice]
+            objects[index_to_modify, field_slice] = objects[index_to_copy_from, field_slice]
+
+        return objects
+
+
+class BetweenRelation(ObjectRelation):
+    def __init__(self, field_slices, field_generators, relevant_field_name='color', outside_field_index=0,
+                 inside_field_index=1, dtype=torch.float, position_field_names=('x', 'y')):
+        super(BetweenRelation, self).__init__(field_slices, field_generators, position_field_names)
+        self.dtype = dtype
+
+        self.relevant_field_name = relevant_field_name
+        self.relevant_field_slice = self.field_slices[self.relevant_field_name]
+        self.relevant_field_gen = self.field_generators[self.relevant_field_name]
+
+        self.outside_field_index = outside_field_index
+        self.outside_object_tensor = torch.zeros(self.relevant_field_gen.n_types, dtype=self.dtype)
+        self.outside_object_tensor[self.outside_field_index] = 1
+
+        self.inside_field_index = inside_field_index
+        self.inside_object_tensor = torch.zeros(self.relevant_field_gen.n_types, dtype=self.dtype)
+        self.inside_object_tensor[self.inside_field_index] = 1
+
+        self.between_objects_tensor = torch.stack((self.outside_object_tensor, self.inside_object_tensor, self.outside_object_tensor))
+
+    def _sort_by_rows(self, objects, first_position_field=0):
+        flattened_positions = objects.select(1, first_position_field) * self.position_field_generators[first_position_field].max_coord + objects.select(1, 1 - first_position_field)
+        indices = flattened_positions.sort().indices
+        return objects.index_select(0, indices)
+
+    def _find_between_relation(self, objects, first_position_field=0):
+        sorted_objects = self._sort_by_rows(objects, first_position_field)
+        current_index = 0
+
+        while current_index < sorted_objects.shape[0] - 2:
+            if (sorted_objects[current_index, self.position_field_slices[first_position_field]] != sorted_objects[current_index + 1, self.position_field_slices[first_position_field]]) or \
+               (sorted_objects[current_index, self.position_field_slices[1 - first_position_field]] + 1 != sorted_objects[current_index + 1, self.position_field_slices[1 - first_position_field]]):
+                current_index += 1
+                continue
+
+            # At this point we know first two are in the same row and consecutive -- now check the second and third
+            if (sorted_objects[current_index + 1, self.position_field_slices[first_position_field]] != sorted_objects[current_index + 2, self.position_field_slices[first_position_field]]) or \
+               (sorted_objects[current_index + 1, self.position_field_slices[1 - first_position_field]] + 1 != sorted_objects[current_index + 2, self.position_field_slices[1 - first_position_field]]):
+                # We know the next two are problematic, so we can skip checking them again
+                current_index += 2
+                continue
+
+            #  We have three consecutive items -- so check if their values match
+            if torch.all(sorted_objects[current_index:current_index + 3, self.relevant_field_slice] == self.between_objects_tensor):
+                return True
+
+            current_index += 1
+
+        return False
+
+    def evaluate(self, objects):
+        return self._find_between_relation(objects, 0) or self._find_between_relation(objects, 1)
+
+    def balance(self, objects, current_label):
+        if current_label != 0:
+            raise ValueError('Can only balance negative cases to positive ones for the time being')
+
+        positions = torch.cat([objects[:, field_slice] for field_slice in self.position_field_slices],
+                              dim=1).to(torch.float)
+
+        # pick an object to utilize as a starting for the between triplet
+        start_index = torch.randperm(objects.shape[0])[0]
+        start_position = positions[start_index]
+
+        # pick an axis
+        same_axis = round(random.random())
+        change_axis = 1 - same_axis
+
+        # pick a direction along the other axis
+        if objects[start_index, self.position_field_slices[change_axis]] < self.position_field_generators[change_axis].min_coord + 2:
+            direction = 1
+
+        elif objects[start_index, self.position_field_slices[change_axis]] > self.position_field_generators[change_axis].max_coord - 3:
+            direction = -1
+
+        else:
+            direction = int(torch.sign(torch.rand(tuple()) - 0.5))
+
+        between_positions = torch.stack([start_position] * 3)
+        between_positions[1, change_axis] += direction
+        between_positions[2, change_axis] += 2 * direction
+
+        indices_to_use = [start_index]
+        valid_indices = list(range(objects.shape[0]))
+        valid_indices.remove(start_index)
+
+        # before we pick random indices to assign to these positions, make sure there are no objects there already
+        for new_index in (1, 2):
+            new_position = between_positions[new_index]
+            matching_indices = (positions == new_position).all(dim=1).nonzero().squeeze()
+
+            if matching_indices.nelement() > 0:
+                if matching_indices.nelement() > 1:
+                    print(matching_indices)
+                    print(positions)
+                    print(objects)
+
+                chosen_index = int(matching_indices)
+                if chosen_index == indices_to_use[-1]:
+                    indices_to_use.insert(1, random.choice(valid_indices))
+                    break
+
+            else:
+                chosen_index = random.choice(valid_indices)
+
+            indices_to_use.append(chosen_index)
+            valid_indices.remove(chosen_index)
+
+        for i in range(3):
+            object_index = indices_to_use[i]
+            for p in range(len(self.position_field_slices)):
+                objects[object_index, self.position_field_slices[p]] = between_positions[i, p]
+
+            objects[object_index, self.relevant_field_slice] = self.between_objects_tensor[i]
 
         return objects
