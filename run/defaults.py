@@ -24,7 +24,7 @@ parser.add_argument('--batch-size', type=int, default=DEFAULT_BATCH_SIZE,
                     help='Batch size to run with')
 
 DEFAULT_DATASET_SIZE = 2 ** 14
-parser.add_argument('--dataset-size', type=int, default=DEFAULT_DATASET_SIZE,
+parser.add_argument('--dataset-size', type=int, action='append',
                     help='Dataset size to generate')
 
 parser.add_argument('--validation-size', type=int, default=None,
@@ -43,8 +43,9 @@ parser.add_argument('--early-stopping-min-delta', type=float, default=DEFAULT_MI
                     help='What minimal improvement in the metric to consider as an actualy improvement')
 
 # Relation-related arguments
-
-parser.add_argument('--num-objects', type=int, required=True, help='How many objects in each collection/scene')
+DEFAULT_NUM_OBJECTS = 5
+parser.add_argument('--num-objects', type=int, action='append',
+                    required=True, help='How many objects in each collection/scene')
 
 RELATION_NAMES_TO_CLASSES = {
     'adjacent': datagen.MultipleDAdjacentRelation,
@@ -55,14 +56,16 @@ RELATION_NAMES_TO_CLASSES = {
 parser.add_argument('--relation', type=str, action='append', choices=list(RELATION_NAMES_TO_CLASSES.keys()),
                     help='Which relation(s) to run (default: all)')
 
+DEFAULT_MODEL_CONFIG_KEY = 'default'
+LARGER_MODEL_CONFIG_KEY = 'larger'
 MODEL_CONFIGURATIONS = {
-    'default': {
+    DEFAULT_MODEL_CONFIG_KEY: {
         models.CombinedObjectMLPModel: dict(embedding_size=8, prediction_sizes=[32, 32]),
         models.RelationNetModel: dict(embedding_size=8, object_pair_layer_sizes=[32], combined_object_layer_sizes=[32]),
         models.TransformerModel: dict(embedding_size=8, transformer_mlp_sizes=[8], mlp_sizes=[32]),
         models.CNNModel: dict(conv_sizes=[16, 16], conv_output_size=256)
     },
-    'larger': {
+    LARGER_MODEL_CONFIG_KEY: {
         models.CombinedObjectMLPModel: dict(embedding_size=16, prediction_sizes=[64, 32, 16]),
         models.RelationNetModel: dict(embedding_size=16, object_pair_layer_sizes=[64, 32],
                                       combined_object_layer_sizes=[64, 32]),
@@ -71,7 +74,7 @@ MODEL_CONFIGURATIONS = {
         models.CNNModel: dict(conv_sizes=[16, 32, 48], mlp_sizes=[64, 32, 16], conv_output_size=192)
     }
 }
-parser.add_argument('--model-configuration', type=str, required=True, choices=list(MODEL_CONFIGURATIONS.keys()),
+parser.add_argument('--model-configuration', type=str, action='append', choices=list(MODEL_CONFIGURATIONS.keys()),
                     help='Which model configuration to use')
 
 
@@ -117,3 +120,24 @@ parser.add_argument('--wandb-entity', default=DEFUALT_WANDB_ENTITY)
 DEFAULT_WANDB_DIR = SCRATCH_FOLDER  # wandb creates its own folder inside
 parser.add_argument('--wandb-dir', default=DEFAULT_WANDB_DIR)
 parser.add_argument('--wandb-omit-watch', action='store_true')
+
+
+# Handling fields with multiple potential options
+MULTIPLE_OPTION_FIELD_DEFAULTS = {
+    'model_configuration': [DEFAULT_MODEL_CONFIG_KEY],
+    'dataset_size': [DEFAULT_DATASET_SIZE],
+    'num_objects': [DEFAULT_NUM_OBJECTS],
+    'relation': list(RELATION_NAMES_TO_CLASSES.keys())
+    'model': MODEL_NAMES
+}
+MULTIPLE_OPTION_REWRITE_FIELDS = list(MULTIPLE_OPTION_FIELD_DEFAULTS.keys())
+MULTIPLE_OPTION_REWRITE_FIELDS.remove('model')  # intentionally no rewrite the model field downstream
+
+def handle_multiple_option_defaults(args):
+    var_args = vars(args)
+    for key in MULTIPLE_OPTION_FIELD_DEFAULTS:
+        if key not in var_args or var_args[key] is None or len(var_args[key]) == 0:
+            var_args[key] = MULTIPLE_OPTION_FIELD_DEFAULTS[key]
+
+    return args
+
