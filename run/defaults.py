@@ -127,7 +127,7 @@ MULTIPLE_OPTION_FIELD_DEFAULTS = {
     'model_configuration': [DEFAULT_MODEL_CONFIG_KEY],
     'dataset_size': [DEFAULT_DATASET_SIZE],
     'num_objects': [DEFAULT_NUM_OBJECTS],
-    'relation': list(RELATION_NAMES_TO_CLASSES.keys())
+    'relation': list(RELATION_NAMES_TO_CLASSES.keys()),
     'model': MODEL_NAMES
 }
 MULTIPLE_OPTION_REWRITE_FIELDS = list(MULTIPLE_OPTION_FIELD_DEFAULTS.keys())
