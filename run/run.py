@@ -102,12 +102,12 @@ def main():
     torch.cuda.manual_seed_all(args.seed)
 
     args = handle_multiple_option_defaults(args)
-
+    var_args = vars(args)
     print(' ' * 26 + 'Global Options')
-    for k, v in vars(args).items():
+    for k, v in var_args.items():
         print(' ' * 26 + k + ': ' + str(v))
 
-    multiple_option_field_values = [args[key] for key in MULTIPLE_OPTION_FIELD_DEFAULTS]
+    multiple_option_field_values = [var_args[key] for key in MULTIPLE_OPTION_FIELD_DEFAULTS]
 
     for value_combination in itertools.product(*multiple_option_field_values):
         args_copy = copy.deepcopy(args)
