@@ -133,6 +133,7 @@ MULTIPLE_OPTION_FIELD_DEFAULTS = {
 MULTIPLE_OPTION_REWRITE_FIELDS = list(MULTIPLE_OPTION_FIELD_DEFAULTS.keys())
 MULTIPLE_OPTION_REWRITE_FIELDS.remove('model')  # intentionally no rewrite the model field downstream
 
+
 def handle_multiple_option_defaults(args):
     var_args = vars(args)
     for key in MULTIPLE_OPTION_FIELD_DEFAULTS:

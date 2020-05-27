@@ -107,7 +107,7 @@ def main():
     for k, v in var_args.items():
         print(' ' * 26 + k + ': ' + str(v))
 
-    multiple_option_field_values = [var_args[key] for key in MULTIPLE_OPTION_FIELD_DEFAULTS]
+    multiple_option_field_values = [var_args[key] for key in MULTIPLE_OPTION_REWRITE_FIELDS]
 
     for value_combination in itertools.product(*multiple_option_field_values):
         args_copy = copy.deepcopy(args)
