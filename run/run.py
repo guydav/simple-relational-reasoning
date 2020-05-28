@@ -71,8 +71,7 @@ def run_single_setting_all_models(args):
         logger.log_hyperparams(vars(args))
 
         # TODO: is this supposed to work without this hack?
-        run = logger.experiment
-        wandb.save(os.path.join(wandb.run.dir, '*.ckpt'))
+        wandb.save(os.path.join(logger.experiment.dir, '*.ckpt'))
 
         checkpoint_callback = ModelCheckpoint(filepath=os.path.join(wandb.run.dir, f'{args.wandb_run_name}-{{epoch:d}}-{{val_loss:.3f}}'),
                                               save_top_k=1, verbose=True, monitor='val_loss', mode='min')
@@ -87,30 +86,34 @@ def run_single_setting_all_models(args):
 
         del trainer
         del model
+        # Should be unnecessary now that I'm not keeping a handle to the run object
+        # if run is not None:
+        #     run.close_files()
+        #     del run
 
 
 def main():
-    args = parser.parse_args()
+    main_args = parser.parse_args()
 
     # Handle slurm array ids
     array_id = os.getenv('SLURM_ARRAY_TASK_ID')
     if array_id is not None:
-        args.seed = args.seed + int(array_id)
+        main_args.seed = main_args.seed + int(array_id)
 
-    random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    torch.cuda.manual_seed_all(args.seed)
+    random.seed(main_args.seed)
+    torch.manual_seed(main_args.seed)
+    torch.cuda.manual_seed_all(main_args.seed)
 
-    args = handle_multiple_option_defaults(args)
-    var_args = vars(args)
+    main_args = handle_multiple_option_defaults(main_args)
+    main_var_args = vars(main_args)
     print(' ' * 26 + 'Global Options')
-    for k, v in var_args.items():
+    for k, v in main_var_args.items():
         print(' ' * 26 + k + ': ' + str(v))
 
-    multiple_option_field_values = [var_args[key] for key in MULTIPLE_OPTION_REWRITE_FIELDS]
+    multiple_option_field_values = [main_var_args[key] for key in MULTIPLE_OPTION_REWRITE_FIELDS]
 
     for value_combination in itertools.product(*multiple_option_field_values):
-        args_copy = copy.deepcopy(args)
+        args_copy = copy.deepcopy(main_args)
         var_args_copy = vars(args_copy)
         var_args_copy.update({key: value for key, value in zip(MULTIPLE_OPTION_REWRITE_FIELDS,
                                                                value_combination)})
