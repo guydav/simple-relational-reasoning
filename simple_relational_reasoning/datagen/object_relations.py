@@ -366,6 +366,7 @@ class BetweenRelation(ObjectRelation):
         same_axis = round(random.random())
         change_axis = 1 - same_axis
 
+        direction = 0
         # pick a direction along the other axis
         if objects[start_index, self.position_field_slices[change_axis]] < self.position_field_generators[change_axis].min_coord + 2:
             direction = 1
@@ -373,14 +374,15 @@ class BetweenRelation(ObjectRelation):
         elif objects[start_index, self.position_field_slices[change_axis]] > self.position_field_generators[change_axis].max_coord - 3:
             direction = -1
 
-        else:
+        # the else condition, here because if torch.rand ~= 0, torch.sign will return 0, and will cause a bug
+        while direction == 0:
             direction = int(torch.sign(torch.rand(tuple()) - 0.5))
 
         between_positions = torch.stack([start_position] * 3)
         between_positions[1, change_axis] += direction
         between_positions[2, change_axis] += 2 * direction
 
-        indices_to_use = [start_index]
+        indices_to_use = [start_index, None, None]
         valid_indices = list(range(objects.shape[0]))
         valid_indices.remove(start_index)
 
@@ -391,20 +393,21 @@ class BetweenRelation(ObjectRelation):
 
             if matching_indices.nelement() > 0:
                 if matching_indices.nelement() > 1:
+                    # Should never happen
                     print(matching_indices)
                     print(positions)
                     print(objects)
 
                 chosen_index = int(matching_indices)
-                if chosen_index == indices_to_use[-1]:
-                    indices_to_use.insert(1, random.choice(valid_indices))
-                    break
+                indices_to_use[new_index] = chosen_index
+                valid_indices.remove(chosen_index)
 
-            else:
+        # now go through the new indices again, and if there weren't objects there assign random ones
+        for new_index in (1, 2):
+            if indices_to_use[new_index] is None:
                 chosen_index = random.choice(valid_indices)
-
-            indices_to_use.append(chosen_index)
-            valid_indices.remove(chosen_index)
+                indices_to_use.append(chosen_index)
+                valid_indices.remove(chosen_index)
 
         for i in range(3):
             object_index = indices_to_use[i]
