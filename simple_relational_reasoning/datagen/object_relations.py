@@ -406,7 +406,7 @@ class BetweenRelation(ObjectRelation):
         for new_index in (1, 2):
             if indices_to_use[new_index] is None:
                 chosen_index = random.choice(valid_indices)
-                indices_to_use.append(chosen_index)
+                indices_to_use[new_index] = chosen_index
                 valid_indices.remove(chosen_index)
 
         for i in range(3):
