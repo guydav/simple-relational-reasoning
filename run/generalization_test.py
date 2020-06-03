@@ -4,6 +4,7 @@ import os
 import random
 import sys
 import wandb
+import numpy as np
 
 sys.path.append(os.path.abspath('.'))
 sys.path.append(os.path.abspath('..'))
@@ -107,11 +108,18 @@ def run_generalization_test_single_setting(args):
             os.environ['WANDB_RUN_ID'] = original_run.id
 
             checkpoint_files = list(filter(lambda f: f.name.endswith('.ckpt'), original_run.files()))
-            if len(checkpoint_files) != 1:
-                print(f'Expected exactly one checkpoint file. Found the following: {checkpoint_files}. Skipping...')
+            if len(checkpoint_files) == 0:
+                print(f'Found no checkpoints for run {"/".join(original_run.path)}. Skipping... ')
                 continue
 
-            checkpoint_file = checkpoint_files[0]
+            elif len(checkpoint_files) > 1:  # if more than one exists, take the latest
+                epochs = [int([x for x in f.name.split('-') if x.startswith('epoch')][0].split('=')[1])
+                          for f in checkpoint_files]
+                checkpoint_file = checkpoint_files[np.argmax(epochs)]
+
+            else:
+                 checkpoint_file = checkpoint_files[0]
+
             os.makedirs(args.checkpoint_download_folder, exist_ok=True)
             checkpoint_file.download(replace=True, root=args.checkpoint_download_folder)
             checkpoint_path = os.path.join(args.checkpoint_download_folder, checkpoint_file.name)
