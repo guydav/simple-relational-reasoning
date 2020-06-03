@@ -157,12 +157,13 @@ def main():
     multiple_option_fields = copy.copy(MULTIPLE_OPTION_REWRITE_FIELDS)
     assert (main_args.test_field in multiple_option_fields)
     multiple_option_fields.remove(main_args.test_field)
+
     multiple_option_field_values = [main_var_args[key] for key in multiple_option_fields]
 
     for value_combination in itertools.product(*multiple_option_field_values):
         args_copy = copy.deepcopy(main_args)
         var_args_copy = vars(args_copy)
-        var_args_copy.update({key: value for key, value in zip(multiple_option_field_values,
+        var_args_copy.update({key: value for key, value in zip(multiple_option_fields,
                                                                value_combination)})
 
         run_generalization_test_single_setting(args_copy)
