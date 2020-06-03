@@ -211,7 +211,8 @@ class ObjectGeneratorDataset(torch.utils.data.Dataset):
         self.regenerate()
 
     def regenerate(self):
-        self.objects, self.labels = self.object_generator(self.epoch_size)
+        if self.epoch_size > 0:
+            self.objects, self.labels = self.object_generator(self.epoch_size)
 
     def __getitem__(self, item):
         return self.objects[item], self.labels[item]
@@ -231,11 +232,10 @@ class SpatialObjectGeneratorDataset(ObjectGeneratorDataset):
         self.convert_objects()
 
     def convert_objects(self):
-        shape = self.objects.shape
-        if len(shape) == 2 or shape[0] == 0:
+        if self.objects is None or len(self.objects.shape) == 2 or self.objects.shape[0] == 0:
             return
 
-        D, N, O = shape
+        D, N, O = self.objects.shape
 
         position_shape = [field.max_coord - field.min_coord for field in self.position_field_generators]
         spatial_shape = (D, O, *position_shape)
