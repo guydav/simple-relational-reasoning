@@ -30,6 +30,9 @@ parser.add_argument('--dataset-size', type=int, action='append',
 parser.add_argument('--validation-size', type=int, default=None,
                     help='Validation size to generate (if different from regular dataset)')
 
+parser.add_argument('--test-size', type=int, default=None,
+                    help='Test size to generate (if different from regular dataset)')
+
 DEFAULT_LEARNING_RATE = 1e-3
 parser.add_argument('--learning-rate', type=float, default=DEFAULT_LEARNING_RATE,
                     help='Learning rate to run with')

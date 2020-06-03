@@ -231,7 +231,12 @@ class SpatialObjectGeneratorDataset(ObjectGeneratorDataset):
         self.convert_objects()
 
     def convert_objects(self):
-        D, N, O = self.objects.shape
+        shape = self.objects.shape
+        if len(shape) == 2 or shape[0] == 0:
+            return
+
+        D, N, O = shape
+
         position_shape = [field.max_coord - field.min_coord for field in self.position_field_generators]
         spatial_shape = (D, O, *position_shape)
         spatial_objects = torch.zeros(spatial_shape, dtype=self.objects.dtype)

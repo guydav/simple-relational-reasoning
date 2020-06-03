@@ -16,14 +16,19 @@ class CNNModel(BaseObjectModel):
                  mlp_sizes=DEFAULT_MLP_SIZES, mlp_activation_class=nn.ReLU,
                  output_size=2, output_activation_class=None,
                  loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
-                 batch_size=32, train_epoch_size=1024, validation_epoch_size=128, regenerate_every_epoch=False,
-                 train_dataset=None, validation_dataset=None):
+                 batch_size=32, train_epoch_size=1024, validation_epoch_size=1024, test_epoch_size=1024,
+                 regenerate_every_epoch=False,
+                 train_dataset=None, validation_dataset=None, test_dataset=None,
+                 train_log_prefix=None, validation_log_prefix=None, test_log_prefix=None):
         super(CNNModel, self).__init__(object_generator, loss=loss, optimizer_class=optimizer_class,
                                        lr=lr, batch_size=batch_size, train_epoch_size=train_epoch_size,
-                                       validation_epoch_size=validation_epoch_size,
+                                       validation_epoch_size=validation_epoch_size, test_epoch_size=test_epoch_size,
                                        regenerate_every_epoch=regenerate_every_epoch,
                                        dataset_class=SpatialObjectGeneratorDataset,
-                                       train_dataset=train_dataset, validation_dataset=validation_dataset)
+                                       train_dataset=train_dataset, validation_dataset=validation_dataset,
+                                       test_dataset=test_dataset, train_log_prefix=train_log_prefix,
+                                       validation_log_prefix=validation_log_prefix,
+                                       test_log_prefix=test_log_prefix)
 
         if hasattr(conv_kernel_size, '__len__') and len(conv_kernel_size) != len(conv_sizes):
             raise ValueError(f'The length of kernel sizes provided {conv_kernel_size} must be the same as the length of the conv sizes {conv_sizes}')
@@ -83,6 +88,12 @@ class CNNModel(BaseObjectModel):
             spatial_validation_dataset.objects = self.validation_dataset.objects.clone()
             spatial_validation_dataset.convert_objects()
             self.validation_dataset = spatial_validation_dataset
+
+        if not isinstance(self.test_dataset, SpatialObjectGeneratorDataset):
+            spatial_test_dataset = SpatialObjectGeneratorDataset(self.object_generator, self.test_epoch_size)
+            spatial_test_dataset.objects = self.test_dataset.objects.clone()
+            spatial_test_dataset.convert_objects()
+            self.test_dataset = spatial_test_dataset
 
     def embed(self, x):
         return x
