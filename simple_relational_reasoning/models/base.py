@@ -58,7 +58,7 @@ class BaseObjectModel(pl.LightningModule):
 
         if test_dataset is None:
             test_dataset = dataset_class(self.object_generator, self.test_epoch_size)
-        self.validation_dataset = test_dataset
+        self.test_dataset = test_dataset
 
         self.train_log_prefix = train_log_prefix
         self.validation_log_prefix = validation_log_prefix
