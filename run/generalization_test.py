@@ -123,6 +123,9 @@ def run_generalization_test_single_setting(args):
             trainer = Trainer(logger=logger, gpus=args.use_gpu, max_epochs=1)
             trainer.test(model)
 
+            logger.save()
+            logger.close()
+
             del trainer
             del model
 
