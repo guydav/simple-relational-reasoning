@@ -94,6 +94,8 @@ def run_generalization_test_single_setting(args):
             args.wandb_project = f'{args.relation}-relation-{args.model_configuration}-models-{args.num_objects}-objects-{args.dataset_size}-dataset'
             args.wandb_run_name = f'{model_class_name}-{args.seed}'
 
+            print(f'Testing {args.wandb_project}/{args.wandb_run_name}, originally trained with {args.num_objects} objects, with {test_dataset.object_generator.n} test objects.')
+
             api = wandb.Api()
             runs = api.runs(f'{args.wandb_entity}/{args.wandb_project}', {'config.wandb_run_name': args.wandb_run_name})
             if len(runs) == 0:
