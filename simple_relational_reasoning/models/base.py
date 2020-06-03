@@ -127,7 +127,7 @@ class BaseObjectModel(pl.LightningModule):
         return dict(log=(self._average_outputs(outputs, 'val', self.validation_log_prefix)))
 
     def test_epoch_end(self, outputs):
-        return dict(log=(self._average_outputs(outputs, 'test', self.testd_log_prefix)))
+        return dict(log=(self._average_outputs(outputs, 'test', self.test_log_prefix)))
 
     def on_epoch_start(self):
         if self.regenerate_every_epoch:
