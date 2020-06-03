@@ -14,6 +14,10 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers.wandb import WandbLogger
 
+from simple_relational_reasoning import datagen
+from simple_relational_reasoning.datagen import object_gen
+from simple_relational_reasoning import models
+
 from defaults import *
 
 

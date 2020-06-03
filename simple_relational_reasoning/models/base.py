@@ -27,8 +27,11 @@ class ObjectCombinationMethod(Enum):
 
 class BaseObjectModel(pl.LightningModule):
     def __init__(self, object_generator, loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
-                 batch_size=32, train_epoch_size=1024, validation_epoch_size=128, regenerate_every_epoch=False,
-                 dataset_class=ObjectGeneratorDataset, train_dataset=None, validation_dataset=None):
+                 batch_size=32, train_epoch_size=1024, validation_epoch_size=1024, test_epoch_size=1024,
+                 regenerate_every_epoch=False,
+                 dataset_class=ObjectGeneratorDataset,
+                 train_dataset=None, validation_dataset=None, test_dataset=None,
+                 train_log_prefix=None, validation_log_prefix=None, test_log_prefix=None):
         super(BaseObjectModel, self).__init__()
 
         self.object_generator = object_generator
@@ -42,6 +45,7 @@ class BaseObjectModel(pl.LightningModule):
         self.batch_size = batch_size
         self.train_epoch_size = train_epoch_size
         self.validation_epoch_size = validation_epoch_size
+        self.test_epoch_size = test_epoch_size
         self.regenerate_every_epoch = regenerate_every_epoch
 
         if train_dataset is None:
@@ -51,6 +55,14 @@ class BaseObjectModel(pl.LightningModule):
         if validation_dataset is None:
             validation_dataset = dataset_class(self.object_generator, self.validation_epoch_size)
         self.validation_dataset = validation_dataset
+
+        if test_dataset is None:
+            test_dataset = dataset_class(self.object_generator, self.test_epoch_size)
+        self.validation_dataset = test_dataset
+
+        self.train_log_prefix = train_log_prefix
+        self.validation_log_prefix = validation_log_prefix
+        self.test_log_prefix = test_log_prefix
 
     @abstractmethod
     def embed(self, x):
@@ -74,37 +86,48 @@ class BaseObjectModel(pl.LightningModule):
     def _compute_accuracy(self, target, preds):
         return torch.eq(target, preds.argmax(1)).float().mean()
 
+    def configure_optimizers(self):
+        return self.optimizer_class(self.parameters(), self.lr)
+
     def training_step(self, batch, batch_idx):
         data, target = batch
         preds = self.forward(data)
         return dict(loss=self.loss(preds, target), acc=self._compute_accuracy(target, preds))
 
-    def configure_optimizers(self):
-        return self.optimizer_class(self.parameters(), self.lr)
+    def validation_step(self, batch, batch_idx):
+        return self.training_step(batch, batch_idx)
+
+    def test_step(self, batch, batch_idx):
+        return self.training_step(batch, batch_idx)
 
     def train_dataloader(self):
         return DataLoader(self.train_dataset, batch_size=self.batch_size)
-
-    def validation_step(self, batch, batch_idx):
-        return self.training_step(batch, batch_idx)
-        # return dict(val_loss=results['loss'], val_acc=results['acc'])
 
     def val_dataloader(self):
         # TODO: why is this val_ while the other methods are validation_
         # TODO: this also seems to assume that the dataset is not an iterable one.
         return DataLoader(self.validation_dataset, batch_size=self.batch_size)
 
-    def training_epoch_end(self, outputs):
+    def test_dataloader(self):
+        return DataLoader(self.test_dataset, batch_size=self.batch_size)
+
+    def _average_outputs(self, outputs, prefix, extra_prefix=None):
         avg_loss = torch.stack([x['loss'] for x in outputs]).mean()
         avg_acc = torch.stack([x['acc'] for x in outputs]).mean()
-        logs = dict(train_loss=avg_loss, train_acc=avg_acc)
-        return dict(log=logs)
+        logs = {f'{prefix}_loss': avg_loss, f'{prefix}_acc': avg_acc}
+        if extra_prefix is not None and len(extra_prefix) > 0:
+            logs = {f'{extra_prefix}_{key}': logs[key] for key in logs}
+
+        return logs
+
+    def training_epoch_end(self, outputs):
+        return dict(log=(self._average_outputs(outputs, 'train', self.train_log_prefix)))
 
     def validation_epoch_end(self, outputs):
-        avg_loss = torch.stack([x['loss'] for x in outputs]).mean()
-        avg_acc = torch.stack([x['acc'] for x in outputs]).mean()
-        logs = dict(val_loss=avg_loss, val_acc=avg_acc)
-        return dict(log=logs)
+        return dict(log=(self._average_outputs(outputs, 'val', self.validation_log_prefix)))
+
+    def test_epoch_end(self, outputs):
+        return dict(log=(self._average_outputs(outputs, 'test', self.testd_log_prefix)))
 
     def on_epoch_start(self):
         if self.regenerate_every_epoch:
