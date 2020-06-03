@@ -89,6 +89,9 @@ def run_single_setting_all_models(args):
 
         trainer.fit(model)
 
+        logger.save()
+        logger.close()
+
         del trainer
         del model
         # Should be unnecessary now that I'm not keeping a handle to the run object
