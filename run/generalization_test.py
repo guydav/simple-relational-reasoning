@@ -48,7 +48,7 @@ def run_generalization_test_single_setting(args):
         args.model_test_value = test_value
 
         field_configs = FIELD_CONFIGURATIONS[args.field_configuration]
-        relation_class = RELATION_NAMES_TO_CLASSES[args.current_relation]
+        relation_class = RELATION_NAMES_TO_CLASSES[args.relation]
         trained_object_generator = object_gen.SmartBalancedBatchObjectGenerator(args.num_objects,
                                                                                 field_configs, relation_class,
                                                                                 max_recursion_depth=args.max_recursion_depth)
