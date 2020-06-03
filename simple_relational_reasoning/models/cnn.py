@@ -77,13 +77,13 @@ class CNNModel(BaseObjectModel):
             output_activation_class = nn.Identity
         self.output_activation = output_activation_class()
 
-        self.train_dataset = self._convert_dataset_to_spatial(self.train_dataset, self.train_epoch_size)
-        self.validation_dataset = self._convert_dataset_to_spatial(self.validation_dataset, self.validation_epoch_size)
-        self.test_dataset = self._convert_dataset_to_spatial(self.test_dataset, self.test_epoch_size)
+        self.train_dataset = self._convert_dataset_to_spatial(self.train_dataset)
+        self.validation_dataset = self._convert_dataset_to_spatial(self.validation_dataset)
+        self.test_dataset = self._convert_dataset_to_spatial(self.test_dataset)
 
-    def _convert_dataset_to_spatial(self, dataset, dataset_size):
-        if not isinstance(dataset, SpatialObjectGeneratorDataset) and dataset_size > 0:
-            spatial_dataset = SpatialObjectGeneratorDataset(self.object_generator, dataset_size)
+    def _convert_dataset_to_spatial(self, dataset):
+        if not isinstance(dataset, SpatialObjectGeneratorDataset) and dataset.epoch_size > 0:
+            spatial_dataset = SpatialObjectGeneratorDataset(self.object_generator, dataset.epoch_size)
             spatial_dataset.objects = dataset.objects.clone()
             spatial_dataset.convert_objects()
             return spatial_dataset
