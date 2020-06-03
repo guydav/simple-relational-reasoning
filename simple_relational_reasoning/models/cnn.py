@@ -77,23 +77,16 @@ class CNNModel(BaseObjectModel):
             output_activation_class = nn.Identity
         self.output_activation = output_activation_class()
 
-        if not isinstance(self.train_dataset, SpatialObjectGeneratorDataset):
-            spatial_train_dataset = SpatialObjectGeneratorDataset(self.object_generator, self.train_epoch_size)
-            spatial_train_dataset.objects = self.train_dataset.objects.clone()
-            spatial_train_dataset.convert_objects()
-            self.train_dataset = spatial_train_dataset
+        self.train_dataset = self._convert_dataset_to_spatial(self.train_dataset, self.train_epoch_size)
+        self.validation_dataset = self._convert_dataset_to_spatial(self.validation_dataset, self.validation_epoch_size)
+        self.test_dataset = self._convert_dataset_to_spatial(self.test_dataset, self.test_epoch_size)
 
-        if not isinstance(self.validation_dataset, SpatialObjectGeneratorDataset):
-            spatial_validation_dataset = SpatialObjectGeneratorDataset(self.object_generator, self.validation_epoch_size)
-            spatial_validation_dataset.objects = self.validation_dataset.objects.clone()
-            spatial_validation_dataset.convert_objects()
-            self.validation_dataset = spatial_validation_dataset
-
-        if not isinstance(self.test_dataset, SpatialObjectGeneratorDataset):
-            spatial_test_dataset = SpatialObjectGeneratorDataset(self.object_generator, self.test_epoch_size)
-            spatial_test_dataset.objects = self.test_dataset.objects.clone()
-            spatial_test_dataset.convert_objects()
-            self.test_dataset = spatial_test_dataset
+    def _convert_dataset_to_spatial(self, dataset, dataset_size):
+        if not isinstance(dataset, SpatialObjectGeneratorDataset) and dataset_size > 0:
+            spatial_dataset = SpatialObjectGeneratorDataset(self.object_generator, dataset_size)
+            spatial_dataset.objects = dataset.objects.clone()
+            spatial_dataset.convert_objects()
+            return spatial_dataset
 
     def embed(self, x):
         return x
