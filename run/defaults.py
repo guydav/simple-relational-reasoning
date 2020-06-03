@@ -47,8 +47,7 @@ parser.add_argument('--early-stopping-min-delta', type=float, default=DEFAULT_MI
 
 # Relation-related arguments
 DEFAULT_NUM_OBJECTS = 5
-parser.add_argument('--num-objects', type=int, action='append',
-                    required=True, help='How many objects in each collection/scene')
+parser.add_argument('--num-objects', type=int, action='append', help='How many objects in each collection/scene')
 
 RELATION_NAMES_TO_CLASSES = {
     'adjacent': datagen.MultipleDAdjacentRelation,
