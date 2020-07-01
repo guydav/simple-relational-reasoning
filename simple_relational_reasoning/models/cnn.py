@@ -100,4 +100,5 @@ class CNNModel(BaseObjectModel):
         return self.output_activation(self.output_layer(x))
 
 
-FixedCNNModel = CNNModel
+class FixedCNNModel(CNNModel):
+    pass
