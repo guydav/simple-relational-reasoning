@@ -84,6 +84,7 @@ class CNNModel(BaseObjectModel):
     def _convert_dataset_to_spatial(self, dataset):
         if not isinstance(dataset, SpatialObjectGeneratorDataset) and dataset.epoch_size > 0:
             spatial_dataset = SpatialObjectGeneratorDataset(self.object_generator, dataset.epoch_size)
+            spatial_dataset.labels = dataset.labels.clone()
             spatial_dataset.objects = dataset.objects.clone()
             spatial_dataset.convert_objects()
             return spatial_dataset
