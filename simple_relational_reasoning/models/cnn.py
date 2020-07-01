@@ -99,3 +99,5 @@ class CNNModel(BaseObjectModel):
         x = self.mlp_module(x)
         return self.output_activation(self.output_layer(x))
 
+
+FixedCNNModel = CNNModel
