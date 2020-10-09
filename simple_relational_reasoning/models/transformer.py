@@ -104,18 +104,10 @@ class TransformerModel(BaseObjectModel):
                  mlp_sizes=DEFAULT_MLP_SIZES, mlp_activation_class=nn.ReLU,
                  output_size=2, output_activation_class=None,
                  loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
-                 batch_size=32, train_epoch_size=1024, validation_epoch_size=1024, test_epoch_size=1024,
-                 regenerate_every_epoch=False,
-                 train_dataset=None, validation_dataset=None, test_dataset=None,
-                 train_log_prefix=None, validation_log_prefix=None, test_log_prefix=None):
+                 batch_size=32, train_log_prefix=None, validation_log_prefix=None, test_log_prefix=None):
 
         super(TransformerModel, self).__init__(object_generator, loss=loss, optimizer_class=optimizer_class,
-                                               lr=lr, batch_size=batch_size, train_epoch_size=train_epoch_size,
-                                               validation_epoch_size=validation_epoch_size,
-                                               test_epoch_size=test_epoch_size,
-                                               regenerate_every_epoch=regenerate_every_epoch,
-                                               train_dataset=train_dataset, validation_dataset=validation_dataset,
-                                               test_dataset=test_dataset, train_log_prefix=train_log_prefix,
+                                               lr=lr, batch_size=batch_size, train_log_prefix=train_log_prefix,
                                                validation_log_prefix=validation_log_prefix,
                                                test_log_prefix=test_log_prefix)
 

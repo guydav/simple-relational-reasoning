@@ -3,10 +3,9 @@ from enum import Enum, auto
 
 import torch
 import pytorch_lightning as pl
-from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from simple_relational_reasoning.datagen import ObjectGeneratorDataset
+from simple_relational_reasoning.datagen import QuinnDatasetGenerator
 
 
 class ObjectCombinationMethod(Enum):
@@ -26,53 +25,34 @@ class ObjectCombinationMethod(Enum):
 
 
 class BaseObjectModel(pl.LightningModule):
-    def __init__(self, object_generator, loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
-                 batch_size=32, train_epoch_size=1024, validation_epoch_size=1024, test_epoch_size=1024,
-                 regenerate_every_epoch=False,
-                 dataset_class=ObjectGeneratorDataset,
-                 train_dataset=None, validation_dataset=None, test_dataset=None,
-                 train_log_prefix=None, validation_log_prefix=None, test_log_prefix=None):
+    def __init__(self, dataset: QuinnDatasetGenerator,
+                 loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
+                 batch_size=32, train_log_prefix=None, validation_log_prefix=None, test_log_prefix=None):
         super(BaseObjectModel, self).__init__()
 
-        self.object_generator = object_generator
-        self.object_size = self.object_generator.object_size
-        self.num_objects = self.object_generator.n
+        self.dataset = dataset
+        sample_input_shape = self.dataset.get_training_dataset().objects[0].shape
+        self.object_size = sample_input_shape[1]
+        self.num_objects = sample_input_shape[0]
 
         self.loss = loss
         self.optimizer_class = optimizer_class
         self.lr = lr
-
         self.batch_size = batch_size
-        self.train_epoch_size = train_epoch_size
-        self.validation_epoch_size = validation_epoch_size
-        self.test_epoch_size = test_epoch_size
-        self.regenerate_every_epoch = regenerate_every_epoch
-
-        if train_dataset is None:
-            train_dataset = dataset_class(self.object_generator, self.train_epoch_size)
-        self.train_dataset = train_dataset
-
-        if validation_dataset is None:
-            validation_dataset = dataset_class(self.object_generator, self.validation_epoch_size)
-        self.validation_dataset = validation_dataset
-
-        if test_dataset is None:
-            test_dataset = dataset_class(self.object_generator, self.test_epoch_size)
-        self.test_dataset = test_dataset
 
         self.train_log_prefix = train_log_prefix
         self.validation_log_prefix = validation_log_prefix
         self.test_log_prefix = test_log_prefix
 
     @abstractmethod
-    def embed(self, x):
+    def embed(self, x) -> torch.Tensor:
         pass
 
     @abstractmethod
-    def predict(self, x):
+    def predict(self, x) -> torch.Tensor:
         pass
 
-    def forward(self, x):
+    def forward(self, x) -> torch.Tensor:
         """
         :param x: a batch, expected to be of shape (B, N, F): B sets per batch, N objects per set, F features per object
         :return: The prediction for each object
@@ -101,15 +81,17 @@ class BaseObjectModel(pl.LightningModule):
         return self.training_step(batch, batch_idx)
 
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=self.batch_size)
+        return DataLoader(self.dataset.get_training_dataset(), batch_size=self.batch_size)
 
-    def val_dataloader(self):
-        # TODO: why is this val_ while the other methods are validation_
-        # TODO: this also seems to assume that the dataset is not an iterable one.
-        return DataLoader(self.validation_dataset, batch_size=self.batch_size)
+    # def val_dataloader(self):
+    #     # TODO: why is this val_ while the other methods are validation_
+    #     # TODO: this also seems to assume that the dataset is not an iterable one.
+    #     return DataLoader(self.validation_dataset, batch_size=self.batch_size)
 
     def test_dataloader(self):
-        return DataLoader(self.test_dataset, batch_size=self.batch_size)
+        test_datasets = self.dataset.get_test_datasets()
+        return [DataLoader(test_datasets[key], batch_size=self.batch_size)
+                for key in sorted(test_datasets.keys())]
 
     def _average_outputs(self, outputs, prefix, extra_prefix=None):
         avg_loss = torch.stack([x['loss'] for x in outputs]).mean()
@@ -129,7 +111,7 @@ class BaseObjectModel(pl.LightningModule):
     def test_epoch_end(self, outputs):
         return dict(log=(self._average_outputs(outputs, 'test', self.test_log_prefix)))
 
-    def on_epoch_start(self):
-        if self.regenerate_every_epoch:
-            self.train_datset.regenerate()
-            self.validation_dataset.regenerate()
+    # def on_epoch_start(self):
+    #     if self.regenerate_every_epoch:
+    #         self.train_datset.regenerate()
+    #         self.validation_dataset.regenerate()

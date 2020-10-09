@@ -9,7 +9,7 @@ DEFAULT_COMBINED_OBJECT_LAYER_SIZES = [32, 32]
 
 
 class RelationNetModel(BaseObjectModel):
-    def __init__(self, object_generator,
+    def __init__(self, dataset,
                  embedding_size=None, embedding_activation_class=nn.ReLU,
                  object_pair_layer_sizes=DEFAULT_OBJECT_PAIR_LAYER_SIZES,
                  object_pair_layer_activation_class=nn.ReLU,
@@ -17,17 +17,9 @@ class RelationNetModel(BaseObjectModel):
                  combined_object_layer_activation_class=nn.ReLU, combined_object_dropout=True,
                  output_size=2, output_activation_class=None,
                  loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
-                 batch_size=32, train_epoch_size=1024, validation_epoch_size=1024, test_epoch_size=1024,
-                 regenerate_every_epoch=False,
-                 train_dataset=None, validation_dataset=None, test_dataset=None,
-                 train_log_prefix=None, validation_log_prefix=None, test_log_prefix=None):
-        super(RelationNetModel, self).__init__(object_generator, loss=loss, optimizer_class=optimizer_class,
-                                               lr=lr, batch_size=batch_size, train_epoch_size=train_epoch_size,
-                                               validation_epoch_size=validation_epoch_size,
-                                               test_epoch_size=test_epoch_size,
-                                               regenerate_every_epoch=regenerate_every_epoch,
-                                               train_dataset=train_dataset, validation_dataset=validation_dataset,
-                                               test_dataset=test_dataset, train_log_prefix=train_log_prefix,
+                 batch_size=32, train_log_prefix=None, validation_log_prefix=None, test_log_prefix=None):
+        super(RelationNetModel, self).__init__(dataset, loss=loss, optimizer_class=optimizer_class,
+                                               lr=lr, batch_size=batch_size, train_log_prefix=train_log_prefix,
                                                validation_log_prefix=validation_log_prefix,
                                                test_log_prefix=test_log_prefix)
 
@@ -75,8 +67,6 @@ class RelationNetModel(BaseObjectModel):
     def predict(self, x):
         B, N, E = x.shape
 
-        # TODO: this assumes we also pass in the pairs of each object and itself
-        # TODO: is that true? the reference implementations appear to do so
         x_i = x.unsqueeze(1).repeat(1, N, 1, 1)  # B, N, N, E
         x_j = x.unsqueeze(2).repeat(1, 1, N, 1)  # B, N, N, E
         # this ends up tiling them opposite of each other
