@@ -58,17 +58,17 @@ RELATION_NAMES_TO_CLASSES = {
 parser.add_argument('--relation', type=str, action='append', choices=list(RELATION_NAMES_TO_CLASSES.keys()),
                     help='Which relation(s) to run (default: all)')
 
-DEFAULT_MODEL_CONFIG_KEY = 'default'
-LARGER_MODEL_CONFIG_KEY = 'larger'
+DEFAULT_MODELS_CONFIG_KEY = 'default'
+LARGER_MODELS_CONFIG_KEY = 'larger'
 MODEL_CONFIGURATIONS = {
-    DEFAULT_MODEL_CONFIG_KEY: {
+    DEFAULT_MODELS_CONFIG_KEY: {
         models.CombinedObjectMLPModel: dict(embedding_size=8, prediction_sizes=[32, 32]),
         models.RelationNetModel: dict(embedding_size=8, object_pair_layer_sizes=[32], combined_object_layer_sizes=[32]),
         models.TransformerModel: dict(embedding_size=8, transformer_mlp_sizes=[8], mlp_sizes=[32]),
         models.CNNModel: dict(conv_sizes=[16, 16], conv_output_size=256),
         models.FixedCNNModel: dict(conv_sizes=[6, 6], conv_output_size=96, mlp_sizes=[16, 16],),
     },
-    LARGER_MODEL_CONFIG_KEY: {
+    LARGER_MODELS_CONFIG_KEY: {
         models.CombinedObjectMLPModel: dict(embedding_size=16, prediction_sizes=[64, 32, 16]),
         models.RelationNetModel: dict(embedding_size=16, object_pair_layer_sizes=[64, 32],
                                       combined_object_layer_sizes=[64, 32]),
@@ -131,7 +131,7 @@ parser.add_argument('--wandb-omit-watch', action='store_true')
 
 # Handling fields with multiple potential options
 MULTIPLE_OPTION_FIELD_DEFAULTS = {
-    'model_configuration': [DEFAULT_MODEL_CONFIG_KEY],
+    'model_configuration': [DEFAULT_MODELS_CONFIG_KEY],
     'dataset_size': [DEFAULT_DATASET_SIZE],
     'num_objects': [DEFAULT_NUM_OBJECTS],
     'relation': list(RELATION_NAMES_TO_CLASSES.keys()),
