@@ -154,15 +154,15 @@ class MinimalSpatialDataset(MinimalDataset):
                               for index in position_indices]
 
             if len(position_lists) == 1:
-                spatial_objects[ex_index, :, position_lists[0]] = self.objects[ex_index].transpose(0, 1).unsqueeze(-1)
+                spatial_objects[ex_index, :, position_lists[0]] = self.objects[ex_index].transpose(0, 1)  #.unsqueeze(-1)
 
             elif len(position_lists) == 2:
                 spatial_objects[ex_index, :, position_lists[0],
-                                position_lists[1]] = self.objects[ex_index].transpose(0, 1).unsqueeze(-1)
+                                position_lists[1]] = self.objects[ex_index].transpose(0, 1)  #.unsqueeze(-1)
 
             elif len(position_lists) == 3:
                 spatial_objects[ex_index, :, position_lists[0], position_lists[1],
-                                position_lists[2]] = self.objects[ex_index].transpose(0, 1).unsqueeze(-1)
+                                position_lists[2]] = self.objects[ex_index].transpose(0, 1)  #.unsqueeze(-1)
 
         self.spatial_objects = spatial_objects
 
