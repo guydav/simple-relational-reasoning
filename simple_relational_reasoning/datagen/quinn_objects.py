@@ -153,6 +153,12 @@ class MinimalSpatialDataset(MinimalDataset):
             position_lists = [self.objects[ex_index, :, index].long()
                               for index in position_indices]
 
+            if torch.any(position_lists[0] > 24) or torch.any(position_lists[1] > 24) or self.objects[ex_index].max() > 24:
+                print('*' * 33 + ' FOUND ' + '*' * 33)
+                print(self.objects[ex_index])
+                print(position_lists[0])
+                print(position_lists[1])
+
             if len(position_lists) == 1:
                 spatial_objects[ex_index, :, position_lists[0]] = self.objects[ex_index].transpose(0, 1)  #.unsqueeze(-1)
 

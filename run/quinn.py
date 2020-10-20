@@ -100,7 +100,7 @@ def map_args_to_suffix(args):
     suffix_components.append(args.use_object_size and 'with-object-size' or 'without-object-size')
     suffix_components.append(args.add_neither_train and 'with-neither' or 'without-neither')
 
-    args.wandb_wandb_project_suffix = '-'.join(suffix_components)
+    args.wandb_project_suffix = '-'.join(suffix_components)
 
 
 def create_dataset(args):
@@ -113,8 +113,8 @@ def create_dataset(args):
                                               args.target_object_length, args.n_reference_object_types,
                                               args.n_train_target_object_types, args.n_test_target_object_types)
     # TODO: create dataset from paradigm and relation
-    if args.paradigm == 'inductive_bias':
-        if args.relation == 'above_below':
+    if args.paradigm == INDUCTIVE_BIAS_PARADIGM:
+        if args.relation == ABOVE_BELOW_RELATION:
             dataset_class = AboveBelowReferenceInductiveBias
 
         else:  # args.relation == 'between
@@ -136,7 +136,7 @@ def create_dataset(args):
     else:  # args.paradigm == 'one_or_two_references':
         dataset = OneOrTwoReferenceObjects(
             object_generator, args.x_max, args.y_max, args.seed,
-            between_relation=args.relation == 'between',
+            between_relation=args.relation == BETWEEN_RELATION,
             two_reference_objects=args.two_reference_objects,
             add_neither_train=args.add_neither_train,
             prop_train_target_object_locations=args.prop_train_target_object_locations,
