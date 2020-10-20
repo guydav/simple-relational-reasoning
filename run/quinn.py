@@ -180,6 +180,9 @@ def main():
         # hack to make sure I don't run a particular case that doesn't make sense
         args_copy.add_neither_test = args_copy.add_neither_train
 
+        if not args_copy.monitor_key.endswith('_loss'):
+            args_copy.monitor_key += '_loss'
+
         run_single_setting_all_models(args_copy)
 
 

@@ -76,15 +76,11 @@ class BaseObjectModel(pl.LightningModule):
 
         return {'loss': self.loss(preds, target), 'acc': self._compute_accuracy(target, preds)}
 
-    def validation_step(self, batch, batch_idx, dataloader_idx=0):
+    def validation_step(self, batch, batch_idx, dataloader_idx=None):
         data, target = batch
         preds = self.forward(data)
-
-        if dataloader_idx is None:
-            dataloader_idx = 0
-
-        loss_key = f'loss{dataloader_idx is not None and dataloader_idx or ""}'
-        acc_key = f'acc{dataloader_idx is not None and dataloader_idx or ""}'
+        loss_key = f'loss{dataloader_idx if dataloader_idx is not None else ""}'
+        acc_key = f'acc{dataloader_idx if dataloader_idx is not None else ""}'
 
         return {loss_key: self.loss(preds, target), acc_key: self._compute_accuracy(target, preds)}
 
@@ -120,12 +116,13 @@ class BaseObjectModel(pl.LightningModule):
         return dict(log=(self._average_outputs(outputs, 'train', self.train_log_prefix)))
 
     def validation_epoch_end(self, outputs):
-        val_results = defaultdict(list)
+        val_results = defaultdict(defaultdict(list))
 
         for output_list in outputs:
             for output_dict in output_list:
                 for key, value  in output_dict.items():
-                    val_results[key].append(value)
+                    key_name, key_idx = key[:-1], int(key[-1])
+                    val_results[key_idx][key_name].append(value)
 
         print('********** TEST EPOCH END: **********')
         print([(key, len(self.dataset.get_test_datasets()[key]))
@@ -133,7 +130,16 @@ class BaseObjectModel(pl.LightningModule):
         print('********** TEST EPOCH END: **********')
         print([(key, len(val_results[key])) for key in val_results])
         print('********** TEST EPOCH END: **********')
-        return dict(log=(self._average_outputs(outputs, 'test', self.test_log_prefix)))
+
+        log_dict = {}
+
+        for i, test_set_name in enumerate(sorted(self.dataset.get_test_datasets().keys())):
+            log_dict.update(self._average_outputs(val_results[i], test_set_name))
+
+        print(log_dict)
+        print('********** TEST EPOCH END: **********')
+
+        return dict(log=log_dict)
 
     # def test_epoch_end(self, outputs):
     #     print('********** TEST EPOCH END: **********')
