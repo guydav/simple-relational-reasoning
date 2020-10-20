@@ -128,13 +128,14 @@ class BaseObjectModel(pl.LightningModule):
         print([(key, len(self.dataset.get_test_datasets()[key]))
                 for key in sorted(self.dataset.get_test_datasets().keys())])
         print('********** TEST EPOCH END: **********')
-        print([(key, len(val_results[key])) for key in val_results])
+        print(val_results)
         print('********** TEST EPOCH END: **********')
 
         log_dict = {}
 
         for i, test_set_name in enumerate(sorted(self.dataset.get_test_datasets().keys())):
-            log_dict.update(self._average_outputs(val_results[i], test_set_name))
+            log_dict.update({f'{test_set_name}_{key}': torch.stack(val_results[i][key]).mean()
+                            for key in val_results[i]})
 
         print(log_dict)
         print('********** TEST EPOCH END: **********')
