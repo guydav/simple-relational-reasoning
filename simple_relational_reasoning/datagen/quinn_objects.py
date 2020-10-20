@@ -153,30 +153,30 @@ class MinimalSpatialDataset(MinimalDataset):
             position_lists = [self.objects[ex_index, :, index].long()
                               for index in position_indices]
 
-            if torch.any(position_lists[0] > 24) or torch.any(position_lists[1] > 24) or self.objects[ex_index].max() > 24:
-                print('*' * 33 + ' FOUND ' + '*' * 33)
-                print(self.objects[ex_index])
-                print(position_lists[0])
-                print(position_lists[1])
+            # if torch.any(position_lists[0] > 24) or torch.any(position_lists[1] > 24) or self.objects[ex_index].max() > 24:
+                # print('*' * 33 + ' FOUND ' + '*' * 33)
+                # print(self.objects[ex_index])
+                # print(position_lists[0])
+                # print(position_lists[1])
 
             if len(position_lists) == 1:
                 spatial_objects[ex_index, :, position_lists[0]] = self.objects[ex_index].transpose(0, 1)  #.unsqueeze(-1)
 
             elif len(position_lists) == 2:
-                try:
-                    spatial_objects[ex_index, :, position_lists[0],
-                                    position_lists[1]] = self.objects[ex_index].transpose(0, 1)  #.unsqueeze(-1)
-                except IndexError as e:
-                    print('OBJECTS:')
-                    print(self.objects[ex_index])
-                    print('POSITION LISTS:')
-                    print(position_lists[0])
-                    print(position_lists[1])
-                    print('VALUES:')
-                    print(self.objects[ex_index].transpose(0, 1))
-                    print('MAXES:')
-                    print([x.max() for x in (position_lists[0], position_lists[1], self.objects[ex_index])])
-                    raise e
+                # try:
+                spatial_objects[ex_index, :, position_lists[0],
+                                position_lists[1]] = self.objects[ex_index].transpose(0, 1)  #.unsqueeze(-1)
+                # except IndexError as e:
+                #     print('OBJECTS:')
+                #     print(self.objects[ex_index])
+                #     print('POSITION LISTS:')
+                #     print(position_lists[0])
+                #     print(position_lists[1])
+                #     print('VALUES:')
+                #     print(self.objects[ex_index].transpose(0, 1))
+                #     print('MAXES:')
+                #     print([x.max() for x in (position_lists[0], position_lists[1], self.objects[ex_index])])
+                #     raise e
 
 
             elif len(position_lists) == 3:
@@ -207,6 +207,10 @@ class QuinnDatasetGenerator:
         self.add_neither_test = add_neither_test
 
         self.prop_train_reference_object_locations = prop_train_reference_object_locations
+
+        if reference_object_x_margin is None:
+            reference_object_x_margin = 0
+
         self.reference_object_x_margin = reference_object_x_margin
         self.reference_object_y_margin_bottom = reference_object_y_margin_bottom
         self.reference_object_y_margin_top = reference_object_y_margin_top
@@ -264,10 +268,10 @@ class ReferenceInductiveBias(QuinnDatasetGenerator):
                  n_train_target_object_locations=None, prop_train_reference_object_locations=0.8,
                  reference_object_x_margin=0, reference_object_y_margin_bottom=None,
                  reference_object_y_margin_top=None, add_neither_test=False, spatial_dataset=False):
-        if reference_object_y_margin_bottom is None:
+        if reference_object_y_margin_bottom is None or reference_object_y_margin_bottom < target_object_grid_size:
             reference_object_y_margin_bottom = target_object_grid_size
 
-        if reference_object_y_margin_top is None:
+        if reference_object_y_margin_top is None or reference_object_y_margin_top < target_object_grid_size:
             reference_object_y_margin_top = target_object_grid_size
 
         super(ReferenceInductiveBias, self).__init__(
@@ -514,12 +518,12 @@ class OneOrTwoReferenceObjects(QuinnDatasetGenerator):
                  reference_object_y_margin_bottom=None, reference_object_y_margin_top=None, add_neither_test=False,
                  spatial_dataset=False):
 
-        if reference_object_y_margin_bottom is None:
+        if reference_object_y_margin_bottom is None or reference_object_y_margin_bottom < reference_object_gap:
             reference_object_y_margin_bottom = reference_object_gap
 
-        min_y_margin = 2 * reference_object_gap + 1
-        if reference_object_y_margin_top is None or reference_object_y_margin_top < min_y_margin:
-            reference_object_y_margin_top = min_y_margin
+        min_y_margin_top = 2 * reference_object_gap + 1
+        if reference_object_y_margin_top is None or reference_object_y_margin_top < min_y_margin_top:
+            reference_object_y_margin_top = min_y_margin_top
 
         super(OneOrTwoReferenceObjects, self).__init__(
             object_generator=object_generator, x_max=x_max, y_max=y_max, seed=seed,
