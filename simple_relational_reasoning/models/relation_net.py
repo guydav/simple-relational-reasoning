@@ -15,10 +15,10 @@ class RelationNetModel(BaseObjectModel):
                  object_pair_layer_activation_class=nn.ReLU,
                  combined_object_layer_sizes=DEFAULT_COMBINED_OBJECT_LAYER_SIZES,
                  combined_object_layer_activation_class=nn.ReLU, combined_object_dropout=True,
-                 output_size=2, output_activation_class=None,
-                 loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
+                 output_activation_class=None, loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
                  batch_size=32, train_log_prefix=None, validation_log_prefix=None, test_log_prefix=None):
-        super(RelationNetModel, self).__init__(dataset, loss=loss, optimizer_class=optimizer_class,
+        super(RelationNetModel, self).__init__(dataset, loss=loss,
+                                               optimizer_class=optimizer_class,
                                                lr=lr, batch_size=batch_size, train_log_prefix=train_log_prefix,
                                                validation_log_prefix=validation_log_prefix,
                                                test_log_prefix=test_log_prefix)

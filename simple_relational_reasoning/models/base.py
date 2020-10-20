@@ -35,6 +35,7 @@ class BaseObjectModel(pl.LightningModule):
         sample_input_shape = self.dataset.get_training_dataset().objects[0].shape
         self.object_size = sample_input_shape[1]
         self.num_objects = sample_input_shape[0]
+        self.output_size = len(self.dataset.get_training_dataset().labels.unique())
 
         self.loss = loss
         self.optimizer_class = optimizer_class
