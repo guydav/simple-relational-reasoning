@@ -92,8 +92,8 @@ parser.add_argument('--reference-object-y-margin-top', type=int, default=DEFAULT
                     help='Top vertical margin to allow between the reference object and the edge of the canvas')
 
 
-DEFAULT_MONITOR_KEY = TEST_REFERENCE_TEST_TARGET
-parser.add_argument('--monitor-key', type=str, default=DEFAULT_MONITOR_KEY,
+DEFAULT_EARLY_STOPPING_MONITOR_KEY = TEST_REFERENCE_TEST_TARGET
+parser.add_argument('--early-stopping-monitor-key', type=str, default=DEFAULT_EARLY_STOPPING_MONITOR_KEY,
                     help='Which key to monitor for validation/test stopping')
 
 
