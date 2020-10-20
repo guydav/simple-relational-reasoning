@@ -65,11 +65,11 @@ parser.add_argument('--x_max', type=int, default=DEFAULT_X_MAX, help='Canvas X s
 DEFAULT_Y_MAX = -1
 parser.add_argument('--y_max', type=int, default=DEFAULT_Y_MAX, help='Canvas Y size')
 
-DEFAULT_ADD_NEITHER_TRAIN = True
+DEFAULT_ADD_NEITHER_TRAIN = None
 parser.add_argument('--add-neither-train', type=int, default=DEFAULT_ADD_NEITHER_TRAIN,
                     help='Add examples of neither (off to the side) in the training set')
 
-DEFAULT_ADD_NEITHER_TEST = False
+DEFAULT_ADD_NEITHER_TEST = None
 parser.add_argument('--add-neither-test', type=int, default=DEFAULT_ADD_NEITHER_TEST,
                     help='Add examples of neither (off to the side) in the test set(s)')
 
@@ -228,7 +228,7 @@ MULTIPLE_OPTION_REWRITE_FIELDS.remove('model')  # intentionally no rewrite the m
 def handle_multiple_option_defaults(args):
     var_args = vars(args)
     for key in MULTIPLE_OPTION_FIELD_DEFAULTS:
-        if key not in var_args or var_args[key] is None or len(var_args[key]) == 0:
+        if key not in var_args or var_args[key] is None or (hasattr(var_args[key], '__len__') and len(var_args[key]) == 0):
             var_args[key] = MULTIPLE_OPTION_FIELD_DEFAULTS[key]
 
         elif not hasattr(var_args[key], '__len__'):
