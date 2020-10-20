@@ -69,13 +69,17 @@ class BaseObjectModel(pl.LightningModule):
     def configure_optimizers(self):
         return self.optimizer_class(self.parameters(), self.lr)
 
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch, batch_idx, dataloader_idx=None):
         data, target = batch
         preds = self.forward(data)
-        return dict(loss=self.loss(preds, target), acc=self._compute_accuracy(target, preds))
 
-    def validation_step(self, batch, batch_idx):
-        return self.training_step(batch, batch_idx)
+        loss_key = f'loss{dataloader_idx and dataloader_idx or ""}'
+        acc_key = f'acc{dataloader_idx and dataloader_idx or ""}'
+
+        return {loss_key: self.loss(preds, target), acc_key: self._compute_accuracy(target, preds)}
+
+    def validation_step(self, batch, batch_idx, dataloader_idx=None):
+        return self.training_step(batch, batch_idx, dataloader_idx)
 
     # def test_step(self, batch, batch_idx):
     #     return self.training_step(batch, batch_idx)
