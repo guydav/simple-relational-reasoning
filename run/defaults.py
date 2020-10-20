@@ -66,7 +66,7 @@ MODEL_CONFIGURATIONS = {
         models.RelationNetModel: dict(embedding_size=8, object_pair_layer_sizes=[32], combined_object_layer_sizes=[32]),
         models.TransformerModel: dict(embedding_size=8, transformer_mlp_sizes=[8], mlp_sizes=[32]),
         models.CNNModel: dict(conv_sizes=[16, 16], conv_output_size=256),
-        models.FixedCNNModel: dict(conv_sizes=[6, 6], conv_output_size=96, mlp_sizes=[16, 16],),
+        # models.FixedCNNModel: dict(conv_sizes=[6, 6], conv_output_size=96, mlp_sizes=[16, 16],),
     },
     LARGER_MODELS_CONFIG_KEY: {
         models.CombinedObjectMLPModel: dict(embedding_size=16, prediction_sizes=[64, 32, 16]),
@@ -75,7 +75,7 @@ MODEL_CONFIGURATIONS = {
         models.TransformerModel: dict(embedding_size=16, num_transformer_layers=2, num_heads=2,
                                       transformer_mlp_sizes=[32, 16], mlp_sizes=[64, 32]),
         models.CNNModel: dict(conv_sizes=[8, 12, 16], conv_output_size=64, mlp_sizes=[32, 32, 32],),
-        models.FixedCNNModel: dict(conv_sizes=[6, 6], conv_output_size=96, mlp_sizes=[16, 16],),
+        # models.FixedCNNModel: dict(conv_sizes=[6, 6], conv_output_size=96, mlp_sizes=[16, 16],),
     }
 }
 parser.add_argument('--model-configuration', type=str, action='append', choices=list(MODEL_CONFIGURATIONS.keys()),

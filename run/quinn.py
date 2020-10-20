@@ -25,7 +25,14 @@ def run_single_setting_all_models(args):
     for k, v in vars(args).items():
         print(' ' * 26 + k + ': ' + str(v))
 
-    # TODO: for each model configuration
+    # adjust the limits based on the paradigm
+    if args.x_max == DEFAULT_X_MAX:
+        args.x_max = PARADIGM_CANVAS_SIZES[args.paradigm]['x_max']
+
+    if args.y_max == DEFAULT_Y_MAX:
+        args.y_max = PARADIGM_CANVAS_SIZES[args.paradigm]['y_max']
+
+    # TODO: for each model
     model_configurations = MODEL_CONFIGURATIONS[args.model_configuration]
 
     for model_class, model_kwargs in model_configurations.items():
@@ -35,7 +42,7 @@ def run_single_setting_all_models(args):
             continue
 
         args.model_name = model_class_name
-        args.spatial_dataset = 'cnn' in args.model_name
+        args.spatial_dataset = 'cnn' in args.model_name.lower()
         object_generator, dataset = create_dataset(args)
 
         # TODO: add in learning rate, batch size, dataset size to the per-model kwargs
@@ -44,13 +51,14 @@ def run_single_setting_all_models(args):
         model_kwargs['batch_size'] = args.batch_size
 
         # TODO: create wandb project name
+        map_args_to_suffix(args)
         args.wandb_project = f'{args.paradigm}-{args.relation}-{args.model_configuration}-models{"-" if args.wandb_project_suffix else ""}{args.wandb_project_suffix}'
 
         # TODO: create wandb run with name appropriate for model and random seed
         args.wandb_run_name = f'{model_class_name}-{args.seed}'
 
         # TODO: create model
-        model = model_class(object_generator, **model_kwargs)
+        model = model_class(dataset, **model_kwargs)
         args.use_gpu = int(torch.cuda.is_available())
         args.total_params = sum(p.numel() for p in model.parameters())
         print(f'For {model_class.__name__} there are {args.total_params} total parameters')
@@ -85,6 +93,17 @@ def run_single_setting_all_models(args):
         #     del run
 
 
+def map_args_to_suffix(args):
+    if args.wandb_project_suffix:
+        return
+
+    suffix_components = list()
+    suffix_components.append(args.use_object_size and 'with-object-size' or 'without-object-size')
+    suffix_components.append(args.add_neither_train and 'with-neither' or 'without-neither')
+
+    args.wandb_wandb_project_suffix = '-'.join(suffix_components)
+
+
 def create_dataset(args):
     # TODO: create object generator
     if args.use_object_size:
@@ -103,21 +122,33 @@ def create_dataset(args):
             dataset_class = BetweenReferenceInductiveBias
 
         dataset = dataset_class(
-            object_generator, args.x_max, args.y_max, args.seed, args.target_object_grid_size,
-            args.add_neither_train, args.above_or_between_left,
-            args.n_train_target_object_locations, args.prop_train_reference_object_locations,
-            args.reference_object_x_margin, args.reference_object_bottom_y_margin,
-            args.reference_object_top_y_margin, args.add_neither_test, args.spatial_dataset
+            object_generator, args.x_max, args.y_max, args.seed,
+            target_object_grid_size=args.target_object_grid_size,
+            add_neither_train=args.add_neither_train,
+            above_or_between_left=args.above_or_between_left,
+            n_train_target_object_locations=args.n_train_target_object_locations,
+            prop_train_reference_object_locations=args.prop_train_reference_object_locations,
+            reference_object_x_margin=args.reference_object_x_margin,
+            reference_object_y_margin_bottom=args.reference_object_y_margin_bottom,
+            reference_object_y_margin_top=args.reference_object_y_margin_top,
+            add_neither_test=args.add_neither_test, spatial_dataset=args.spatial_dataset
         )
 
     else:  # args.paradigm == 'one_or_two_references':
         dataset = OneOrTwoReferenceObjects(
-            object_generator, args.x_max, args.y_max, args.seed, args.relation == 'between',
-            args.two_reference_object, args.add_neither_train, args.above_or_between_left,
-            args.n_train_target_object_locations, args.prop_train_reference_object_locations,
-            args.reference_object_x_margin, args.reference_object_bottom_y_margin,
-            args.reference_object_top_y_margin, args.add_neither_test, args.spatial_dataset
+            object_generator, args.x_max, args.y_max, args.seed,
+            between_relation=args.relation == 'between',
+            two_reference_objects=args.two_reference_objects,
+            add_neither_train=args.add_neither_train,
+            prop_train_target_object_locations=args.prop_train_target_object_locations,
+            prop_train_reference_object_locations=args.prop_train_reference_object_locations,
+            reference_object_gap=args.reference_object_gap,
+            reference_object_x_margin=args.reference_object_x_margin,
+            reference_object_y_margin_bottom=args.reference_object_y_margin_bottom,
+            reference_object_y_margin_top=args.reference_object_y_margin_top,
+            add_neither_test=args.add_neither_test, spatial_dataset=args.spatial_dataset
         )
+
     return object_generator, dataset
 
 
@@ -148,8 +179,7 @@ def main():
                                                                value_combination)})
 
         # hack to make sure I don't run a particular case that doesn't make sense
-        if not args_copy.add_neither_train and args_copy.add_neither_test:
-            continue
+        args_copy.add_neither_test = args_copy.add_neither_train
 
         run_single_setting_all_models(args_copy)
 

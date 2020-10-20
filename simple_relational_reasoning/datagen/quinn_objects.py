@@ -174,8 +174,8 @@ class MinimalSpatialDataset(MinimalDataset):
 
 
 class QuinnDatasetGenerator:
-    def __init__(self, object_generator, x_max, y_max, seed, add_neither_train=True, add_neither_test=False,
-                 prop_train_reference_object_locations=0.8,
+    def __init__(self, object_generator, x_max, y_max, seed, *,
+                 add_neither_train=True, add_neither_test=False, prop_train_reference_object_locations=0.8,
                  reference_object_x_margin=0, reference_object_y_margin_bottom=0, reference_object_y_margin_top=0,
                  spatial_dataset=False):
         self.object_generator = object_generator
@@ -240,8 +240,8 @@ TEST_REFERENCE_MIDDLE_TARGET = 'test_reference_middle_target'
 
 
 class ReferenceInductiveBias(QuinnDatasetGenerator):
-    def __init__(self, object_generator, x_max, y_max, seed, target_object_grid_size=3,
-                 add_neither_train=True, above_or_between_left=None,
+    def __init__(self, object_generator, x_max, y_max, seed, *,
+                 target_object_grid_size=3, add_neither_train=True, above_or_between_left=None,
                  n_train_target_object_locations=None, prop_train_reference_object_locations=0.8,
                  reference_object_x_margin=0, reference_object_y_margin_bottom=None,
                  reference_object_y_margin_top=None, add_neither_test=False, spatial_dataset=False):
@@ -302,7 +302,7 @@ class ReferenceInductiveBias(QuinnDatasetGenerator):
                 self.train_reference_object_locations, self.test_target_object_locations, train=False)
 
             self.test_datasets[TRAIN_REFERENCE_MIDDLE_TARGET] = self._create_middle_dataset(
-                self.train_target_object_locations)
+                self.train_reference_object_locations, self.middle_target_object_locations)
 
             self.test_datasets[TEST_REFERENCE_TRAIN_TARGET] = self._create_left_right_dataset(
                 self.test_reference_object_locations, self.train_target_object_locations, train=False)
@@ -311,14 +311,14 @@ class ReferenceInductiveBias(QuinnDatasetGenerator):
                 self.test_reference_object_locations, self.test_target_object_locations, train=False)
 
             self.test_datasets[TEST_REFERENCE_MIDDLE_TARGET] = self._create_middle_dataset(
-                self.test_target_object_locations)
+                self.test_reference_object_locations, self.middle_target_object_locations)
 
         return self.test_datasets
 
 
 class AboveBelowReferenceInductiveBias(ReferenceInductiveBias):
-    def __init__(self, object_generator, x_max, y_max, seed, target_object_grid_size=3,
-                 add_neither_train=True, above_or_between_left=None,
+    def __init__(self, object_generator, x_max, y_max, seed, *,
+                 target_object_grid_size=3, add_neither_train=True, above_or_between_left=None,
                  n_train_target_object_locations=None, prop_train_reference_object_locations=0.8,
                  reference_object_x_margin=0, reference_object_y_margin_bottom=None,
                  reference_object_y_margin_top=None, add_neither_test=False, spatial_dataset=False):
@@ -389,8 +389,8 @@ class AboveBelowReferenceInductiveBias(ReferenceInductiveBias):
 
 
 class BetweenReferenceInductiveBias(ReferenceInductiveBias):
-    def __init__(self, object_generator, x_max, y_max, seed, target_object_grid_size=3,
-                 add_neither_train=True, above_or_between_left=None,
+    def __init__(self, object_generator, x_max, y_max, seed, *,
+                 target_object_grid_size=3, add_neither_train=True, above_or_between_left=None,
                  n_train_target_object_locations=None, prop_train_reference_object_locations=0.8,
                  reference_object_x_margin=0, reference_object_y_margin_bottom=None,
                  reference_object_y_margin_top=None, add_neither_test=False, spatial_dataset=False):
@@ -488,11 +488,12 @@ class BetweenReferenceInductiveBias(ReferenceInductiveBias):
 
 
 class OneOrTwoReferenceObjects(QuinnDatasetGenerator):
-    def __init__(self, object_generator, x_max, y_max, seed, between_relation=False,
-                 two_reference_objects=None, add_neither_train=True,
-                 prop_train_reference_object_locations=0.8, prop_train_target_object_locations=0.5,
-                 reference_object_gap=3, reference_object_x_margin=0, reference_object_y_margin_bottom=None,
-                 reference_object_y_margin_top=None, add_neither_test=False, spatial_dataset=False):
+    def __init__(self, object_generator, x_max, y_max, seed, *,
+                 between_relation=False, two_reference_objects=None,
+                 add_neither_train=True, prop_train_target_object_locations=0.5,
+                 prop_train_reference_object_locations=0.8, reference_object_gap=3, reference_object_x_margin=0,
+                 reference_object_y_margin_bottom=None, reference_object_y_margin_top=None, add_neither_test=False,
+                 spatial_dataset=False):
 
         if reference_object_y_margin_bottom is None:
             reference_object_y_margin_bottom = reference_object_gap
