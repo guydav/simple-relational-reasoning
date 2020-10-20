@@ -10,7 +10,7 @@ DEFAULT_MLP_SIZES = [32, 32]
 
 
 class CNNModel(BaseObjectModel):
-    def __init__(self, dataset, conv_output_size,
+    def __init__(self, dataset,
                  conv_sizes=DEFAULT_CONV_SIZES, conv_activation_class=nn.ReLU,
                  conv_kernel_size=3, conv_stride=1, conv_padding=1,
                  mlp_sizes=DEFAULT_MLP_SIZES, mlp_activation_class=nn.ReLU,
@@ -52,9 +52,11 @@ class CNNModel(BaseObjectModel):
             # TODO: normalization? pooling?
             conv_input_size = size
 
+        # remove the last pooling layer to replace it with an average pool, to get some degree of invariance
+        conv_layers[-1] = nn.AdaptiveAvgPool2d((1, 1))
         self.conv_module = nn.Sequential(*conv_layers)
 
-        mlp_input_size = conv_output_size
+        mlp_input_size = conv_sizes[-1]
         mlp_layers = []
         for size in mlp_sizes:
             mlp_layers.append(nn.Linear(mlp_input_size, size))
@@ -79,7 +81,3 @@ class CNNModel(BaseObjectModel):
         x = x.view(x.shape[0], -1)
         x = self.mlp_module(x)
         return self.output_activation(self.output_layer(x))
-
-
-class FixedCNNModel(CNNModel):
-    pass
