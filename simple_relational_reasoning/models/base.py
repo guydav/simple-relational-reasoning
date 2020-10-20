@@ -124,12 +124,12 @@ class BaseObjectModel(pl.LightningModule):
                     key_name, key_idx = key[:-1], int(key[-1])
                     val_results[key_idx][key_name].append(value)
 
-        print('********** TEST EPOCH END: **********')
-        print([(key, len(self.dataset.get_test_datasets()[key]))
-                for key in sorted(self.dataset.get_test_datasets().keys())])
-        print('********** TEST EPOCH END: **********')
-        print(val_results)
-        print('********** TEST EPOCH END: **********')
+        # print('********** TEST EPOCH END: **********')
+        # print([(key, len(self.dataset.get_test_datasets()[key]))
+        #         for key in sorted(self.dataset.get_test_datasets().keys())])
+        # print('********** TEST EPOCH END: **********')
+        # print(val_results)
+        # print('********** TEST EPOCH END: **********')
 
         log_dict = {}
 
@@ -137,8 +137,8 @@ class BaseObjectModel(pl.LightningModule):
             log_dict.update({f'{test_set_name}_{key}': torch.stack(val_results[i][key]).mean()
                             for key in val_results[i]})
 
-        print(log_dict)
-        print('********** TEST EPOCH END: **********')
+        # print(log_dict)
+        # print('********** TEST EPOCH END: **********')
 
         return dict(log=log_dict)
 
