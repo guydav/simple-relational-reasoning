@@ -46,7 +46,6 @@ def run_single_setting_all_models(args):
         object_generator, dataset = create_dataset(args)
 
         # TODO: add in learning rate, batch size, dataset size to the per-model kwargs
-        model_kwargs['dataset'] = dataset
         model_kwargs['lr'] = args.learning_rate
         model_kwargs['batch_size'] = args.batch_size
 
