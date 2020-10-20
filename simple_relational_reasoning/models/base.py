@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from collections import defaultdict
 from enum import Enum, auto
 
 import torch
@@ -73,10 +74,11 @@ class BaseObjectModel(pl.LightningModule):
         data, target = batch
         preds = self.forward(data)
 
-        loss_key = f'loss{dataloader_idx and dataloader_idx or ""}'
-        acc_key = f'acc{dataloader_idx and dataloader_idx or ""}'
+        loss_key = f'loss{dataloader_idx is not None and dataloader_idx or ""}'
+        acc_key = f'acc{dataloader_idx is not None and dataloader_idx or ""}'
 
         return {loss_key: self.loss(preds, target), acc_key: self._compute_accuracy(target, preds)}
+
 
     def validation_step(self, batch, batch_idx, dataloader_idx=None):
         return self.training_step(batch, batch_idx, dataloader_idx)
@@ -113,12 +115,15 @@ class BaseObjectModel(pl.LightningModule):
         return dict(log=(self._average_outputs(outputs, 'train', self.train_log_prefix)))
 
     def validation_epoch_end(self, outputs):
+        val_results = defaultdict(list)
+
+        for output_list in outputs:
+            for output_dict in output_list:
+                for key, value  in output_dict.items():
+                    val_results[key].append(value)
+
         print('********** TEST EPOCH END: **********')
-        print(outputs)
-        print('********** TEST EPOCH END: **********')
-        print([len(output_arr) for output_arr in outputs])
-        print([output_arr.shape for output_arr in outputs])
-        print('********** TEST EPOCH END: **********')
+        print(val_results)
         return dict(log=(self._average_outputs(outputs, 'test', self.test_log_prefix)))
 
     # def test_epoch_end(self, outputs):
