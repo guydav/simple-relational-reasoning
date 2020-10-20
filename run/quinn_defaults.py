@@ -83,11 +83,11 @@ DEFAULT_REFERENCE_OBJECT_X_MARGIN = 0
 parser.add_argument('--reference-object-x-margin', type=int, default=DEFAULT_REFERENCE_OBJECT_X_MARGIN,
                     help='Horizontal margin to allow between the reference object and the edge of the canvas')
 
-DEFAULT_REFERENCE_OBJECT_Y_MARGIN_BOTTOM = 0
+DEFAULT_REFERENCE_OBJECT_Y_MARGIN_BOTTOM = None
 parser.add_argument('--reference-object-y-margin-bottom', type=int, default=DEFAULT_REFERENCE_OBJECT_Y_MARGIN_BOTTOM,
                     help='Bottom vertical margin to allow between the reference object and the edge of the canvas')
 
-DEFAULT_REFERENCE_OBJECT_Y_MARGIN_TOP = 0
+DEFAULT_REFERENCE_OBJECT_Y_MARGIN_TOP = None
 parser.add_argument('--reference-object-y-margin-top', type=int, default=DEFAULT_REFERENCE_OBJECT_Y_MARGIN_TOP,
                     help='Top vertical margin to allow between the reference object and the edge of the canvas')
 
