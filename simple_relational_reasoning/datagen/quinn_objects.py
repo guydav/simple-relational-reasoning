@@ -227,7 +227,7 @@ class QuinnDatasetGenerator:
 
     def _create_dataset(self, objects, labels):
         if self.spatial_dataset:
-            return MinimalSpatialDataset(objects, labels)
+            return MinimalSpatialDataset(objects, labels, self.x_max, self.y_max)
 
         return MinimalDataset(objects, labels)
 
