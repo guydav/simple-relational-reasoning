@@ -70,9 +70,9 @@ def run_single_setting_all_models(args):
         # logger.experiment creates and returns the wandb run
         wandb.save(os.path.join(logger.experiment.dir, '*.ckpt'))
 
-        checkpoint_callback = ModelCheckpoint(filepath=os.path.join(wandb.run.dir, f'{args.wandb_run_name}-{{epoch:d}}-{{val_loss:.3f}}'),
-                                              save_top_k=1, verbose=True, monitor='val_loss', mode='min')
-        early_stopping_callback = EarlyStopping('val_loss', patience=args.patience_epochs, verbose=True,
+        checkpoint_callback = ModelCheckpoint(filepath=os.path.join(wandb.run.dir, f'{args.wandb_run_name}-{{epoch:d}}-{{test_loss:.3f}}'),
+                                              save_top_k=1, verbose=True, monitor='test_loss', mode='min')
+        early_stopping_callback = EarlyStopping('test_loss', patience=args.patience_epochs, verbose=True,
                                                 min_delta=args.early_stopping_min_delta)
 
         # TODO: run with wandb logger
