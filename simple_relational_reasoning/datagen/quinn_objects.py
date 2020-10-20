@@ -163,8 +163,21 @@ class MinimalSpatialDataset(MinimalDataset):
                 spatial_objects[ex_index, :, position_lists[0]] = self.objects[ex_index].transpose(0, 1)  #.unsqueeze(-1)
 
             elif len(position_lists) == 2:
-                spatial_objects[ex_index, :, position_lists[0],
-                                position_lists[1]] = self.objects[ex_index].transpose(0, 1)  #.unsqueeze(-1)
+                try:
+                    spatial_objects[ex_index, :, position_lists[0],
+                                    position_lists[1]] = self.objects[ex_index].transpose(0, 1)  #.unsqueeze(-1)
+                except IndexError as e:
+                    print('OBJECTS:')
+                    print(self.objects[ex_index])
+                    print('POSITION LISTS:')
+                    print(position_lists[0])
+                    print(position_lists[1])
+                    print('VALUES:')
+                    print(self.objects[ex_index].transpose(0, 1))
+                    print('MAXES:')
+                    print([x.max() for x in (position_lists[0], position_lists[1], self.objects[ex_index])])
+                    raise e
+
 
             elif len(position_lists) == 3:
                 spatial_objects[ex_index, :, position_lists[0], position_lists[1],
