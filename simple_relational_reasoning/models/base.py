@@ -123,7 +123,10 @@ class BaseObjectModel(pl.LightningModule):
                     val_results[key].append(value)
 
         print('********** TEST EPOCH END: **********')
+        print(list(sorted(self.dataset.get_test_datasets().keys())))
+        print('********** TEST EPOCH END: **********')
         print(val_results)
+        print('********** TEST EPOCH END: **********')
         return dict(log=(self._average_outputs(outputs, 'test', self.test_log_prefix)))
 
     # def test_epoch_end(self, outputs):
