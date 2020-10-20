@@ -72,7 +72,7 @@ def run_single_setting_all_models(args):
 
         checkpoint_callback = ModelCheckpoint(filepath=os.path.join(wandb.run.dir, f'{args.wandb_run_name}-{{epoch:d}}-{{test_loss:.3f}}'),
                                               save_top_k=1, verbose=True, monitor='test_loss', mode='min')
-        early_stopping_callback = EarlyStopping('test_loss', patience=args.patience_epochs, verbose=True,
+        early_stopping_callback = EarlyStopping(args.early_stopping_monitor_key, patience=args.patience_epochs, verbose=True,
                                                 min_delta=args.early_stopping_min_delta)
 
         # TODO: run with wandb logger
@@ -180,8 +180,8 @@ def main():
         # hack to make sure I don't run a particular case that doesn't make sense
         args_copy.add_neither_test = args_copy.add_neither_train
 
-        if not args_copy.monitor_key.endswith('_loss'):
-            args_copy.monitor_key += '_loss'
+        if not args_copy.early_stopping_monitor_key.endswith('_loss'):
+            args_copy.early_stopping_monitor_key += '_loss'
 
         run_single_setting_all_models(args_copy)
 
