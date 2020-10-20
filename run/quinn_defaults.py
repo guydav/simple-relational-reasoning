@@ -5,6 +5,7 @@ import sys
 sys.path.append(os.path.abspath('..'))
 
 from simple_relational_reasoning import models
+from simple_relational_reasoning.datagen.quinn_objects import TEST_REFERENCE_TEST_TARGET
 
 
 parser = argparse.ArgumentParser()
@@ -89,6 +90,12 @@ parser.add_argument('--reference-object-y-margin-bottom', type=int, default=DEFA
 DEFAULT_REFERENCE_OBJECT_Y_MARGIN_TOP = 0
 parser.add_argument('--reference-object-y-margin-top', type=int, default=DEFAULT_REFERENCE_OBJECT_Y_MARGIN_TOP,
                     help='Top vertical margin to allow between the reference object and the edge of the canvas')
+
+
+DEFAULT_MONITOR_KEY = TEST_REFERENCE_TEST_TARGET
+parser.add_argument('--monitor-key', type=str, default=DEFAULT_MONITOR_KEY,
+                    help='Which key to monitor for validation/test stopping')
+
 
 # Paradigm-related arguments
 
