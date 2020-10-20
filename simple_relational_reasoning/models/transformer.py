@@ -148,7 +148,6 @@ class TransformerModel(BaseObjectModel):
             self.mlp_module = nn.Sequential(*mlp_layers)
 
         # Output/prediction layer from the transformer output
-        self.output_size = output_size
         self.output_layer = nn.Linear(mlp_input_size, self.output_size)
 
         if output_activation_class is None:
