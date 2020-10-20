@@ -7,11 +7,9 @@ from simple_relational_reasoning.models.base import BaseObjectModel, ObjectCombi
 class MLPModel(BaseObjectModel):
     def __init__(self, dataset, embedding_size, embedding_activation_class,
                  prediction_sizes=None, prediction_activation_class=None,
-                 output_size=2, output_activation_class=None,
-                 loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
-                 batch_size=32,
-                 train_log_prefix=None, validation_log_prefix=None, test_log_prefix=None):
-        super(MLPModel, self).__init__(dataset, loss=loss, optimizer_class=optimizer_class,
+                 output_activation_class=None, loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
+                 batch_size=32, train_log_prefix=None, validation_log_prefix=None, test_log_prefix=None):
+        super(MLPModel, self).__init__(dataset, oss=loss, optimizer_class=optimizer_class,
                                        lr=lr, batch_size=batch_size,
                                        train_log_prefix=train_log_prefix,
                                        validation_log_prefix=validation_log_prefix,
@@ -35,7 +33,6 @@ class MLPModel(BaseObjectModel):
             self.prediction_module = nn.Sequential(*prediction_layers)
             output_layer_input_size = in_size
 
-        self.output_size = output_size
         self.output_layer = nn.Linear(output_layer_input_size, self.output_size)
 
         if output_activation_class is None:

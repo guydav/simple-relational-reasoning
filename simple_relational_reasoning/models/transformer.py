@@ -102,8 +102,7 @@ class TransformerModel(BaseObjectModel):
                  transformer_mlp_sizes=TRANSFORMER_MLP_SIZES, transformer_mlp_activation_class=nn.ReLU,
                  transformer_mlp_activation_output=False, object_combiner=ObjectCombinationMethod.MEAN,
                  mlp_sizes=DEFAULT_MLP_SIZES, mlp_activation_class=nn.ReLU,
-                 output_size=2, output_activation_class=None,
-                 loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
+                 output_activation_class=None, loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
                  batch_size=32, train_log_prefix=None, validation_log_prefix=None, test_log_prefix=None):
 
         super(TransformerModel, self).__init__(object_generator, loss=loss, optimizer_class=optimizer_class,
