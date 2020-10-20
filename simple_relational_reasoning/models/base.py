@@ -74,8 +74,8 @@ class BaseObjectModel(pl.LightningModule):
         preds = self.forward(data)
         return dict(loss=self.loss(preds, target), acc=self._compute_accuracy(target, preds))
 
-    def validation_step(self, batch, batch_idx):
-        return self.training_step(batch, batch_idx)
+    # def validation_step(self, batch, batch_idx):
+    #     return self.training_step(batch, batch_idx)
 
     def test_step(self, batch, batch_idx):
         return self.training_step(batch, batch_idx)
@@ -105,11 +105,17 @@ class BaseObjectModel(pl.LightningModule):
     def training_epoch_end(self, outputs):
         return dict(log=(self._average_outputs(outputs, 'train', self.train_log_prefix)))
 
-    def validation_epoch_end(self, outputs):
-        return dict(log=(self._average_outputs(outputs, 'val', self.validation_log_prefix)))
+    # def validation_epoch_end(self, outputs):
+    #     return dict(log=(self._average_outputs(outputs, 'val', self.validation_log_prefix)))
 
     def test_epoch_end(self, outputs):
-        return dict(log=(self._average_outputs(outputs, 'test', self.test_log_prefix)))
+        print('********** TEST EPOCH END: **********')
+        print(outputs)
+        print('********** TEST EPOCH END: **********')
+        print([len(output_arr) for output_arr in outputs])
+        print([output_arr.shape for output_arr in outputs])
+        print('********** TEST EPOCH END: **********')
+        # return dict(log=(self._average_outputs(outputs, 'test', self.test_log_prefix)))
 
     # def on_epoch_start(self):
     #     if self.regenerate_every_epoch:
