@@ -116,7 +116,7 @@ class BaseObjectModel(pl.LightningModule):
         return dict(log=(self._average_outputs(outputs, 'train', self.train_log_prefix)))
 
     def validation_epoch_end(self, outputs):
-        val_results = defaultdict(defaultdict(list))
+        val_results = defaultdict(lambda: defaultdict(list))
 
         for output_list in outputs:
             for output_dict in output_list:
