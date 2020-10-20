@@ -74,14 +74,16 @@ class BaseObjectModel(pl.LightningModule):
         data, target = batch
         preds = self.forward(data)
 
+        return {'loss': self.loss(preds, target), 'acc': self._compute_accuracy(target, preds)}
+
+    def validation_step(self, batch, batch_idx, dataloader_idx=0):
+        data, target = batch
+        preds = self.forward(data)
+
         loss_key = f'loss{dataloader_idx is not None and dataloader_idx or ""}'
         acc_key = f'acc{dataloader_idx is not None and dataloader_idx or ""}'
 
         return {loss_key: self.loss(preds, target), acc_key: self._compute_accuracy(target, preds)}
-
-
-    def validation_step(self, batch, batch_idx, dataloader_idx=None):
-        return self.training_step(batch, batch_idx, dataloader_idx)
 
     # def test_step(self, batch, batch_idx):
     #     return self.training_step(batch, batch_idx)
@@ -123,7 +125,8 @@ class BaseObjectModel(pl.LightningModule):
                     val_results[key].append(value)
 
         print('********** TEST EPOCH END: **********')
-        print(list(sorted(self.dataset.get_test_datasets().keys())))
+        print([(key, len(self.dataset.get_test_datasets()[key]))
+                for key in sorted(self.dataset.get_test_datasets().keys())])
         print('********** TEST EPOCH END: **********')
         print(val_results)
         print('********** TEST EPOCH END: **********')
