@@ -68,7 +68,7 @@ def run_single_setting_all_models(args):
 
         # TODO: is this supposed to work without this hack?
         # logger.experiment creates and returns the wandb run
-        wandb.save(os.path.join(logger.experiment.dir, '*.ckpt'))
+        # wandb.save(os.path.join(logger.experiment.dir, '*.ckpt'))
 
         checkpoint_callback = ModelCheckpoint(filepath=os.path.join(wandb.run.dir, f'{args.wandb_run_name}-{{epoch:d}}-{{test_loss:.3f}}'),
                                               save_top_k=1, verbose=True, monitor=args.early_stopping_monitor_key, mode='min')
