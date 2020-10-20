@@ -50,8 +50,6 @@ class RelationNetModel(BaseObjectModel):
             combined_object_layers.append(nn.Dropout())
 
         self.combined_object_module = nn.Sequential(*combined_object_layers)
-
-        self.output_size = output_size
         self.output_layer = nn.Linear(in_size, self.output_size)
 
         if output_activation_class is None:

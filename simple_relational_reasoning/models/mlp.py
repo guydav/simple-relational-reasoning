@@ -54,10 +54,8 @@ class CombinedObjectMLPModel(BaseObjectModel):
                  embedding_size=None, embedding_activation_class=nn.ReLU,
                  object_combiner=ObjectCombinationMethod.MEAN,
                  prediction_sizes=None, prediction_activation_class=nn.ReLU,
-                 output_size=2, output_activation_class=None,
-                 loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
-                 batch_size=32,
-                 train_log_prefix=None, validation_log_prefix=None, test_log_prefix=None):
+                 output_activation_class=None, loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
+                 batch_size=32, train_log_prefix=None, validation_log_prefix=None, test_log_prefix=None):
         super(CombinedObjectMLPModel, self).__init__(dataset, loss=loss, optimizer_class=optimizer_class,
                                                      lr=lr, batch_size=batch_size,
                                                      train_log_prefix=train_log_prefix,
@@ -90,7 +88,6 @@ class CombinedObjectMLPModel(BaseObjectModel):
 
             self.prediction_module = nn.Sequential(*prediction_layers)
 
-        self.output_size = output_size
         self.output_layer = nn.Linear(output_layer_input_size, self.output_size)
 
         if output_activation_class is None:

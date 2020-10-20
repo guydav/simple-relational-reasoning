@@ -65,7 +65,6 @@ class CNNModel(BaseObjectModel):
 
         self.mlp_module = nn.Sequential(*mlp_layers)
 
-        self.output_size = output_size
         self.output_layer = nn.Linear(mlp_input_size, self.output_size)
 
         if output_activation_class is None:
