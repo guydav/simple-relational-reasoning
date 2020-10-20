@@ -80,6 +80,9 @@ class BaseObjectModel(pl.LightningModule):
         data, target = batch
         preds = self.forward(data)
 
+        if dataloader_idx is None:
+            dataloader_idx = 0
+
         loss_key = f'loss{dataloader_idx is not None and dataloader_idx or ""}'
         acc_key = f'acc{dataloader_idx is not None and dataloader_idx or ""}'
 
@@ -128,7 +131,7 @@ class BaseObjectModel(pl.LightningModule):
         print([(key, len(self.dataset.get_test_datasets()[key]))
                 for key in sorted(self.dataset.get_test_datasets().keys())])
         print('********** TEST EPOCH END: **********')
-        print(val_results)
+        print([(key, len(val_results[key])) for key in val_results])
         print('********** TEST EPOCH END: **********')
         return dict(log=(self._average_outputs(outputs, 'test', self.test_log_prefix)))
 
