@@ -80,3 +80,7 @@ class CNNModel(BaseObjectModel):
         x = x.view(x.shape[0], -1)
         x = self.mlp_module(x)
         return self.output_activation(self.output_layer(x))
+
+
+class SimplifiedCNNModel(CNNModel):
+    pass

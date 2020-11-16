@@ -40,13 +40,15 @@ Try both:
 
 class ObjectGenerator:
     def __init__(self, seed, reference_object_length, target_object_length=1, n_reference_types=1,
-                 n_train_target_types=1, n_test_target_types=0, dtype=torch.float):
+                 n_train_target_types=1, n_test_target_types=0, n_non_type_fields=None, dtype=torch.float):
         self.seed = seed
         self.reference_object_length = reference_object_length
         self.target_object_length = target_object_length
         self.n_reference_types = n_reference_types
         self.n_train_target_types = n_train_target_types
         self.n_test_target_types = n_test_target_types
+        self.n_types = self.n_reference_types + self.n_train_target_types + self.n_test_target_types
+        self.n_non_type_fields = n_non_type_fields
         self.dtype = dtype
 
         self.rng = np.random.default_rng(self.seed)
@@ -74,8 +76,7 @@ class ObjectGenerator:
         if self.n_test_target_types == 1:
             return self.n_reference_types + self.n_train_target_types  # 0-based, so this is the first one
 
-        return self.rng.integers(self.n_reference_types + self.n_train_target_types,
-                                 self.n_reference_types + self.n_train_target_types + self.n_test_target_types)
+        return self.rng.integers(self.n_reference_types + self.n_train_target_types, self.n_types)
 
     def _to_one_hot(self, n, n_types):
         one_hot = np.zeros(n_types)
@@ -83,14 +84,18 @@ class ObjectGenerator:
         return one_hot
 
     def _sample_type_one_hot(self, target=False, train=True):
-        return self._to_one_hot(self._sample_type(target, train), self.n_reference_types + self.n_train_target_types)
+        return self._to_one_hot(self._sample_type(target, train), self.n_types)
+
+    def get_type_slice(self):
+        return slice(self.n_non_type_fields, self.n_non_type_fields + self.n_types)
 
 
 class ObjectGeneratorWithSize(ObjectGenerator):
     def __init__(self, seed, reference_object_length, target_object_length=1, n_reference_types=1,
-                 n_train_target_types=1, n_test_target_types=0):
+                 n_train_target_types=1, n_test_target_types=0, dtype=torch.float):
         super(ObjectGeneratorWithSize, self).__init__(seed, reference_object_length, target_object_length,
-                                                      n_reference_types, n_train_target_types, n_test_target_types)
+                                                      n_reference_types, n_train_target_types, n_test_target_types,
+                                                      n_non_type_fields=3, dtype=dtype)
 
     def reference_object(self, x, y, train=True):
         return torch.tensor([x, y, self.reference_object_length, *self._sample_type_one_hot(False, train)],
@@ -103,9 +108,10 @@ class ObjectGeneratorWithSize(ObjectGenerator):
 
 class ObjectGeneratorWithoutSize(ObjectGenerator):
     def __init__(self, seed, reference_object_length, target_object_length=1, n_reference_types=1,
-                 n_train_target_types=1, n_test_target_types=0):
+                 n_train_target_types=1, n_test_target_types=0, dtype=torch.float):
         super(ObjectGeneratorWithoutSize, self).__init__(seed, reference_object_length, target_object_length,
-                                                         n_reference_types, n_train_target_types, n_test_target_types)
+                                                         n_reference_types, n_train_target_types, n_test_target_types,
+                                                         n_non_type_fields=2, dtype=dtype)
 
     def reference_object(self, x, y, train=True):
         object_type = self._sample_type_one_hot(False, train)
@@ -120,8 +126,9 @@ class ObjectGeneratorWithoutSize(ObjectGenerator):
                           for j in range(self.target_object_length)])
 
 
+
 class MinimalDataset(torch.utils.data.Dataset):
-    def __init__(self, objects, labels):
+    def __init__(self, objects, labels, object_generator):
         super(MinimalDataset, self).__init__()
 
         if not isinstance(objects, torch.Tensor):
@@ -132,6 +139,7 @@ class MinimalDataset(torch.utils.data.Dataset):
 
         self.objects = objects
         self.labels = labels
+        self.object_generator = object_generator
 
     def __getitem__(self, item):
         return self.objects[item], self.labels[item]
@@ -141,8 +149,8 @@ class MinimalDataset(torch.utils.data.Dataset):
 
 
 class MinimalSpatialDataset(MinimalDataset):
-    def __init__(self, objects, labels, x_max, y_max, position_indices=(0, 1)):
-        super(MinimalSpatialDataset, self).__init__(objects, labels)
+    def __init__(self, objects, labels, object_generator, x_max, y_max, position_indices=(0, 1)):
+        super(MinimalSpatialDataset, self).__init__(objects, labels, object_generator)
 
         D, N, O = self.objects.shape
 
@@ -190,6 +198,14 @@ class MinimalSpatialDataset(MinimalDataset):
 
     def __len__(self):
         return self.spatial_objects.shape[0]
+
+
+class SimplifiedSpatialDataset(MinimalSpatialDataset):
+    def __init__(self, objects, labels, object_generator, x_max, y_max, position_indices=(0, 1)):
+        super(SimplifiedSpatialDataset, self).__init__(objects, labels, object_generator,
+                                                       x_max, y_max, position_indices)
+        simplified_spatial_objects = self.spatial_objects[:, self.object_generator.get_type_slice(), :, :]
+        self.spatial_objects = simplified_spatial_objects
 
 
 class QuinnDatasetGenerator:
@@ -250,9 +266,13 @@ class QuinnDatasetGenerator:
 
     def _create_dataset(self, objects, labels):
         if self.spatial_dataset:
-            return MinimalSpatialDataset(objects, labels, self.x_max, self.y_max)
+            spatial_dataset_class = MinimalSpatialDataset
+            if isinstance(self.spatial_dataset, str) and self.spatial_dataset.lower() == 'simplified':
+                spatial_dataset_class = SimplifiedSpatialDataset
 
-        return MinimalDataset(objects, labels)
+            return spatial_dataset_class(objects, labels, self.object_generator, self.x_max, self.y_max)
+
+        return MinimalDataset(objects, labels, self.object_generator)
 
 
 TRAIN_REFERENCE_TEST_TARGET = 'train_reference_test_target'

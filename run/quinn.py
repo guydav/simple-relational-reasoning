@@ -41,8 +41,16 @@ def run_single_setting_all_models(args):
             print(f'Skipping model {model_class_name} because it is not in {args.model}')
             continue
 
+        if model_class_name == 'simplified-cnn' and args.use_object_size:
+            print(f'Skiping running {model_class_name} with args.use_object_size={args.use_object_size} as they are incompatible')
+            continue
+
         args.model_name = model_class_name
-        args.spatial_dataset = 'cnn' in args.model_name.lower()
+        if 'simplified' in args.model_name.lower():
+            args.spatial_dataset = 'simplified'
+        else:
+            args.spatial_dataset = 'cnn' in args.model_name.lower()
+
         object_generator, dataset = create_dataset(args)
 
         # TODO: add in learning rate, batch size, dataset size to the per-model kwargs
