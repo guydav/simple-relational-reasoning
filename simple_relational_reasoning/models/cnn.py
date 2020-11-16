@@ -12,7 +12,7 @@ DEFAULT_MLP_SIZES = [32, 32]
 class CNNModel(BaseObjectModel):
     def __init__(self, dataset,
                  conv_sizes=DEFAULT_CONV_SIZES, conv_activation_class=nn.ReLU,
-                 conv_kernel_size=3, conv_stride=1, conv_padding=1,
+                 conv_kernel_size=3, conv_stride=1, conv_padding=1, conv_input_size=None,
                  mlp_sizes=DEFAULT_MLP_SIZES, mlp_activation_class=nn.ReLU, output_activation_class=None,
                  loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
                  batch_size=32, train_log_prefix=None, validation_log_prefix=None, test_log_prefix=None):
