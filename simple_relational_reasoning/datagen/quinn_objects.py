@@ -126,7 +126,6 @@ class ObjectGeneratorWithoutSize(ObjectGenerator):
                           for j in range(self.target_object_length)])
 
 
-
 class MinimalDataset(torch.utils.data.Dataset):
     def __init__(self, objects, labels, object_generator):
         super(MinimalDataset, self).__init__()
@@ -146,6 +145,15 @@ class MinimalDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return self.objects.shape[0]
+
+    def get_object_size(self):
+        return self.objects.shape[-1]
+
+    def get_num_objects(self):
+        return self.objects.shape[1]
+
+    def get_num_classes(self):
+        return len(self.labels.unique())
 
 
 class MinimalSpatialDataset(MinimalDataset):
@@ -192,6 +200,9 @@ class MinimalSpatialDataset(MinimalDataset):
                                 position_lists[2]] = self.objects[ex_index].transpose(0, 1)  #.unsqueeze(-1)
 
         self.spatial_objects = spatial_objects
+
+    def get_object_size(self):
+        return self.spatial_objects.shape[1]
 
     def __getitem__(self, item):
         return self.spatial_objects[item], self.labels[item]
