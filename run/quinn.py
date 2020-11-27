@@ -78,7 +78,7 @@ def run_single_setting_all_models(args):
         # logger.experiment creates and returns the wandb run
         # wandb.save(os.path.join(logger.experiment.dir, '*.ckpt'))
 
-        checkpoint_callback = ModelCheckpoint(filepath=os.path.join(wandb.run.dir, f'{args.wandb_run_name}-{{epoch:d}}-{{test_loss:.5f}}'),
+        checkpoint_callback = ModelCheckpoint(filepath=os.path.join(wandb.run.dir, f'{args.wandb_run_name}-{{epoch:d}}-{{val_loss:.5f}}'),
                                               save_top_k=1, verbose=True, monitor=args.early_stopping_monitor_key, mode='min')
         early_stopping_callback = EarlyStopping(args.early_stopping_monitor_key, patience=args.patience_epochs, verbose=True,
                                                 min_delta=args.early_stopping_min_delta)
@@ -138,7 +138,8 @@ def create_dataset(args):
             reference_object_x_margin=args.reference_object_x_margin,
             reference_object_y_margin_bottom=args.reference_object_y_margin_bottom,
             reference_object_y_margin_top=args.reference_object_y_margin_top,
-            add_neither_test=args.add_neither_test, spatial_dataset=args.spatial_dataset
+            add_neither_test=args.add_neither_test, spatial_dataset=args.spatial_dataset,
+            prop_train_to_validation=args.prop_train_to_validation
         )
 
     else:  # args.paradigm == 'one_or_two_references':
@@ -153,7 +154,8 @@ def create_dataset(args):
             reference_object_x_margin=args.reference_object_x_margin,
             reference_object_y_margin_bottom=args.reference_object_y_margin_bottom,
             reference_object_y_margin_top=args.reference_object_y_margin_top,
-            add_neither_test=args.add_neither_test, spatial_dataset=args.spatial_dataset
+            add_neither_test=args.add_neither_test, spatial_dataset=args.spatial_dataset,
+            prop_train_to_validation=args.prop_train_to_validation
         )
 
     return object_generator, dataset
