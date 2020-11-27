@@ -194,7 +194,6 @@ class MinimalSpatialDataset(MinimalDataset):
                 #     print([x.max() for x in (position_lists[0], position_lists[1], self.objects[ex_index])])
                 #     raise e
 
-
             elif len(position_lists) == 3:
                 spatial_objects[ex_index, :, position_lists[0], position_lists[1],
                                 position_lists[2]] = self.objects[ex_index].transpose(0, 1)  #.unsqueeze(-1)
@@ -223,7 +222,7 @@ class QuinnDatasetGenerator:
     def __init__(self, object_generator, x_max, y_max, seed, *,
                  add_neither_train=True, add_neither_test=False, prop_train_reference_object_locations=0.8,
                  reference_object_x_margin=0, reference_object_y_margin_bottom=0, reference_object_y_margin_top=0,
-                 spatial_dataset=False):
+                 spatial_dataset=False, prop_train_to_validation=0.1):
         self.object_generator = object_generator
         self.x_max = x_max
         self.y_max = y_max
@@ -251,31 +250,53 @@ class QuinnDatasetGenerator:
             self._split_train_test(possible_reference_object_locations, prop_train_reference_object_locations)
 
         self.spatial_dataset = spatial_dataset
+        self.prop_train_to_validation = prop_train_to_validation
+
         self.train_dataset = None
+        self.validation_dataset = None
         self.test_datasets = None
 
-    def get_training_dataset(self) -> torch.utils.data.Dataset:
+    def _create_training_dataset(self) -> torch.utils.data.Dataset:
         raise NotImplementedError()
 
-    def get_test_datasets(self) -> dict:
+    def _create_test_datasets(self) -> dict:
         raise NotImplementedError()
+
+    def get_training_dataset(self) -> torch.utils.data.Dataset:
+        if self.train_dataset is None:
+            self.train_dataset = self._create_training_dataset()
+
+            if self.prop_train_to_validation is not None and self.prop_train_to_validation > 0:
+                train, val = self._split_dataset(self.train_dataset, 1 - self.prop_train_to_validation)
+                self.train_dataset = train
+                self.validation_dataset = val
+
+        return self.train_dataset
+
+    def get_validation_dataset(self) -> torch.utils.data.Dataset:
+        if self.validation_dataset is not None:
+            return self.validation_dataset
+
+        if self.prop_train_to_validation is not None and self.prop_train_to_validation > 0:
+            self.get_training_dataset()
+
+        return self.validation_dataset
+
+    def get_test_datasets(self) -> dict:
+        if self.test_datasets is None:
+            self.test_datasets = self._create_test_datasets()
+
+        return self.test_datasets
 
     def create_input(self, target, *references, train=True) -> torch.Tensor:
         return torch.cat([self.object_generator.target_object(target[0], target[1], train)] +
                          [self.object_generator.reference_object(reference[0], reference[1], train)
                           for reference in references])
 
-    def _split_train_test(self, items, prop_train=None, max_train_index=None):
-        self.rng.shuffle(items)
-
-        if prop_train is None and max_train_index is None:
-            raise ValueError('Must provide _split_train_test with either prop_train or max_train_index')
-
-        if max_train_index is None:
-            max_train_index = int(len(items) * prop_train)
-        return items[:max_train_index], items[max_train_index:]
-
     def _create_dataset(self, objects, labels):
+        if not isinstance(labels, torch.Tensor):
+            labels = torch.Tensor(labels)
+
         if self.spatial_dataset:
             spatial_dataset_class = MinimalSpatialDataset
             if isinstance(self.spatial_dataset, str) and self.spatial_dataset.lower() == 'simplified':
@@ -284,6 +305,32 @@ class QuinnDatasetGenerator:
             return spatial_dataset_class(objects, labels, self.object_generator, self.x_max, self.y_max)
 
         return MinimalDataset(objects, labels, self.object_generator)
+
+    def _split_train_test(self, items, prop_train=None, max_train_index=None):
+        if prop_train is None and max_train_index is None:
+            raise ValueError('Must provide _split_train_test with either prop_train or max_train_index')
+
+        self.rng.shuffle(items)
+
+        if max_train_index is None:
+            max_train_index = int(len(items) * prop_train)
+        return items[:max_train_index], items[max_train_index:]
+
+    def _split_dataset(self, dataset, prop_split=None, split_index=None):
+        if prop_split is None and split_index is None:
+            raise ValueError('Must provide _split_dataset with either prop_split or split_index')
+
+        perm = self.rng.permutation(np.arange(len(dataset)))
+
+        if split_index is None:
+            split_index = int(len(dataset) * prop_split)
+
+        first_split = perm[:split_index]
+        second_split = perm[split_index:]
+
+        return (self._create_dataset(dataset.objects[first_split], dataset.labels[first_split]),
+                self._create_dataset(dataset.objects[second_split], dataset.labels[second_split]))
+
 
 
 TRAIN_REFERENCE_TEST_TARGET = 'train_reference_test_target'
@@ -298,7 +345,8 @@ class ReferenceInductiveBias(QuinnDatasetGenerator):
                  target_object_grid_size=3, add_neither_train=True, above_or_between_left=None,
                  n_train_target_object_locations=None, prop_train_reference_object_locations=0.8,
                  reference_object_x_margin=0, reference_object_y_margin_bottom=None,
-                 reference_object_y_margin_top=None, add_neither_test=False, spatial_dataset=False):
+                 reference_object_y_margin_top=None, add_neither_test=False, spatial_dataset=False,
+                 prop_train_to_validation=0.1):
         if reference_object_y_margin_bottom is None or reference_object_y_margin_bottom < target_object_grid_size:
             reference_object_y_margin_bottom = target_object_grid_size
 
@@ -311,7 +359,8 @@ class ReferenceInductiveBias(QuinnDatasetGenerator):
             prop_train_reference_object_locations=prop_train_reference_object_locations,
             reference_object_x_margin=reference_object_x_margin,
             reference_object_y_margin_bottom=reference_object_y_margin_bottom,
-            reference_object_y_margin_top=reference_object_y_margin_top, spatial_dataset=spatial_dataset
+            reference_object_y_margin_top=reference_object_y_margin_top, spatial_dataset=spatial_dataset,
+            prop_train_to_validation=prop_train_to_validation
         )
 
         self.target_object_grid_size = target_object_grid_size
@@ -341,33 +390,29 @@ class ReferenceInductiveBias(QuinnDatasetGenerator):
     def _create_middle_dataset(self, reference_locations, middle_locations=None):
         raise NotImplementedError()
 
-    def get_training_dataset(self):
-        if self.train_dataset is None:
-            self.train_dataset = self._create_left_right_dataset(self.train_reference_object_locations,
+    def _create_training_dataset(self):
+        return self._create_left_right_dataset(self.train_reference_object_locations,
                                                                  self.train_target_object_locations, train=True)
 
-        return self.train_dataset
+    def _create_test_datasets(self):
+        test_datasets = dict()
 
-    def get_test_datasets(self):
-        if self.test_datasets is None or not len(self.test_datasets):
-            self.test_datasets = dict()
-
-            self.test_datasets[TRAIN_REFERENCE_TEST_TARGET] = self._create_left_right_dataset(
+        test_datasets[TRAIN_REFERENCE_TEST_TARGET] = self._create_left_right_dataset(
                 self.train_reference_object_locations, self.test_target_object_locations, train=False)
 
-            self.test_datasets[TRAIN_REFERENCE_MIDDLE_TARGET] = self._create_middle_dataset(
+        test_datasets[TRAIN_REFERENCE_MIDDLE_TARGET] = self._create_middle_dataset(
                 self.train_reference_object_locations, self.middle_target_object_locations)
 
-            self.test_datasets[TEST_REFERENCE_TRAIN_TARGET] = self._create_left_right_dataset(
+        test_datasets[TEST_REFERENCE_TRAIN_TARGET] = self._create_left_right_dataset(
                 self.test_reference_object_locations, self.train_target_object_locations, train=False)
 
-            self.test_datasets[TEST_REFERENCE_TEST_TARGET] = self._create_left_right_dataset(
+        test_datasets[TEST_REFERENCE_TEST_TARGET] = self._create_left_right_dataset(
                 self.test_reference_object_locations, self.test_target_object_locations, train=False)
 
-            self.test_datasets[TEST_REFERENCE_MIDDLE_TARGET] = self._create_middle_dataset(
+        test_datasets[TEST_REFERENCE_MIDDLE_TARGET] = self._create_middle_dataset(
                 self.test_reference_object_locations, self.middle_target_object_locations)
 
-        return self.test_datasets
+        return test_datasets
 
 
 class AboveBelowReferenceInductiveBias(ReferenceInductiveBias):
@@ -375,7 +420,8 @@ class AboveBelowReferenceInductiveBias(ReferenceInductiveBias):
                  target_object_grid_size=3, add_neither_train=True, above_or_between_left=None,
                  n_train_target_object_locations=None, prop_train_reference_object_locations=0.8,
                  reference_object_x_margin=0, reference_object_y_margin_bottom=None,
-                 reference_object_y_margin_top=None, add_neither_test=False, spatial_dataset=False):
+                 reference_object_y_margin_top=None, add_neither_test=False, spatial_dataset=False,
+                 prop_train_to_validation=0.1):
 
         super(AboveBelowReferenceInductiveBias, self).__init__(
             object_generator=object_generator, x_max=x_max, y_max=y_max, seed=seed,
@@ -385,7 +431,8 @@ class AboveBelowReferenceInductiveBias(ReferenceInductiveBias):
             reference_object_x_margin=reference_object_x_margin,
             reference_object_y_margin_bottom=reference_object_y_margin_bottom,
             reference_object_y_margin_top=reference_object_y_margin_top,
-            add_neither_test=add_neither_test, spatial_dataset=spatial_dataset
+            add_neither_test=add_neither_test, spatial_dataset=spatial_dataset,
+            prop_train_to_validation=prop_train_to_validation
         )
 
     def _create_left_right_dataset(self, reference_locations, target_locations, train=True):
@@ -447,7 +494,8 @@ class BetweenReferenceInductiveBias(ReferenceInductiveBias):
                  target_object_grid_size=3, add_neither_train=True, above_or_between_left=None,
                  n_train_target_object_locations=None, prop_train_reference_object_locations=0.8,
                  reference_object_x_margin=0, reference_object_y_margin_bottom=None,
-                 reference_object_y_margin_top=None, add_neither_test=False, spatial_dataset=False):
+                 reference_object_y_margin_top=None, add_neither_test=False, spatial_dataset=False,
+                 prop_train_to_validation=0.1):
 
         # We assume that the generated reference object location is for the bottom reference object
         min_y_margin = 2 * target_object_grid_size + 1
@@ -462,7 +510,8 @@ class BetweenReferenceInductiveBias(ReferenceInductiveBias):
             reference_object_x_margin=reference_object_x_margin,
             reference_object_y_margin_bottom=reference_object_y_margin_bottom,
             reference_object_y_margin_top=reference_object_y_margin_top,
-            add_neither_test=add_neither_test, spatial_dataset=spatial_dataset
+            add_neither_test=add_neither_test, spatial_dataset=spatial_dataset,
+            prop_train_to_validation=prop_train_to_validation
         )
 
     def _create_left_right_dataset(self, reference_locations, target_locations, train=True):
@@ -547,7 +596,7 @@ class OneOrTwoReferenceObjects(QuinnDatasetGenerator):
                  add_neither_train=True, prop_train_target_object_locations=0.5,
                  prop_train_reference_object_locations=0.8, reference_object_gap=3, reference_object_x_margin=0,
                  reference_object_y_margin_bottom=None, reference_object_y_margin_top=None, add_neither_test=False,
-                 spatial_dataset=False):
+                 spatial_dataset=False, prop_train_to_validation=0.1):
 
         if reference_object_y_margin_bottom is None or reference_object_y_margin_bottom < reference_object_gap:
             reference_object_y_margin_bottom = reference_object_gap
@@ -666,29 +715,25 @@ class OneOrTwoReferenceObjects(QuinnDatasetGenerator):
 
         return self._create_dataset(objects, labels)
 
-    def get_training_dataset(self):
-        if self.train_dataset is None:
-            self.train_dataset = self._create_single_dataset(self.train_reference_object_locations,
-                                                             self.train_below_target_locations,
-                                                             self.train_between_target_locations,
-                                                             self.train_above_target_locations, train=True)
+    def _create_training_dataset(self):
+        return self._create_single_dataset(self.train_reference_object_locations,
+                                           self.train_below_target_locations,
+                                           self.train_between_target_locations,
+                                           self.train_above_target_locations, train=True).train_dataset
 
-        return self.train_dataset
+    def _create_test_datasets(self):
+        test_datasets = dict()
 
-    def get_test_datasets(self):
-        if self.test_datasets is None or not len(self.test_datasets):
-            self.test_datasets = dict()
-
-            self.test_datasets[TRAIN_REFERENCE_TEST_TARGET] = self._create_single_dataset(
+        test_datasets[TRAIN_REFERENCE_TEST_TARGET] = self._create_single_dataset(
                 self.train_reference_object_locations, self.test_below_target_locations,
                 self.test_between_target_locations, self.test_above_target_locations, train=False)
 
-            self.test_datasets[TEST_REFERENCE_TRAIN_TARGET] = self._create_single_dataset(
+        test_datasets[TEST_REFERENCE_TRAIN_TARGET] = self._create_single_dataset(
                 self.test_reference_object_locations, self.train_below_target_locations,
                 self.train_between_target_locations, self.train_above_target_locations, train=False)
 
-            self.test_datasets[TEST_REFERENCE_TEST_TARGET] = self._create_single_dataset(
+        test_datasets[TEST_REFERENCE_TEST_TARGET] = self._create_single_dataset(
                 self.test_reference_object_locations, self.test_below_target_locations,
                 self.test_between_target_locations, self.test_above_target_locations, train=False)
 
-        return self.test_datasets
+        return test_datasets

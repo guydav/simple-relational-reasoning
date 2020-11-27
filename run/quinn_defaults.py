@@ -91,8 +91,12 @@ DEFAULT_REFERENCE_OBJECT_Y_MARGIN_TOP = None
 parser.add_argument('--reference-object-y-margin-top', type=int, default=DEFAULT_REFERENCE_OBJECT_Y_MARGIN_TOP,
                     help='Top vertical margin to allow between the reference object and the edge of the canvas')
 
+DEFAULT_PROP_TRAIN_ASSIGNED_TO_VALIDATION = 0.1
+parser.add_argument('--prop-train-to-validation', type=float,
+                    default=DEFAULT_PROP_TRAIN_ASSIGNED_TO_VALIDATION,
+                    help='Proportion of training set to assign as a validation set')
 
-DEFAULT_EARLY_STOPPING_MONITOR_KEY = TEST_REFERENCE_TEST_TARGET
+DEFAULT_EARLY_STOPPING_MONITOR_KEY = 'val'
 parser.add_argument('--early-stopping-monitor-key', type=str, default=DEFAULT_EARLY_STOPPING_MONITOR_KEY,
                     help='Which key to monitor for validation/test stopping')
 
