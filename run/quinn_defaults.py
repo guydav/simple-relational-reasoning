@@ -5,7 +5,6 @@ import sys
 sys.path.append(os.path.abspath('..'))
 
 from simple_relational_reasoning import models
-from simple_relational_reasoning.datagen.quinn_objects import TEST_REFERENCE_TEST_TARGET
 
 
 parser = argparse.ArgumentParser()
@@ -126,12 +125,24 @@ parser.add_argument('--relation', type=str, action='append', choices=RELATIONS,
 
 PARADIGM_CANVAS_SIZES = {
     INDUCTIVE_BIAS_PARADIGM: {
-        'x_max': 25,
-        'y_max': 25
+        ABOVE_BELOW_RELATION: {
+            'x_max': 25,
+            'y_max': 25,
+        },
+        BETWEEN_RELATION: {
+            'x_max': 27,
+            'y_max': 27,
+        }
     },
     ONE_OR_TWO_PARADIGM: {
-        'x_max': 18,
-        'y_max': 18
+        ABOVE_BELOW_RELATION: {
+            'x_max': 18,
+            'y_max': 18,
+        },
+        BETWEEN_RELATION: {
+            'x_max': 18,
+            'y_max': 19,
+        }
     }
 }
 
@@ -139,7 +150,6 @@ PARADIGM_CANVAS_SIZES = {
 DEFAULT_TARGET_OBJECT_GRID_SIZE = 3
 parser.add_argument('--target-object-grid-size', type=int, default=DEFAULT_TARGET_OBJECT_GRID_SIZE,
                     help='Size of grid to assign target objects to (defaults to 3x3)')
-
 
 DEFAULT_N_TRAIN_TARGET_OBJECT_LOCATIONS = 7
 parser.add_argument('--n-train-target-object-locations', type=int, default=DEFAULT_N_TRAIN_TARGET_OBJECT_LOCATIONS,
@@ -149,22 +159,21 @@ DEFAULT_ABOVE_OR_BETWEEN_LEFT = None
 parser.add_argument('--above-or-between-left', type=int, default=DEFAULT_ABOVE_OR_BETWEEN_LEFT,
                     help='Which side to assign a particular class (above in above/below, between when it is in). Defaults to parity of the seed')
 
-
 # One or two reference objects paradigm arguments
 
 DEFAULT_TWO_REFERENCE_OBJECTS = None
 parser.add_argument('--two-reference-objects', type=int, default=DEFAULT_TWO_REFERENCE_OBJECTS,
                     help='Whether or not to use two reference objects. Defaults to True for the between relation and False for above/below.')
 
-DEFAULT_PROP_TRAIN_TARGET_OBJECT_LOCATIONS = 0.75
+DEFAULT_PROP_TRAIN_TARGET_OBJECT_LOCATIONS = 0.8
 parser.add_argument('--prop-train-target-object-locations', type=float,
                     default=DEFAULT_PROP_TRAIN_TARGET_OBJECT_LOCATIONS,
                     help='Proportion of target object locations to assign to the training set')
 
+DEFAULT_TARGET_OBJECT_GRID_HEIGHT = 8
+parser.add_argument('--target-object-grid-height', type=int, default=DEFAULT_TARGET_OBJECT_GRID_HEIGHT,
+                    help='How big of a grid to assign target objects in')
 
-DEFAULT_REFERENCE_OBJECT_GAP = 3
-parser.add_argument('--reference-object-gap', type=int, default=DEFAULT_REFERENCE_OBJECT_GAP,
-                    help='How big of a vertical gap to include between reference objects (when two exist).')
 
 # Model setup arguments
 
@@ -214,7 +223,7 @@ parser.add_argument('--model', type=str, action='append', choices=MODEL_NAMES,
 # Wandb-related arguments
 SCRATCH_FOLDER = r'/misc/vlgscratch4/LakeGroup/guy/'
 
-DEFUALT_WANDB_ENTITY = 'quinn-relations'
+DEFUALT_WANDB_ENTITY = 'quinn-relations-v1'
 parser.add_argument('--wandb-entity', default=DEFUALT_WANDB_ENTITY)
 
 DEFAULT_WANDB_DIR = SCRATCH_FOLDER  # wandb creates its own folder inside

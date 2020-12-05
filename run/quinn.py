@@ -27,10 +27,10 @@ def run_single_setting_all_models(args):
 
     # adjust the limits based on the paradigm
     if args.x_max == DEFAULT_X_MAX:
-        args.x_max = PARADIGM_CANVAS_SIZES[args.paradigm]['x_max']
+        args.x_max = PARADIGM_CANVAS_SIZES[args.paradigm][args.relation]['x_max']
 
     if args.y_max == DEFAULT_Y_MAX:
-        args.y_max = PARADIGM_CANVAS_SIZES[args.paradigm]['y_max']
+        args.y_max = PARADIGM_CANVAS_SIZES[args.paradigm][args.relation]['y_max']
 
     # TODO: for each model
     model_configurations = MODEL_CONFIGURATIONS[args.model_configuration]
