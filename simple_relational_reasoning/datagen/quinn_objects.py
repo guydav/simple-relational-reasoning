@@ -295,7 +295,7 @@ class QuinnDatasetGenerator:
 
     def _create_dataset(self, objects, labels):
         if not isinstance(labels, torch.Tensor):
-            labels = torch.Tensor(labels)
+            labels = torch.tensor(labels, dtype=torch.long)
 
         if self.spatial_dataset:
             spatial_dataset_class = MinimalSpatialDataset
