@@ -653,7 +653,7 @@ class OneOrTwoReferenceObjects(QuinnDatasetGenerator):
         all_locations = [[np.array(x) for x in itertools.product(x_range, y_range)]
                          for y_range in y_ranges]
         split_locations = [self._split_train_test(locations, prop) for locations in all_locations]
-        return [sum(split, start=list()) for split in zip(*split_locations)]
+        return [sum(split, list()) for split in zip(*split_locations)]
 
     def _create_single_dataset(self, reference_locations, target_locations, train=True):
         objects = []
