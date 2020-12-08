@@ -7,3 +7,4 @@ wandb
 */__pycache__
 */*/__pycache__
 *.ckpt
+results_cache_*-*-*_*-*-*.pickle
