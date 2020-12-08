@@ -150,7 +150,7 @@ def create_dataset(args):
             add_neither_train=args.add_neither_train,
             prop_train_target_object_locations=args.prop_train_target_object_locations,
             prop_train_reference_object_locations=args.prop_train_reference_object_locations,
-            reference_object_gap=args.reference_object_gap,
+            target_object_grid_height=args.target_object_grid_height,
             reference_object_x_margin=args.reference_object_x_margin,
             reference_object_y_margin_bottom=args.reference_object_y_margin_bottom,
             reference_object_y_margin_top=args.reference_object_y_margin_top,
