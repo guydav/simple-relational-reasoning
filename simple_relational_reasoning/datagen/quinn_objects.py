@@ -89,6 +89,9 @@ class ObjectGenerator:
     def get_type_slice(self):
         return slice(self.n_non_type_fields, self.n_non_type_fields + self.n_types)
 
+    def get_position_slice(self):
+        # TODO: should this include the length/size of the object?
+        return slice(0, 2)
 
 class ObjectGeneratorWithSize(ObjectGenerator):
     def __init__(self, seed, reference_object_length, target_object_length=1, n_reference_types=1,
