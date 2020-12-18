@@ -139,7 +139,7 @@ def create_dataset(args):
             reference_object_y_margin_bottom=args.reference_object_y_margin_bottom,
             reference_object_y_margin_top=args.reference_object_y_margin_top,
             add_neither_test=args.add_neither_test, spatial_dataset=args.spatial_dataset,
-            prop_train_to_validation=args.prop_train_to_validation
+            prop_train_to_validation=args.prop_train_to_validation, subsample_train_size=args.subsample_train_size
         )
 
     else:  # args.paradigm == 'one_or_two_references':
@@ -155,7 +155,7 @@ def create_dataset(args):
             reference_object_y_margin_bottom=args.reference_object_y_margin_bottom,
             reference_object_y_margin_top=args.reference_object_y_margin_top,
             add_neither_test=args.add_neither_test, spatial_dataset=args.spatial_dataset,
-            prop_train_to_validation=args.prop_train_to_validation
+            prop_train_to_validation=args.prop_train_to_validation, subsample_train_size=args.subsample_train_size
         )
 
     return object_generator, dataset

@@ -155,6 +155,45 @@ class MinimalDataset(torch.utils.data.Dataset):
     def get_num_classes(self):
         return len(self.labels.unique())
 
+    def subsample(self, rng, prop=None, total=None):
+        if prop is None and total is None:
+            raise ValueError(f'Mush provide MinimalDataset.subsample() with either prop or total')
+
+        if prop is None:  # total is not None
+            if total >= len(self) or total <= 0:
+                raise ValueError(f'Total must be between 1 and the length ({len(self)}, but received {total}')
+            prop = total / len(self)
+
+        if prop <= 0 or prop >= 1:
+            raise ValueError(f'Prop must be between 0 and 1, but received {prop}')
+
+        unique_labels, counts = self.labels.unique(return_counts=True)
+        float_counts = counts * prop
+        count_per_label = torch.round(float_counts)
+        diffs = float_counts - count_per_label
+        while count_per_label.sum().item() < total:
+            max_diff_index = diffs.argmax().item()
+            count_per_label[max_diff_index] += 1
+            diffs[max_diff_index] = -10
+
+        while count_per_label.sum().item() > total:
+            min_diff_index = diffs.argmin().item()
+            count_per_label[min_diff_index] -= 1
+            diffs[min_diff_index] = 10
+
+        count_per_label = count_per_label.to(torch.int)
+        indices_per_label = [torch.where(self.labels == l)[0] for l in unique_labels]
+        sample_indices_per_label = [rng.permutation(indices)[:count]
+                                    for indices, count in zip(indices_per_label, count_per_label)]
+
+        if hasattr(self, 'spatial_objects'):
+            self.spatial_objects = torch.cat([self.spatial_objects[indices] for indices in sample_indices_per_label])
+
+        else:
+            self.objects = torch.cat([self.objects[indices] for indices in sample_indices_per_label])
+
+        self.labels = torch.cat([self.labels[indices] for indices in sample_indices_per_label])
+
 
 class MinimalSpatialDataset(MinimalDataset):
     def __init__(self, objects, labels, object_generator, x_max, y_max, position_indices=(0, 1)):
@@ -214,15 +253,14 @@ class SimplifiedSpatialDataset(MinimalSpatialDataset):
     def __init__(self, objects, labels, object_generator, x_max, y_max, position_indices=(0, 1)):
         super(SimplifiedSpatialDataset, self).__init__(objects, labels, object_generator,
                                                        x_max, y_max, position_indices)
-        simplified_spatial_objects = self.spatial_objects[:, self.object_generator.get_type_slice(), :, :]
-        self.spatial_objects = simplified_spatial_objects
+        self.spatial_objects = self.spatial_objects[:, self.object_generator.get_type_slice(), :, :]
 
 
 class QuinnDatasetGenerator:
     def __init__(self, object_generator, x_max, y_max, seed, *,
                  add_neither_train=True, add_neither_test=False, prop_train_reference_object_locations=0.8,
                  reference_object_x_margin=0, reference_object_y_margin_bottom=0, reference_object_y_margin_top=0,
-                 spatial_dataset=False, prop_train_to_validation=0.1):
+                 spatial_dataset=False, prop_train_to_validation=0.1, subsample_train_size=None):
         self.object_generator = object_generator
         self.x_max = x_max
         self.y_max = y_max
@@ -251,6 +289,7 @@ class QuinnDatasetGenerator:
 
         self.spatial_dataset = spatial_dataset
         self.prop_train_to_validation = prop_train_to_validation
+        self.subsample_train_size = subsample_train_size
 
         self.train_dataset = None
         self.validation_dataset = None
@@ -270,6 +309,9 @@ class QuinnDatasetGenerator:
                 train, val = self._split_dataset(self.train_dataset, 1 - self.prop_train_to_validation)
                 self.train_dataset = train
                 self.validation_dataset = val
+
+            if self.subsample_train_size is not None:
+                self.train_dataset.subsample(self.rng, total=self.subsample_train_size)
 
         return self.train_dataset
 
@@ -345,7 +387,7 @@ class ReferenceInductiveBias(QuinnDatasetGenerator):
                  n_train_target_object_locations=None, prop_train_reference_object_locations=0.8,
                  reference_object_x_margin=0, reference_object_y_margin_bottom=None,
                  reference_object_y_margin_top=None, add_neither_test=False, spatial_dataset=False,
-                 prop_train_to_validation=0.1):
+                 prop_train_to_validation=0.1, subsample_train_size=None):
         if reference_object_y_margin_bottom is None or reference_object_y_margin_bottom < target_object_grid_size:
             reference_object_y_margin_bottom = target_object_grid_size
 
@@ -359,7 +401,7 @@ class ReferenceInductiveBias(QuinnDatasetGenerator):
             reference_object_x_margin=reference_object_x_margin,
             reference_object_y_margin_bottom=reference_object_y_margin_bottom,
             reference_object_y_margin_top=reference_object_y_margin_top, spatial_dataset=spatial_dataset,
-            prop_train_to_validation=prop_train_to_validation
+            prop_train_to_validation=prop_train_to_validation, subsample_train_size=subsample_train_size
         )
 
         self.target_object_grid_size = target_object_grid_size
@@ -420,7 +462,7 @@ class AboveBelowReferenceInductiveBias(ReferenceInductiveBias):
                  n_train_target_object_locations=None, prop_train_reference_object_locations=0.8,
                  reference_object_x_margin=0, reference_object_y_margin_bottom=None,
                  reference_object_y_margin_top=None, add_neither_test=False, spatial_dataset=False,
-                 prop_train_to_validation=0.1):
+                 prop_train_to_validation=0.1, subsample_train_size=None):
 
         super(AboveBelowReferenceInductiveBias, self).__init__(
             object_generator=object_generator, x_max=x_max, y_max=y_max, seed=seed,
@@ -431,7 +473,7 @@ class AboveBelowReferenceInductiveBias(ReferenceInductiveBias):
             reference_object_y_margin_bottom=reference_object_y_margin_bottom,
             reference_object_y_margin_top=reference_object_y_margin_top,
             add_neither_test=add_neither_test, spatial_dataset=spatial_dataset,
-            prop_train_to_validation=prop_train_to_validation
+            prop_train_to_validation=prop_train_to_validation, subsample_train_size=subsample_train_size
         )
 
     def _create_left_right_dataset(self, reference_locations, target_locations, train=True):
@@ -494,7 +536,7 @@ class BetweenReferenceInductiveBias(ReferenceInductiveBias):
                  n_train_target_object_locations=None, prop_train_reference_object_locations=0.8,
                  reference_object_x_margin=0, reference_object_y_margin_bottom=None,
                  reference_object_y_margin_top=None, add_neither_test=False, spatial_dataset=False,
-                 prop_train_to_validation=0.1):
+                 prop_train_to_validation=0.1, subsample_train_size=None):
 
         # We assume that the generated reference object location is for the bottom reference object
         min_y_margin = 2 * target_object_grid_size + 1
@@ -510,7 +552,7 @@ class BetweenReferenceInductiveBias(ReferenceInductiveBias):
             reference_object_y_margin_bottom=reference_object_y_margin_bottom,
             reference_object_y_margin_top=reference_object_y_margin_top,
             add_neither_test=add_neither_test, spatial_dataset=spatial_dataset,
-            prop_train_to_validation=prop_train_to_validation
+            prop_train_to_validation=prop_train_to_validation, subsample_train_size=subsample_train_size
         )
 
     def _create_left_right_dataset(self, reference_locations, target_locations, train=True):
@@ -601,7 +643,8 @@ class OneOrTwoReferenceObjects(QuinnDatasetGenerator):
                  prop_train_reference_object_locations=0.8,
                  target_object_grid_height=8, reference_object_x_margin=0,
                  reference_object_y_margin_bottom=None, reference_object_y_margin_top=None,
-                 add_neither_test=False, spatial_dataset=False, prop_train_to_validation=0.1):
+                 add_neither_test=False, spatial_dataset=False,
+                 prop_train_to_validation=0.1, subsample_train_size=None):
 
         self.between_relation = between_relation
         if two_reference_objects is None:
@@ -624,7 +667,8 @@ class OneOrTwoReferenceObjects(QuinnDatasetGenerator):
             reference_object_x_margin=reference_object_x_margin,
             reference_object_y_margin_bottom=reference_object_y_margin_bottom,
             reference_object_y_margin_top=reference_object_y_margin_top,
-            spatial_dataset=spatial_dataset, prop_train_to_validation=prop_train_to_validation
+            spatial_dataset=spatial_dataset, prop_train_to_validation=prop_train_to_validation,
+            subsample_train_size=subsample_train_size
         )
 
         self.target_object_grid_height = target_object_grid_height
