@@ -99,6 +99,9 @@ DEFAULT_EARLY_STOPPING_MONITOR_KEY = 'val'
 parser.add_argument('--early-stopping-monitor-key', type=str, default=DEFAULT_EARLY_STOPPING_MONITOR_KEY,
                     help='Which key to monitor for validation/test stopping')
 
+parser.add_argument('--subsample-train-size', type=int, default=None,
+                    help='How much to subsample the training set to (default is None to keep the full set)')
+
 
 # Paradigm-related arguments
 
