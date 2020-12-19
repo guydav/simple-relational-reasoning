@@ -189,6 +189,7 @@ MODEL_CONFIGURATIONS = {
         models.TransformerModel: dict(embedding_size=8, transformer_mlp_sizes=[8, 8], mlp_sizes=[32, 32]),
         # models.CNNModel: dict(conv_sizes=[8, 16], mlp_sizes=[16, 8],),
         models.SimplifiedCNNModel: dict(conv_sizes=[8, 16], mlp_sizes=[16, 8],),
+        models.PrediNetModel: dict(key_size=4, num_heads=4, num_relations=4, output_hidden_size=16)
     },
     LARGER_MODELS_CONFIG_KEY: {
         models.CombinedObjectMLPModel: dict(embedding_size=16, prediction_sizes=[64, 64, 32, 16]),
@@ -198,6 +199,7 @@ MODEL_CONFIGURATIONS = {
                                       transformer_mlp_sizes=[16, 16], mlp_sizes=[64, 32]),
         # models.CNNModel: dict(conv_sizes=[8, 16, 32], mlp_sizes=[32, 32],),
         models.SimplifiedCNNModel: dict(conv_sizes=[8, 16, 32], mlp_sizes=[32, 32],),
+        models.PrediNetModel: dict(key_size=8, num_heads=8, num_relations=8, output_hidden_size=32)
     }
 }
 parser.add_argument('--model-configuration', type=str, action='append', choices=list(MODEL_CONFIGURATIONS.keys()),
