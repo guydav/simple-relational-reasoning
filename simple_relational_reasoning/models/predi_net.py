@@ -21,7 +21,6 @@ class PrediNetModel(BaseObjectModel):
                                                test_log_prefix=test_log_prefix)
 
         self.position_slice = self.dataset.object_generator.get_position_slice()
-        self.object_input_size = self.object_size
         self.key_size = key_size
         self.key_layer = nn.Linear(self.object_size, self.key_size, bias=False)
 
