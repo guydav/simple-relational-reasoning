@@ -62,8 +62,8 @@ class PrediNetModel(BaseObjectModel):
         attention_2 = (queries_2 @ keys_transposed).softmax(-1)  # B x H x 1 x N
 
         x_tiled = x.reshape(B, 1, N, F).repeat(1, H, 1, 1)  # B x H x N x F
-        attention_weighted_features_1 = (attention_1 @ x_tiled).squeeze()  # B x H x F
-        attention_weighted_features_2 = (attention_2 @ x_tiled).squeeze()  # B x H x F
+        attention_weighted_features_1 = (attention_1 @ x_tiled).squeeze(2)  # B x H x F
+        attention_weighted_features_2 = (attention_2 @ x_tiled).squeeze(2)  # B x H x F
 
         relation_embeddings_1 = self.relation_embedding_layer(attention_weighted_features_1)  # B x H x R
         relation_embeddings_2 = self.relation_embedding_layer(attention_weighted_features_2)  # B x H x R
