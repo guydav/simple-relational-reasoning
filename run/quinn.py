@@ -59,7 +59,8 @@ def run_single_setting_all_models(args):
 
         # TODO: create wandb project name
         map_args_to_suffix(args)
-        args.wandb_project = f'{args.paradigm}-{args.relation}-{args.model_configuration}-models{"-" if args.wandb_project_suffix else ""}{args.wandb_project_suffix}'
+        if args.wandb_project is None:
+            args.wandb_project = f'{args.paradigm}-{args.relation}-{args.model_configuration}-models{"-" if args.wandb_project_suffix else ""}{args.wandb_project_suffix}'
 
         # TODO: create wandb run with name appropriate for model and random seed
         args.wandb_run_name = f'{model_class_name}-{args.seed}'

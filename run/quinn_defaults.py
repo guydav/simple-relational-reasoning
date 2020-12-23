@@ -235,8 +235,9 @@ DEFAULT_WANDB_DIR = SCRATCH_FOLDER  # wandb creates its own folder inside
 parser.add_argument('--wandb-dir', default=DEFAULT_WANDB_DIR)
 parser.add_argument('--wandb-omit-watch', action='store_true')
 
-
 parser.add_argument('--wandb-project-suffix', type=str, default='')
+parser.add_argument('--wandb-project', type=str, default=None)
+
 
 # Handling fields with multiple potential options
 MULTIPLE_OPTION_FIELD_DEFAULTS = {
