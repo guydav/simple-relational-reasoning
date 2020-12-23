@@ -53,6 +53,12 @@ def run_single_setting_all_models(args):
 
         object_generator, dataset = create_dataset(args)
 
+        args.size_train_dataset = len(dataset.get_training_dataset())
+        args.size_val_dataset = len(dataset.get_validation_dataset().labels)
+        var_args = vars(args)
+        for test_name, test_dataset in dataset.get_test_datasets():
+            var_args[f'size_{test_name}'] = len(test_dataset)
+
         # TODO: add in learning rate, batch size, dataset size to the per-model kwargs
         model_kwargs['lr'] = args.learning_rate
         model_kwargs['batch_size'] = args.batch_size
