@@ -92,7 +92,7 @@ class BaseObjectModel(pl.LightningModule):
         return {loss_key: self.loss(preds, target), acc_key: self._compute_accuracy(target, preds)}
 
     def train_dataloader(self):
-        return DataLoader(self.dataset.get_training_dataset(), batch_size=self.batch_size)
+        return DataLoader(self.dataset.get_training_dataset(), shuffle=True, batch_size=self.batch_size)
 
     def val_dataloader(self):
         # TODO: why is this val_ while the other methods are validation_
@@ -100,13 +100,13 @@ class BaseObjectModel(pl.LightningModule):
         # return DataLoader(self.validation_dataset, batch_size=self.batch_size)
         val_dataset = self.dataset.get_validation_dataset()
         if val_dataset is not None:
-            return DataLoader(val_dataset, batch_size=self.batch_size)
+            return DataLoader(val_dataset, shuffle=True, batch_size=self.batch_size)
 
         return None
 
     def test_dataloader(self):
         test_datasets = self.dataset.get_test_datasets()
-        return [DataLoader(test_datasets[key], batch_size=self.batch_size)
+        return [DataLoader(test_datasets[key], shuffle=True, batch_size=self.batch_size)
                 for key in sorted(test_datasets.keys())]
 
     def _average_outputs(self, outputs, prefix, extra_prefix=None):
