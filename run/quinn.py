@@ -63,7 +63,7 @@ def run_single_setting_all_models(args):
             args.wandb_project = f'{args.paradigm}-{args.relation}-{args.model_configuration}-models{"-" if args.wandb_project_suffix else ""}{args.wandb_project_suffix}'
 
         # TODO: create wandb run with name appropriate for model and random seed
-        args.wandb_run_name = f'{model_class_name}-{args.seed}'
+        args.wandb_run_name = f'{model_class_name}-{args.seed}{"-" if args.wandb_name_suffix else ""}{args.wandb_name_suffix}'
 
         # TODO: create model
         model = model_class(dataset, **model_kwargs)
