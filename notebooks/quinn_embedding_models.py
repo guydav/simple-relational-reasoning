@@ -23,6 +23,7 @@ def build_model(name, device, pretrained=True, saycam=None):
     model = None
     
     if saycam:
+#         print('Loading SAYcam model')
         if saycam is True:
             saycam = 'SAY'
         saycam = saycam.upper()
@@ -49,6 +50,7 @@ def build_model(name, device, pretrained=True, saycam=None):
             model.module.fc = nn.Sequential()
     
     else:
+#         print('Loading ImageNet or random model')
         if name == RESNET:
             model = models.resnet18(pretrained=pretrained)
             model.fc_backup = model.fc
@@ -75,6 +77,9 @@ def build_model(name, device, pretrained=True, saycam=None):
         
     if model is None:
         raise ValueError(f'Failed to build model for name={name}, pretrained={pretrained}, saycam={saycam}')
+       
+#     print(name, pretrained, saycam, type(model))
         
     return model
+
     
