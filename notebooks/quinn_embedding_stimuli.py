@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from functools import lru_cache
 import numpy as np
 import cv2
 import torch
@@ -7,7 +8,7 @@ import matplotlib
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvas
 
-
+CACHE_SIZE = 16
 DEFAULT_CANVAS_SIZE = (224, 224)
 NORMALIZE = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225])
@@ -17,36 +18,68 @@ class StimulusGenerator:
         self.target_size = target_size
         self.reference_size = reference_size
         self.dtype = dtype
+        
+        self.n_targets = 1
     
-    def generate(self, target_position, reference_positions, center_positions=True) -> torch.Tensor:
+    def generate(self, target_position, reference_positions, target_index=0, center_positions=True) -> torch.Tensor:
+        if not hasattr(reference_positions[0], '__len__'):
+            reference_positions = [reference_positions]
+        
         x = self._canvas()
         
         # reference first in case of overlap
         reference_centering = np.array([center_positions * s // 2 for s in self.reference_size])
         for ref_pos in reference_positions:
-            ref_pos = np.array(ref_pos) - reference_centering
-            x[:, ref_pos[0]:ref_pos[0] + self.reference_size[0],
-                 ref_pos[1]:ref_pos[1] + self.reference_size[1]] = self._reference_object()
+            rp = np.array(ref_pos) - reference_centering
+            
+#             if torch.any(torch.eq(torch.tensor(x[:, rp[0]:rp[0] + self.reference_size[0],
+#                  rp[1]:rp[1] + self.reference_size[1]].shape), 0)):
+#                 print(ref_pos, rp)
+            
+            x[:, rp[0]:rp[0] + self.reference_size[0],
+                 rp[1]:rp[1] + self.reference_size[1]] = self._reference_object()
             
         target_centering = np.array([center_positions * s // 2 for s in self.target_size])
         target_pos = np.array(target_position) - target_centering
         x[:, target_pos[0]:target_pos[0] + self.target_size[0],
-             target_pos[1]:target_pos[1] + self.target_size[1]] = self._target_object()
+             target_pos[1]:target_pos[1] + self.target_size[1]] = self._target_object(target_index)
         
         return x
     
     def __call__(self, target_position, reference_positions) -> torch.Tensor:
         return NORMALIZE(self.generate(target_position, reference_positions))
         
-    def batch_generate(self, target_positions, reference_positions, normalize=True) -> torch.Tensor:
+    def batch_generate(self, target_positions, reference_positions, target_indices=None, normalize=True) -> torch.Tensor:
         if len(reference_positions) != len(target_positions):
-            reference_positions = [reference_positions] * len(target_positions)
+            if isinstance(reference_positions[0], np.ndarray):
+                reference_positions = [tuple([tuple(ref) for ref in reference_positions])] * len(target_positions)
+            elif hasattr(reference_positions[0], '__len__'):
+                reference_positions = [tuple(reference_positions)] * len(target_positions)
+            else:
+                reference_positions = [(tuple(reference_positions),)] * len(target_positions)
             
+        if target_indices is None:
+            target_indices = (0,) * len(target_positions)
+        elif isinstance(target_indices, int):
+            target_indices = (target_indices,) * len(target_positions)
+        elif not isinstance(target_indices, tuple):
+            target_indices = tuple(target_indices)
+            
+        if len(target_indices) != len(target_positions):
+            raise ValueError(f'Expected target indices (N={len(target_indices)} to have the same length as the target positions (N={len(target_positions)}. Aborting...')
+            
+        target_positions = tuple(target_positions)
+        reference_positions = tuple(reference_positions)
+        return self.cached_batch_generate(target_positions, reference_positions, target_indices, normalize)
+                
+    @lru_cache(maxsize=CACHE_SIZE)
+    def cached_batch_generate(self, target_positions, reference_positions, target_indices, normalize=True):
+        zip_gen = zip(target_positions, reference_positions, target_indices)
         if normalize:
-            return torch.stack([NORMALIZE(self.generate(t, p)) for (t, p) in zip(target_positions, reference_positions)])
+            return torch.stack([NORMALIZE(self.generate(t, p, i)) for (t, p, i) in zip_gen])
         else:
-            return torch.stack([self.generate(t, p) for (t, p) in zip(target_positions, reference_positions)])        
-    
+            return torch.stack([self.generate(t, p, i) for (t, p, i) in zip_gen])
+
     def _to_tensor(self, t):
         return torch.tensor(t, dtype=self.dtype)
     
@@ -73,7 +106,7 @@ class StimulusGenerator:
         pass
     
     @abstractmethod
-    def _target_object(self):
+    def _target_object(self, index=0):
         pass
     
 
@@ -97,7 +130,7 @@ class NaiveStimulusGenerator(StimulusGenerator):
     def _reference_object(self):
         return self.reference_color
     
-    def _target_object(self):
+    def _target_object(self, index=0):
         return self.target_color
     
 
@@ -119,25 +152,25 @@ class PatchStimulusGenerator(StimulusGenerator):
 
         row_start = 0
         for i in range(X.shape[0]):
-            if not np.all(X[i] == np.array([255, 255, 255,   0])):
+            if not np.all(X[i] == np.array([255, 255, 255, 0])):
                 row_start = i
                 break
 
         row_end = X.shape[0]
         for i in range(X.shape[0] - 1, 0, -1):
-            if not np.all(X[i] == np.array([255, 255, 255,   0])):
+            if not np.all(X[i] == np.array([255, 255, 255, 0])):
                 row_end = i
                 break
 
         col_start = 0
         for i in range(X.shape[1]):
-            if not np.all(X[:,i] == np.array([255, 255, 255,   0])):
+            if not np.all(X[:,i] == np.array([255, 255, 255, 0])):
                 col_start = i
                 break
 
         col_end = X.shape[1]
         for i in range(X.shape[1] - 1, 0, -1):
-            if not np.all(X[:,i] == np.array([255, 255, 255,   0])):
+            if not np.all(X[:,i] == np.array([255, 255, 255, 0])):
                 col_end = i
                 break
                 
@@ -161,7 +194,11 @@ class PatchStimulusGenerator(StimulusGenerator):
         self.blur_func = blur_func
         self.background_color = self._validate_color_input(background_color)
         
-        self.target_arr = self._patch_to_array(target_patch, self.target_size)
+        if not isinstance(target_patch, (list, tuple)):
+            target_patch = [target_patch]
+          
+        self.targets_arrs = [self._patch_to_array(patch, self.target_size) for patch in target_patch]
+        self.n_targets = len(self.targets_arrs)
         self.reference_arr = self._patch_to_array(reference_patch, self.reference_size)
         
     def _canvas(self):
@@ -170,5 +207,5 @@ class PatchStimulusGenerator(StimulusGenerator):
     def _reference_object(self):
         return self.reference_arr
     
-    def _target_object(self):
-        return self.target_arr
+    def _target_object(self, index=0):
+        return self.targets_arrs[index]
