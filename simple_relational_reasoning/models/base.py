@@ -129,7 +129,7 @@ class BaseObjectModel(pl.LightningModule):
 
         for output_list in outputs:
             for output_dict in output_list:
-                for key, value  in output_dict.items():
+                for key, value in output_dict.items():
                     key_name, key_idx = key[:-1], int(key[-1])
                     test_results[key_idx][key_name].append(value)
 
