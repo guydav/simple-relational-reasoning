@@ -1,6 +1,7 @@
 notebooks/lightning_logs
 notebooks/.ipynb_checkpoints
 notebooks/*Logger*
+notebooks/results_cache.pickle
 wandb
 */wandb
 */*/wandb
@@ -8,3 +9,5 @@ wandb
 */*/__pycache__
 *.ckpt
 results_cache_*-*-*_*-*-*.pickle
+results_cache.pickle
+results_cache.pickle.backup
