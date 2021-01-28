@@ -20,16 +20,19 @@ class PrediNetModel(BaseObjectModel):
                                                validation_log_prefix=validation_log_prefix,
                                                test_log_prefix=test_log_prefix)
 
+        if not hasattr(self, 'object_input_size'):
+            self.object_input_size = self.object_size
+
         self.position_slice = self.dataset.object_generator.get_position_slice()
         self.key_size = key_size
-        self.key_layer = nn.Linear(self.object_size, self.key_size, bias=False)
+        self.key_layer = nn.Linear(self.object_input_size, self.key_size, bias=False)
 
         self.num_heads = num_heads
-        self.query_1_layer = nn.Linear(self.num_objects * self.object_size, self.num_heads * self.key_size, bias=False)
-        self.query_2_layer = nn.Linear(self.num_objects * self.object_size, self.num_heads * self.key_size, bias=False)
+        self.query_1_layer = nn.Linear(self.num_objects * self.object_input_size, self.num_heads * self.key_size, bias=False)
+        self.query_2_layer = nn.Linear(self.num_objects * self.object_input_size, self.num_heads * self.key_size, bias=False)
 
         self.num_relations = num_relations
-        self.relation_embedding_layer = nn.Linear(self.object_size, self.num_relations, bias=False)
+        self.relation_embedding_layer = nn.Linear(self.object_input_size, self.num_relations, bias=False)
 
         self.output_hidden_size = output_hidden_size
         self.output_hidden_activation_class = output_hidden_activation_class
@@ -78,4 +81,35 @@ class PrediNetModel(BaseObjectModel):
         return self.output_activation(self.output_layer(output_hidden))
 
 
+class PrediNetWithEmbeddingModel(PrediNetModel):
+    def __init__(self, dataset,
+                 key_size, num_heads, num_relations, output_hidden_size,
+                 embedding_size=None, embedding_activation_class=nn.ReLU,
+                 output_hidden_activation_class=nn.ReLU, output_activation_class=None,
+                 loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
+                 batch_size=32, train_log_prefix=None, validation_log_prefix=None, test_log_prefix=None):
+        if embedding_size is not None:
+            self.object_input_size = embedding_size
 
+        super(PrediNetWithEmbeddingModel, self).__init__(
+            dataset,
+            key_size=key_size, num_heads=num_heads, num_relations=num_relations,
+            output_hidden_size=output_hidden_size,
+            output_hidden_activation_class=output_hidden_activation_class,
+            output_activation_class=output_activation_class,
+            loss=loss, optimizer_class=optimizer_class,
+            lr=lr, batch_size=batch_size, train_log_prefix=train_log_prefix,
+            validation_log_prefix=validation_log_prefix, test_log_prefix=test_log_prefix)
+
+        self.embedding_size = self.object_size
+        self.embedding_module = nn.Identity()
+
+        if embedding_size is not None:
+            self.embedding_size = embedding_size
+            self.embedding_module = nn.Sequential(
+                nn.Linear(self.object_size, self.embedding_size),
+                embedding_activation_class()
+            )
+
+    def embed(self, x):
+        return self.embedding_module(x)

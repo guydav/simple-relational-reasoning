@@ -110,8 +110,8 @@ class TransformerModel(BaseObjectModel):
                                                validation_log_prefix=validation_log_prefix,
                                                test_log_prefix=test_log_prefix)
 
-        self.embedding_module = nn.Identity()
         self.embedding_size = self.object_size
+        self.embedding_module = nn.Identity()
 
         if embedding_size is not None:
             self.embedding_size = embedding_size
