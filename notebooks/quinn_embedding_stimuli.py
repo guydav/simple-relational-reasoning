@@ -5,6 +5,7 @@ import cv2
 import torch
 import torchvision.transforms as transforms
 import matplotlib
+import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvas
 
@@ -19,9 +20,10 @@ class StimulusGenerator:
         self.reference_size = reference_size
         self.dtype = dtype
         
-        self.n_targets = 1
+        self.n_target_types = 1
     
-    def generate(self, target_position, reference_positions, target_index=0, center_positions=True) -> torch.Tensor:
+    def generate(self, target_position, reference_positions, target_index=0, 
+                 center_positions=True, transpose_target=False) -> torch.Tensor:
         if not hasattr(reference_positions[0], '__len__'):
             reference_positions = [reference_positions]
         
@@ -41,15 +43,20 @@ class StimulusGenerator:
             
         target_centering = np.array([center_positions * s // 2 for s in self.target_size])
         target_pos = np.array(target_position) - target_centering
+        target = self._target_object(target_index)
+        if transpose_target:
+            target = np.transpose(target, (0, 2, 1))
+            
         x[:, target_pos[0]:target_pos[0] + self.target_size[0],
-             target_pos[1]:target_pos[1] + self.target_size[1]] = self._target_object(target_index)
+             target_pos[1]:target_pos[1] + self.target_size[1]] = target
         
         return x
     
-    def __call__(self, target_position, reference_positions) -> torch.Tensor:
-        return NORMALIZE(self.generate(target_position, reference_positions))
+    def __call__(self, target_position, reference_positions, transpose_target=False) -> torch.Tensor:
+        return NORMALIZE(self.generate(target_position, reference_positions, transpose_target=transpose_target))
         
-    def batch_generate(self, target_positions, reference_positions, target_indices=None, normalize=True) -> torch.Tensor:
+    def batch_generate(self, target_positions, reference_positions, target_indices=None, 
+                       normalize=True, transpose_target=False) -> torch.Tensor:
         if len(reference_positions) != len(target_positions):
             if isinstance(reference_positions[0], np.ndarray):
                 reference_positions = [tuple([tuple(ref) for ref in reference_positions])] * len(target_positions)
@@ -70,15 +77,19 @@ class StimulusGenerator:
             
         target_positions = tuple(target_positions)
         reference_positions = tuple(reference_positions)
-        return self.cached_batch_generate(target_positions, reference_positions, target_indices, normalize)
+        return self.cached_batch_generate(target_positions, reference_positions, target_indices, 
+                                          normalize=normalize, transpose_target=transpose_target)
                 
     @lru_cache(maxsize=CACHE_SIZE)
-    def cached_batch_generate(self, target_positions, reference_positions, target_indices, normalize=True):
+    def cached_batch_generate(self, target_positions, reference_positions, target_indices, 
+                              normalize=True, transpose_target=False):
         zip_gen = zip(target_positions, reference_positions, target_indices)
         if normalize:
-            return torch.stack([NORMALIZE(self.generate(t, p, i)) for (t, p, i) in zip_gen])
+            return torch.stack([NORMALIZE(self.generate(t, p, i, transpose_target=transpose_target)) 
+                                for (t, p, i) in zip_gen])
         else:
-            return torch.stack([self.generate(t, p, i) for (t, p, i) in zip_gen])
+            return torch.stack([self.generate(t, p, i, transpose_target=transpose_target) 
+                                for (t, p, i) in zip_gen])
 
     def _to_tensor(self, t):
         return torch.tensor(t, dtype=self.dtype)
@@ -135,16 +146,33 @@ class NaiveStimulusGenerator(StimulusGenerator):
     
 
 class PatchStimulusGenerator(StimulusGenerator):
-    def _patch_to_array(self, patch, size):
+    def _patch_to_array(self, patch, size, xlim=None, ylim=None, fontsize=16):
         fig = Figure(figsize=(4, 4))
         # attach a non-interactive Agg canvas to the figure
         # (as a side-effect of the ``__init__``)
         canvas = FigureCanvas(fig)
         ax = fig.subplots()
         ax.set_facecolor(np.array(self.background_color).squeeze())
-        ax.add_patch(patch)
+        
+        if isinstance(patch, (list, tuple)):
+            for p in patch:
+                if isinstance(p, str):
+                    ax.text(0, 0, p, fontsize=fontsize)
+                else:
+                    ax.add_patch(p)
+        else:
+            if isinstance(patch, str):
+                ax.text(0, 0, patch, fontsize=fontsize)
+            else:
+                ax.add_patch(patch)  
+            
         ax.set_axis_off()
         ax.autoscale(tight=True)
+        if xlim is not None:
+            ax.set_xlim(*xlim)
+        if ylim is not None:
+            ax.set_ylim(*ylim)
+            
         # Force a draw so we can grab the pixel buffer
         canvas.draw()
         # grab the pixel buffer and dump it into a numpy array
@@ -174,7 +202,7 @@ class PatchStimulusGenerator(StimulusGenerator):
                 col_end = i
                 break
                 
-        X_trim = X[row_start:row_end, col_start:col_end, :]
+        X_trim = X[row_start:row_end + 1, col_start:col_end + 1, :]
         X_resized = cv2.resize(X_trim, dsize=size[::-1])
         X_rgb = cv2.cvtColor(X_resized, cv2.COLOR_RGBA2RGB)
         if self.blur_func is not None:
@@ -183,9 +211,16 @@ class PatchStimulusGenerator(StimulusGenerator):
         return X_float_tensor / X_float_tensor.max()
     
     def __init__(self, target_size, reference_size, target_patch, reference_patch,
-                 blur_func=None, canvas_size=DEFAULT_CANVAS_SIZE, 
+                 blur_func=None, target_patch_kawrgs=None, reference_patch_kwargs=None,
+                 canvas_size=DEFAULT_CANVAS_SIZE, 
                  background_color='white', dtype=torch.float32):
         super(PatchStimulusGenerator, self).__init__(target_size, reference_size, dtype)
+        
+        if target_patch_kawrgs is None:
+            target_patch_kawrgs = {}
+            
+        if reference_patch_kwargs is None:
+            reference_patch_kwargs = {}
         
         self.target_size = self._validate_input_to_tuple(target_size)
         self.reference_size = self._validate_input_to_tuple(reference_size)
@@ -197,9 +232,9 @@ class PatchStimulusGenerator(StimulusGenerator):
         if not isinstance(target_patch, (list, tuple)):
             target_patch = [target_patch]
           
-        self.targets_arrs = [self._patch_to_array(patch, self.target_size) for patch in target_patch]
-        self.n_targets = len(self.targets_arrs)
-        self.reference_arr = self._patch_to_array(reference_patch, self.reference_size)
+        self.targets_arrs = [self._patch_to_array(patch, self.target_size, **target_patch_kawrgs) for patch in target_patch]
+        self.n_target_types = len(self.targets_arrs)
+        self.reference_arr = self._patch_to_array(reference_patch, self.reference_size, **reference_patch_kwargs)
         
     def _canvas(self):
         return torch.ones(3, *self.canvas_size, dtype=self.dtype) * self.background_color
