@@ -22,7 +22,8 @@ class StimulusGenerator:
         
         self.n_target_types = 1
     
-    def generate(self, target_position, reference_positions, target_index=0, center_positions=True) -> torch.Tensor:
+    def generate(self, target_position, reference_positions, target_index=0, 
+                 center_positions=True, transpose_target=False) -> torch.Tensor:
         if not hasattr(reference_positions[0], '__len__'):
             reference_positions = [reference_positions]
         
@@ -42,15 +43,20 @@ class StimulusGenerator:
             
         target_centering = np.array([center_positions * s // 2 for s in self.target_size])
         target_pos = np.array(target_position) - target_centering
+        target = self._target_object(target_index)
+        if transpose_target:
+            target = np.transpose(target, (0, 2, 1))
+            
         x[:, target_pos[0]:target_pos[0] + self.target_size[0],
-             target_pos[1]:target_pos[1] + self.target_size[1]] = self._target_object(target_index)
+             target_pos[1]:target_pos[1] + self.target_size[1]] = target
         
         return x
     
-    def __call__(self, target_position, reference_positions) -> torch.Tensor:
-        return NORMALIZE(self.generate(target_position, reference_positions))
+    def __call__(self, target_position, reference_positions, transpose_target=False) -> torch.Tensor:
+        return NORMALIZE(self.generate(target_position, reference_positions, transpose_target=transpose_target))
         
-    def batch_generate(self, target_positions, reference_positions, target_indices=None, normalize=True) -> torch.Tensor:
+    def batch_generate(self, target_positions, reference_positions, target_indices=None, 
+                       normalize=True, transpose_target=False) -> torch.Tensor:
         if len(reference_positions) != len(target_positions):
             if isinstance(reference_positions[0], np.ndarray):
                 reference_positions = [tuple([tuple(ref) for ref in reference_positions])] * len(target_positions)
@@ -71,15 +77,19 @@ class StimulusGenerator:
             
         target_positions = tuple(target_positions)
         reference_positions = tuple(reference_positions)
-        return self.cached_batch_generate(target_positions, reference_positions, target_indices, normalize)
+        return self.cached_batch_generate(target_positions, reference_positions, target_indices, 
+                                          normalize=normalize, transpose_target=transpose_target)
                 
     @lru_cache(maxsize=CACHE_SIZE)
-    def cached_batch_generate(self, target_positions, reference_positions, target_indices, normalize=True):
+    def cached_batch_generate(self, target_positions, reference_positions, target_indices, 
+                              normalize=True, transpose_target=False):
         zip_gen = zip(target_positions, reference_positions, target_indices)
         if normalize:
-            return torch.stack([NORMALIZE(self.generate(t, p, i)) for (t, p, i) in zip_gen])
+            return torch.stack([NORMALIZE(self.generate(t, p, i, transpose_target=transpose_target)) 
+                                for (t, p, i) in zip_gen])
         else:
-            return torch.stack([self.generate(t, p, i) for (t, p, i) in zip_gen])
+            return torch.stack([self.generate(t, p, i, transpose_target=transpose_target) 
+                                for (t, p, i) in zip_gen])
 
     def _to_tensor(self, t):
         return torch.tensor(t, dtype=self.dtype)
