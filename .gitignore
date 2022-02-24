@@ -11,3 +11,4 @@ wandb
 results_cache_*-*-*_*-*-*.pickle
 results_cache.pickle
 results_cache.pickle.backup
+.idea/*
