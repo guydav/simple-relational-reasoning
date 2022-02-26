@@ -4,4 +4,5 @@ from simple_relational_reasoning.datagen.object_gen import ObjectGenerator, Obje
 from simple_relational_reasoning.datagen.object_relations import OneDAdjacentRelation, MultipleDAdjacentRelation, \
     ColorAboveColorRelation, ObjectCountRelation, IdenticalObjectsRelation, BetweenRelation
 from simple_relational_reasoning.datagen.quinn_objects import ObjectGeneratorWithSize, ObjectGeneratorWithoutSize, \
-    DiagonalObjectGeneratorWithoutSize, QuinnDatasetGenerator, CombinedQuinnDatasetGenerator, DiagonalAboveBelowDatasetGenerator
+    DiagonalObjectGeneratorWithoutSize, QuinnWithReferenceDatasetGenerator, CombinedQuinnDatasetGenerator, \
+    DiagonalAboveBelowDatasetGenerator, QuinnNoReferenceDatasetGenerator

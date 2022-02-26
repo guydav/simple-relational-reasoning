@@ -284,70 +284,31 @@ class SimplifiedSpatialDataset(MinimalSpatialDataset):
         self.spatial_objects = self.spatial_objects[:, self.object_generator.get_type_slice(), :, :]
 
 
-class QuinnDatasetGenerator:
+class QuinnBaseDatasetGenerator:
     def __init__(self, object_generator, x_max, y_max, seed, *,
-                 prop_train_reference_object_locations=0.8, prop_train_target_object_locations=0.5,
-                 reference_object_x_margin=0, reference_object_y_margin_bottom=0, reference_object_y_margin_top=0,
-                 spatial_dataset=False, prop_train_to_validation=0.1, subsample_train_size=None):
+        spatial_dataset=False, prop_train_to_validation=0.1, subsample_train_size=None):
+
         self.object_generator = object_generator
         self.x_max = x_max
         self.y_max = y_max
         self.seed = seed
         self.rng = np.random.default_rng(seed)
-
-        self.prop_train_reference_object_locations = prop_train_reference_object_locations
-        self.prop_train_target_object_locations = prop_train_target_object_locations
-
-        if reference_object_x_margin is None:
-            reference_object_x_margin = 0
-
-        self.reference_object_x_margin = reference_object_x_margin
-        self.reference_object_y_margin_bottom = reference_object_y_margin_bottom
-        self.reference_object_y_margin_top = reference_object_y_margin_top
-
-        possible_reference_object_locations = [np.array(x) for x in
-                                               itertools.product(range(reference_object_x_margin,
-                                                                       x_max - reference_object_x_margin - object_generator.reference_object_length),
-                                                                 range(reference_object_y_margin_bottom,
-                                                                       y_max - reference_object_y_margin_top))]
-        self.train_reference_object_locations, self.test_reference_object_locations = \
-            self._split_train_test(possible_reference_object_locations, prop_train_reference_object_locations)
-
         self.spatial_dataset = spatial_dataset
         self.prop_train_to_validation = prop_train_to_validation
         self.subsample_train_size = subsample_train_size
-
-        self.train_target_locations, self.test_target_locations = self._generate_and_split_target_object_locations()
 
         self.train_dataset = None
         self.validation_dataset = None
         self.test_datasets = None
 
-    @abstractmethod
-    def _create_single_dataset(self, reference_locations, target_locations, train=True):
-        raise NotImplementedError()
 
     @abstractmethod
-    def _generate_and_split_target_object_locations(self, prop_train=None) -> list:
-        raise NotImplementedError()
-
     def _create_training_dataset(self) -> torch.utils.data.Dataset:
-        return self._create_single_dataset(self.train_reference_object_locations,
-                                           self.train_target_locations, train=True)
+        raise NotImplementedError()
 
+    @abstractmethod
     def _create_test_datasets(self) -> dict:
-        test_datasets = dict()
-
-        test_datasets[TRAIN_REFERENCE_TEST_TARGET] = self._create_single_dataset(
-                self.train_reference_object_locations, self.test_target_locations, train=False)
-
-        test_datasets[TEST_REFERENCE_TRAIN_TARGET] = self._create_single_dataset(
-                self.test_reference_object_locations, self.train_target_locations, train=False)
-
-        test_datasets[TEST_REFERENCE_TEST_TARGET] = self._create_single_dataset(
-                self.test_reference_object_locations, self.test_target_locations, train=False)
-
-        return test_datasets
+        raise NotImplementedError()
 
     def get_training_dataset(self) -> torch.utils.data.Dataset:
         if self.train_dataset is None:
@@ -421,13 +382,71 @@ class QuinnDatasetGenerator:
         return (self._create_dataset(dataset.objects[first_split], dataset.labels[first_split]),
                 self._create_dataset(dataset.objects[second_split], dataset.labels[second_split]))
 
+        
+class QuinnWithReferenceDatasetGenerator(QuinnBaseDatasetGenerator):
+    def __init__(self, object_generator, x_max, y_max, seed, *,
+                 prop_train_reference_object_locations=0.8, prop_train_target_object_locations=0.5,
+                 reference_object_x_margin=0, reference_object_y_margin_bottom=0, reference_object_y_margin_top=0,
+                 spatial_dataset=False, prop_train_to_validation=0.1, subsample_train_size=None):
+        
+        super(QuinnWithReferenceDatasetGenerator, self).__init__(object_generator, x_max, y_max, seed,
+            spatial_dataset=spatial_dataset, prop_train_to_validation=prop_train_to_validation, 
+            subsample_train_size=subsample_train_size)
+
+        self.prop_train_reference_object_locations = prop_train_reference_object_locations
+        self.prop_train_target_object_locations = prop_train_target_object_locations
+
+        if reference_object_x_margin is None:
+            reference_object_x_margin = 0
+
+        self.reference_object_x_margin = reference_object_x_margin
+        self.reference_object_y_margin_bottom = reference_object_y_margin_bottom
+        self.reference_object_y_margin_top = reference_object_y_margin_top
+
+        possible_reference_object_locations = [np.array(x) for x in
+                                               itertools.product(range(reference_object_x_margin,
+                                                                       x_max - reference_object_x_margin - object_generator.reference_object_length),
+                                                                 range(reference_object_y_margin_bottom,
+                                                                       y_max - reference_object_y_margin_top))]
+        self.train_reference_object_locations, self.test_reference_object_locations = \
+            self._split_train_test(possible_reference_object_locations, prop_train_reference_object_locations)
+
+
+        self.train_target_locations, self.test_target_locations = self._generate_and_split_target_object_locations()
+
+    @abstractmethod
+    def _create_single_dataset(self, reference_locations, target_locations, train=True):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def _generate_and_split_target_object_locations(self, prop_train=None) -> list:
+        raise NotImplementedError()
+
+    def _create_training_dataset(self) -> torch.utils.data.Dataset:
+        return self._create_single_dataset(self.train_reference_object_locations,
+                                           self.train_target_locations, train=True)
+
+    def _create_test_datasets(self) -> dict:
+        test_datasets = dict()
+
+        test_datasets[TRAIN_REFERENCE_TEST_TARGET] = self._create_single_dataset(
+                self.train_reference_object_locations, self.test_target_locations, train=False)
+
+        test_datasets[TEST_REFERENCE_TRAIN_TARGET] = self._create_single_dataset(
+                self.test_reference_object_locations, self.train_target_locations, train=False)
+
+        test_datasets[TEST_REFERENCE_TEST_TARGET] = self._create_single_dataset(
+                self.test_reference_object_locations, self.test_target_locations, train=False)
+
+        return test_datasets
+
 
 TRAIN_REFERENCE_TEST_TARGET = 'train_reference_test_target'
 TEST_REFERENCE_TRAIN_TARGET = 'test_reference_train_target'
 TEST_REFERENCE_TEST_TARGET = 'test_reference_test_target'
 
 
-class CombinedQuinnDatasetGenerator(QuinnDatasetGenerator):
+class CombinedQuinnDatasetGenerator(QuinnWithReferenceDatasetGenerator):
     def __init__(self, object_generator, x_max, y_max, seed, *,
                  between_relation=False, two_reference_objects=None,
                  prop_train_target_object_locations=0.5,
@@ -546,7 +565,7 @@ class CombinedQuinnDatasetGenerator(QuinnDatasetGenerator):
 
         return self._create_dataset(objects, labels)
 
-class DiagonalAboveBelowDatasetGenerator(QuinnDatasetGenerator):
+class DiagonalAboveBelowDatasetGenerator(QuinnWithReferenceDatasetGenerator):
     def __init__(self, object_generator, x_max, y_max, seed, *,
                  reference_object_x_margin=0, reference_object_y_margin=0,
                  prop_train_reference_object_locations=0.8, prop_train_target_object_locations=0.5,
@@ -600,3 +619,49 @@ class DiagonalAboveBelowDatasetGenerator(QuinnDatasetGenerator):
                 labels.append(label)
 
         return self._create_dataset(objects, labels)
+
+class QuinnNoReferenceDatasetGenerator(QuinnBaseDatasetGenerator):
+    def __init__(self, object_generator, x_max, y_max, seed, *,
+        left_right=True, prop_train=0.9,
+        spatial_dataset=False, prop_train_to_validation=0.1, subsample_train_size=None):
+
+        if x_max % 2 != 0 or y_max % 2 != 0:
+            raise ValueError(f'x_max and y_max must be even, got {x_max} and {y_max}')
+
+        super(QuinnNoReferenceDatasetGenerator, self).__init__(object_generator, x_max, y_max, seed,
+            spatial_dataset=spatial_dataset, prop_train_to_validation=prop_train_to_validation, 
+            subsample_train_size=subsample_train_size)
+
+        self.left_right = left_right
+        self.prop_train = prop_train
+
+        all_target_locations = list(itertools.product(range(self.x_max), range(self.y_max)))
+        self.label_to_locations = {}
+        self.stage_to_label_to_locations = defaultdict(dict)
+
+        compare_point = x_max // 2 if left_right else y_max // 2
+        compare_index = 0 if left_right else 1
+        
+        self.label_to_locations[0] = [location for location in all_target_locations if location[compare_index] < compare_point]
+        self.label_to_locations[1] = [location for location in all_target_locations if location[compare_index] >= compare_point]
+
+        for label in 0, 1:
+            for stage, locations in zip(('train', 'test'), self._split_train_test(self.label_to_locations[label], self.prop_train)):
+                self.stage_to_label_to_locations[stage][label] = locations
+
+    def _create_stage_dataset(self, stage):
+        objects = []
+        labels = []
+
+        for label, locations in self.stage_to_label_to_locations[stage].items():
+            for target in locations:
+                objects.append(self.object_generator.target_object(target[0], target[1], train=stage == 'train'))
+                labels.append(label)
+
+        return self._create_dataset(objects, labels)
+
+    def _create_training_dataset(self) -> torch.utils.data.Dataset:
+        return self._create_stage_dataset('train')
+
+    def _create_test_datasets(self) -> dict:
+        return {'test': self._create_stage_dataset('test')}
