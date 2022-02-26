@@ -103,17 +103,6 @@ parser.add_argument('--subsample-train-size', type=int, default=None,
                     help='How much to subsample the training set to (default is None to keep the full set)')
 
 
-# Paradigm-related arguments
-
-INDUCTIVE_BIAS_PARADIGM = 'inductive_bias'
-ONE_OR_TWO_PARADIGM = 'one_or_two_references'
-
-PARADIGMS = (
-    INDUCTIVE_BIAS_PARADIGM,
-    ONE_OR_TWO_PARADIGM
-)
-parser.add_argument('--paradigm', type=str, action='append', choices=PARADIGMS,
-                    help='Which paradigm to run')
 
 ABOVE_BELOW_RELATION = 'above_below'
 BETWEEN_RELATION = 'between'
@@ -126,43 +115,16 @@ parser.add_argument('--relation', type=str, action='append', choices=RELATIONS,
                     help='Which relation(s) to run (default: all)')
 
 
-PARADIGM_CANVAS_SIZES = {
-    INDUCTIVE_BIAS_PARADIGM: {
-        ABOVE_BELOW_RELATION: {
-            'x_max': 25,
-            'y_max': 25,
-        },
-        BETWEEN_RELATION: {
-            'x_max': 27,
-            'y_max': 27,
-        }
+DEFAULT_CANVAS_SIZES = {
+    ABOVE_BELOW_RELATION: {
+        'x_max': 18,
+        'y_max': 18,
     },
-    ONE_OR_TWO_PARADIGM: {
-        ABOVE_BELOW_RELATION: {
-            'x_max': 18,
-            'y_max': 18,
-        },
-        BETWEEN_RELATION: {
-            'x_max': 18,
-            'y_max': 19,
-        }
+    BETWEEN_RELATION: {
+        'x_max': 18,
+        'y_max': 19,
     }
 }
-
-# Inductive bias paradigm arguments
-DEFAULT_TARGET_OBJECT_GRID_SIZE = 3
-parser.add_argument('--target-object-grid-size', type=int, default=DEFAULT_TARGET_OBJECT_GRID_SIZE,
-                    help='Size of grid to assign target objects to (defaults to 3x3)')
-
-DEFAULT_N_TRAIN_TARGET_OBJECT_LOCATIONS = 7
-parser.add_argument('--n-train-target-object-locations', type=int, default=DEFAULT_N_TRAIN_TARGET_OBJECT_LOCATIONS,
-                    help='How many target object locations to assign to train (defaults to n * (n - 1) for an n x n grid)')
-
-DEFAULT_ABOVE_OR_BETWEEN_LEFT = None
-parser.add_argument('--above-or-between-left', type=int, default=DEFAULT_ABOVE_OR_BETWEEN_LEFT,
-                    help='Which side to assign a particular class (above in above/below, between when it is in). Defaults to parity of the seed')
-
-# One or two reference objects paradigm arguments
 
 DEFAULT_TWO_REFERENCE_OBJECTS = None
 parser.add_argument('--two-reference-objects', type=int, default=DEFAULT_TWO_REFERENCE_OBJECTS,
@@ -246,7 +208,6 @@ parser.add_argument('--wandb-project', type=str, default=None)
 MULTIPLE_OPTION_FIELD_DEFAULTS = {
     'model_configuration': [DEFAULT_MODELS_CONFIG_KEY],
     'model': MODEL_NAMES,
-    'paradigm': PARADIGMS,
     'relation': RELATIONS,
     'use_object_size': [0, 1],
     'add_neither_train': [0, 1],
