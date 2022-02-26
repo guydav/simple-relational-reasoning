@@ -80,7 +80,7 @@ def run_single_setting_all_models(args):
                              entity=args.wandb_entity, log_model=True)
         logger.log_hyperparams(vars(args))
 
-        checkpoint_callback = ModelCheckpoint(filepath=os.path.join(wandb.run.dir, f'{args.wandb_run_name}-{{epoch:d}}-{{val_loss:.5f}}'),
+        checkpoint_callback = ModelCheckpoint(dirpath=wandb.run.dir, filename=f'{args.wandb_run_name}-{{epoch:d}}-{{val_loss:.5f}}',
                                               save_top_k=1, verbose=True, monitor=args.early_stopping_monitor_key, mode='min')
         early_stopping_callback = EarlyStopping(args.early_stopping_monitor_key, patience=args.patience_epochs, verbose=True,
                                                 min_delta=args.early_stopping_min_delta)
@@ -117,7 +117,7 @@ def create_dataset(args):
         object_generator_class = ObjectGeneratorWithSize
     else:
         object_generator_class = ObjectGeneratorWithoutSize
-        
+
     object_generator = object_generator_class(args.seed, args.reference_object_length,
                                               args.target_object_length, args.n_reference_object_types,
                                               args.n_train_target_object_types, args.n_test_target_object_types)
