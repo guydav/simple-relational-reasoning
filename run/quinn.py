@@ -50,7 +50,7 @@ def run_single_setting_all_models(args):
         else:
             args.spatial_dataset = 'cnn' in args.model_name.lower()
 
-        object_generator, dataset = create_dataset(args)
+        _, dataset = create_dataset(args)
 
         args.size_train_dataset = len(dataset.get_training_dataset())
         args.size_val_dataset = len(dataset.get_validation_dataset().labels)
@@ -119,20 +119,41 @@ def create_dataset(args):
                                               args.target_object_length, args.n_reference_object_types,
                                               args.n_train_target_object_types, args.n_test_target_object_types)
     
-    dataset = CombinedQuinnDatasetGenerator(
-        object_generator, args.x_max, args.y_max, args.seed,
-        between_relation=args.relation == BETWEEN_RELATION,
-        two_reference_objects=args.two_reference_objects,
-        add_neither_train=args.add_neither_train,
-        prop_train_target_object_locations=args.prop_train_target_object_locations,
-        prop_train_reference_object_locations=args.prop_train_reference_object_locations,
-        target_object_grid_height=args.target_object_grid_height,
-        reference_object_x_margin=args.reference_object_x_margin,
-        reference_object_y_margin_bottom=args.reference_object_y_margin_bottom,
-        reference_object_y_margin_top=args.reference_object_y_margin_top,
-        add_neither_test=args.add_neither_test, spatial_dataset=args.spatial_dataset,
-        prop_train_to_validation=args.prop_train_to_validation, subsample_train_size=args.subsample_train_size
-    )
+    if args.relation == DIAGONAL_RELATION:
+        reference_object_y_margin = None
+        if args.reference_object_y_margin_bottom is not None or args.reference_object_y_margin_top is not None:
+            if args.reference_object_y_margin_bottom is not None and args.reference_object_y_margin_top is not None:
+                reference_object_y_margin = max(args.reference_object_y_margin_bottom, args.reference_object_y_margin_top)
+
+            else:
+                reference_object_y_margin = args.reference_object_y_margin_bottom if args.reference_object_y_margin_bottom is not None else args.reference_object_y_margin_top
+
+        dataset = DiagonalAboveBelowDatasetGenerator(
+            object_generator, args.x_max, args.y_max, args.seed,
+            reference_object_x_margin=args.reference_object_x_margin,
+            reference_object_y_margin=reference_object_y_margin,
+            prop_train_target_object_locations=args.prop_train_target_object_locations,
+            prop_train_reference_object_locations=args.prop_train_reference_object_locations,
+            spatial_dataset=args.spatial_dataset,
+            prop_train_to_validation=args.prop_train_to_validation, 
+            subsample_train_size=args.subsample_train_size
+        )
+
+    else:
+        dataset = CombinedQuinnDatasetGenerator(
+            object_generator, args.x_max, args.y_max, args.seed,
+            between_relation=args.relation == BETWEEN_RELATION,
+            two_reference_objects=args.two_reference_objects,
+            prop_train_target_object_locations=args.prop_train_target_object_locations,
+            prop_train_reference_object_locations=args.prop_train_reference_object_locations,
+            target_object_grid_height=args.target_object_grid_height,
+            reference_object_x_margin=args.reference_object_x_margin,
+            reference_object_y_margin_bottom=args.reference_object_y_margin_bottom,
+            reference_object_y_margin_top=args.reference_object_y_margin_top,
+            spatial_dataset=args.spatial_dataset,
+            prop_train_to_validation=args.prop_train_to_validation, 
+            subsample_train_size=args.subsample_train_size
+        )
 
     return object_generator, dataset
 
@@ -168,6 +189,11 @@ def main():
 
         if not args_copy.early_stopping_monitor_key.endswith('_loss'):
             args_copy.early_stopping_monitor_key += '_loss'
+
+        # remove a case that doesn't make sense
+        if args_copy.relation == DIAGONAL_RELATION and (args_copy.two_reference_objects or args_copy.use_object_size):
+            print(f'Skpping because diagonal relation and either two _reference_objects={args_copy.two_reference_objects} or use_object_size={args_copy.use_object_size} is set')
+            continue
 
         run_single_setting_all_models(args_copy)
 
