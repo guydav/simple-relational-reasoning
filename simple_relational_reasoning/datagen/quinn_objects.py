@@ -574,6 +574,9 @@ class DiagonalAboveBelowDatasetGenerator(QuinnWithReferenceDatasetGenerator):
         if not isinstance(object_generator, DiagonalObjectGeneratorWithoutSize):
             raise ValueError(f'object_generator must be a DiagonalObjectGeneratorWithoutSize, got {type(object_generator)}')
 
+        if reference_object_y_margin is None:
+            reference_object_y_margin = 0
+
         self.reference_object_length = object_generator.reference_object_length
         reference_object_y_margin_bottom = reference_object_y_margin
         reference_object_y_margin_top = self.reference_object_length + reference_object_y_margin
