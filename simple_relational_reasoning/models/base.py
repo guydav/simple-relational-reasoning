@@ -6,7 +6,7 @@ import torch
 import pytorch_lightning as pl
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from simple_relational_reasoning.datagen import QuinnDatasetGenerator
+from simple_relational_reasoning.datagen import QuinnWithReferenceDatasetGenerator
 
 
 class ObjectCombinationMethod(Enum):
@@ -26,7 +26,7 @@ class ObjectCombinationMethod(Enum):
 
 
 class BaseObjectModel(pl.LightningModule):
-    def __init__(self, dataset: QuinnDatasetGenerator,
+    def __init__(self, dataset: QuinnWithReferenceDatasetGenerator,
                  loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
                  batch_size=32, train_log_prefix=None, validation_log_prefix=None, test_log_prefix=None):
         super(BaseObjectModel, self).__init__()
