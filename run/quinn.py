@@ -111,10 +111,13 @@ def map_args_to_suffix(args):
 
 
 def create_dataset(args):
-    if args.use_object_size:
+    if args.relation == DIAGONAL_RELATION:
+        object_generator_class = DiagonalObjectGeneratorWithoutSize
+    elif args.use_object_size:
         object_generator_class = ObjectGeneratorWithSize
     else:
         object_generator_class = ObjectGeneratorWithoutSize
+        
     object_generator = object_generator_class(args.seed, args.reference_object_length,
                                               args.target_object_length, args.n_reference_object_types,
                                               args.n_train_target_object_types, args.n_test_target_object_types)
