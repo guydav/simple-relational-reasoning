@@ -25,14 +25,13 @@ def run_single_setting_all_models(args):
     for k, v in vars(args).items():
         print(' ' * 26 + k + ': ' + str(v))
 
-    # adjust the limits based on the paradigm
     if args.x_max == DEFAULT_X_MAX:
-        args.x_max = PARADIGM_CANVAS_SIZES[args.paradigm][args.relation]['x_max']
+        args.x_max = DEFAULT_CANVAS_SIZES[args.relation]['x_max']
 
     if args.y_max == DEFAULT_Y_MAX:
-        args.y_max = PARADIGM_CANVAS_SIZES[args.paradigm][args.relation]['y_max']
+        args.y_max = DEFAULT_CANVAS_SIZES[args.relation]['y_max']
 
-    # TODO: for each model
+    # for each model
     model_configurations = MODEL_CONFIGURATIONS[args.model_configuration]
 
     for model_class, model_kwargs in model_configurations.items():
@@ -59,19 +58,19 @@ def run_single_setting_all_models(args):
         for test_name, test_dataset in dataset.get_test_datasets().items():
             var_args[f'size_{test_name}'] = len(test_dataset)
 
-        # TODO: add in learning rate, batch size, dataset size to the per-model kwargs
+        # add in learning rate, batch size, dataset size to the per-model kwargs
         model_kwargs['lr'] = args.learning_rate
         model_kwargs['batch_size'] = args.batch_size
 
-        # TODO: create wandb project name
+        # create wandb project name
         map_args_to_suffix(args)
         if args.wandb_project is None:
-            args.wandb_project = f'{args.paradigm}-{args.relation}-{args.model_configuration}-models{"-" if args.wandb_project_suffix else ""}{args.wandb_project_suffix}'
+            args.wandb_project = f'one_or_two_references-{args.relation}-{args.model_configuration}-models{"-" if args.wandb_project_suffix else ""}{args.wandb_project_suffix}'
 
-        # TODO: create wandb run with name appropriate for model and random seed
+        # create wandb run with name appropriate for model and random seed
         args.wandb_run_name = f'{model_class_name}-{args.seed}{"-" if args.wandb_name_suffix else ""}{args.wandb_name_suffix}'
 
-        # TODO: create model
+        # create model
         model = model_class(dataset, **model_kwargs)
         args.use_gpu = int(torch.cuda.is_available())
         args.total_params = sum(p.numel() for p in model.parameters())
@@ -81,16 +80,12 @@ def run_single_setting_all_models(args):
                              entity=args.wandb_entity, log_model=True)
         logger.log_hyperparams(vars(args))
 
-        # TODO: is this supposed to work without this hack?
-        # logger.experiment creates and returns the wandb run
-        # wandb.save(os.path.join(logger.experiment.dir, '*.ckpt'))
-
         checkpoint_callback = ModelCheckpoint(filepath=os.path.join(wandb.run.dir, f'{args.wandb_run_name}-{{epoch:d}}-{{val_loss:.5f}}'),
                                               save_top_k=1, verbose=True, monitor=args.early_stopping_monitor_key, mode='min')
         early_stopping_callback = EarlyStopping(args.early_stopping_monitor_key, patience=args.patience_epochs, verbose=True,
                                                 min_delta=args.early_stopping_min_delta)
 
-        # TODO: run with wandb logger
+        # run with wandb logger
         trainer = Trainer(logger=logger, gpus=args.use_gpu, max_epochs=args.max_epochs,
                           checkpoint_callback=checkpoint_callback, early_stop_callback=early_stopping_callback)
 
@@ -101,10 +96,7 @@ def run_single_setting_all_models(args):
 
         del trainer
         del model
-        # Should be unnecessary now that I'm not keeping a handle to the run object
-        # if run is not None:
-        #     run.close_files()
-        #     del run
+
 
 
 def map_args_to_suffix(args):
@@ -119,7 +111,6 @@ def map_args_to_suffix(args):
 
 
 def create_dataset(args):
-    # TODO: create object generator
     if args.use_object_size:
         object_generator_class = ObjectGeneratorWithSize
     else:
@@ -127,43 +118,21 @@ def create_dataset(args):
     object_generator = object_generator_class(args.seed, args.reference_object_length,
                                               args.target_object_length, args.n_reference_object_types,
                                               args.n_train_target_object_types, args.n_test_target_object_types)
-    # TODO: create dataset from paradigm and relation
-    if args.paradigm == INDUCTIVE_BIAS_PARADIGM:
-        if args.relation == ABOVE_BELOW_RELATION:
-            dataset_class = AboveBelowReferenceInductiveBias
-
-        else:  # args.relation == 'between
-            dataset_class = BetweenReferenceInductiveBias
-
-        dataset = dataset_class(
-            object_generator, args.x_max, args.y_max, args.seed,
-            target_object_grid_size=args.target_object_grid_size,
-            add_neither_train=args.add_neither_train,
-            above_or_between_left=args.above_or_between_left,
-            n_train_target_object_locations=args.n_train_target_object_locations,
-            prop_train_reference_object_locations=args.prop_train_reference_object_locations,
-            reference_object_x_margin=args.reference_object_x_margin,
-            reference_object_y_margin_bottom=args.reference_object_y_margin_bottom,
-            reference_object_y_margin_top=args.reference_object_y_margin_top,
-            add_neither_test=args.add_neither_test, spatial_dataset=args.spatial_dataset,
-            prop_train_to_validation=args.prop_train_to_validation, subsample_train_size=args.subsample_train_size
-        )
-
-    else:  # args.paradigm == 'one_or_two_references':
-        dataset = OneOrTwoReferenceObjects(
-            object_generator, args.x_max, args.y_max, args.seed,
-            between_relation=args.relation == BETWEEN_RELATION,
-            two_reference_objects=args.two_reference_objects,
-            add_neither_train=args.add_neither_train,
-            prop_train_target_object_locations=args.prop_train_target_object_locations,
-            prop_train_reference_object_locations=args.prop_train_reference_object_locations,
-            target_object_grid_height=args.target_object_grid_height,
-            reference_object_x_margin=args.reference_object_x_margin,
-            reference_object_y_margin_bottom=args.reference_object_y_margin_bottom,
-            reference_object_y_margin_top=args.reference_object_y_margin_top,
-            add_neither_test=args.add_neither_test, spatial_dataset=args.spatial_dataset,
-            prop_train_to_validation=args.prop_train_to_validation, subsample_train_size=args.subsample_train_size
-        )
+    
+    dataset = CombinedQuinnDatasetGenerator(
+        object_generator, args.x_max, args.y_max, args.seed,
+        between_relation=args.relation == BETWEEN_RELATION,
+        two_reference_objects=args.two_reference_objects,
+        add_neither_train=args.add_neither_train,
+        prop_train_target_object_locations=args.prop_train_target_object_locations,
+        prop_train_reference_object_locations=args.prop_train_reference_object_locations,
+        target_object_grid_height=args.target_object_grid_height,
+        reference_object_x_margin=args.reference_object_x_margin,
+        reference_object_y_margin_bottom=args.reference_object_y_margin_bottom,
+        reference_object_y_margin_top=args.reference_object_y_margin_top,
+        add_neither_test=args.add_neither_test, spatial_dataset=args.spatial_dataset,
+        prop_train_to_validation=args.prop_train_to_validation, subsample_train_size=args.subsample_train_size
+    )
 
     return object_generator, dataset
 

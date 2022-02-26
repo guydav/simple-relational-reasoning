@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from collections import defaultdict
 import itertools
 
@@ -129,6 +130,27 @@ class ObjectGeneratorWithoutSize(ObjectGenerator):
                           for j in range(self.target_object_length)])
 
 
+class DiagonalObjectGeneratorWithoutSize(ObjectGeneratorWithoutSize):
+    def __init__(self, seed, reference_object_length, target_object_length=1, n_reference_types=1,
+                 n_train_target_types=1, n_test_target_types=0, dtype=torch.float):
+        super(DiagonalObjectGeneratorWithoutSize, self).__init__(seed, reference_object_length, target_object_length,
+                                                         n_reference_types, n_train_target_types, n_test_target_types,
+                                                         dtype=dtype)
+
+    def reference_object(self, x, y, train=True):
+        object_type = self._sample_type_one_hot(False, train)
+        return torch.cat([torch.tensor([x + j, y + j, *object_type],
+                                       dtype=self.dtype).unsqueeze(0)
+                          for j in range(self.reference_object_length)])
+
+    def target_object(self, x, y, train=True):
+        object_type = self._sample_type_one_hot(True, train)
+        return torch.cat([torch.tensor([x + j, y, *object_type],
+                                       dtype=self.dtype).unsqueeze(0)
+                          for j in range(self.target_object_length)])
+
+
+
 class MinimalDataset(torch.utils.data.Dataset):
     def __init__(self, objects, labels, object_generator):
         super(MinimalDataset, self).__init__()
@@ -207,6 +229,9 @@ class MinimalSpatialDataset(MinimalDataset):
         position_shape = (x_max, y_max)
         spatial_shape = (D, O, *position_shape)
         spatial_objects = torch.zeros(spatial_shape, dtype=self.objects.dtype)
+
+        # TODO: handle this better for objects with sizes
+
         for ex_index in range(D):
             position_lists = [self.objects[ex_index, :, index].long()
                               for index in position_indices]
@@ -261,7 +286,7 @@ class SimplifiedSpatialDataset(MinimalSpatialDataset):
 
 class QuinnDatasetGenerator:
     def __init__(self, object_generator, x_max, y_max, seed, *,
-                 add_neither_train=True, add_neither_test=False, prop_train_reference_object_locations=0.8,
+                 prop_train_reference_object_locations=0.8, prop_train_target_object_locations=0.5,
                  reference_object_x_margin=0, reference_object_y_margin_bottom=0, reference_object_y_margin_top=0,
                  spatial_dataset=False, prop_train_to_validation=0.1, subsample_train_size=None):
         self.object_generator = object_generator
@@ -270,10 +295,8 @@ class QuinnDatasetGenerator:
         self.seed = seed
         self.rng = np.random.default_rng(seed)
 
-        self.add_neither_train = add_neither_train
-        self.add_neither_test = add_neither_test
-
         self.prop_train_reference_object_locations = prop_train_reference_object_locations
+        self.prop_train_target_object_locations = prop_train_target_object_locations
 
         if reference_object_x_margin is None:
             reference_object_x_margin = 0
@@ -294,15 +317,37 @@ class QuinnDatasetGenerator:
         self.prop_train_to_validation = prop_train_to_validation
         self.subsample_train_size = subsample_train_size
 
+        self.train_target_locations, self.test_target_locations = self._generate_and_split_target_object_locations()
+
         self.train_dataset = None
         self.validation_dataset = None
         self.test_datasets = None
 
-    def _create_training_dataset(self) -> torch.utils.data.Dataset:
+    @abstractmethod
+    def _create_single_dataset(self, reference_locations, target_locations, train=True):
         raise NotImplementedError()
 
-    def _create_test_datasets(self) -> dict:
+    @abstractmethod
+    def _generate_and_split_target_object_locations(self, prop_train=None) -> list:
         raise NotImplementedError()
+
+    def _create_training_dataset(self) -> torch.utils.data.Dataset:
+        return self._create_single_dataset(self.train_reference_object_locations,
+                                           self.train_target_locations, train=True)
+
+    def _create_test_datasets(self) -> dict:
+        test_datasets = dict()
+
+        test_datasets[TRAIN_REFERENCE_TEST_TARGET] = self._create_single_dataset(
+                self.train_reference_object_locations, self.test_target_locations, train=False)
+
+        test_datasets[TEST_REFERENCE_TRAIN_TARGET] = self._create_single_dataset(
+                self.test_reference_object_locations, self.train_target_locations, train=False)
+
+        test_datasets[TEST_REFERENCE_TEST_TARGET] = self._create_single_dataset(
+                self.test_reference_object_locations, self.test_target_locations, train=False)
+
+        return test_datasets
 
     def get_training_dataset(self) -> torch.utils.data.Dataset:
         if self.train_dataset is None:
@@ -378,275 +423,19 @@ class QuinnDatasetGenerator:
 
 
 TRAIN_REFERENCE_TEST_TARGET = 'train_reference_test_target'
-TRAIN_REFERENCE_MIDDLE_TARGET = 'train_reference_middle_target'
 TEST_REFERENCE_TRAIN_TARGET = 'test_reference_train_target'
 TEST_REFERENCE_TEST_TARGET = 'test_reference_test_target'
-TEST_REFERENCE_MIDDLE_TARGET = 'test_reference_middle_target'
 
 
-class ReferenceInductiveBias(QuinnDatasetGenerator):
-    def __init__(self, object_generator, x_max, y_max, seed, *,
-                 target_object_grid_size=3, add_neither_train=True, above_or_between_left=None,
-                 n_train_target_object_locations=None, prop_train_reference_object_locations=0.8,
-                 reference_object_x_margin=0, reference_object_y_margin_bottom=None,
-                 reference_object_y_margin_top=None, add_neither_test=False, spatial_dataset=False,
-                 prop_train_to_validation=0.1, subsample_train_size=None):
-        if reference_object_y_margin_bottom is None or reference_object_y_margin_bottom < target_object_grid_size:
-            reference_object_y_margin_bottom = target_object_grid_size
-
-        if reference_object_y_margin_top is None or reference_object_y_margin_top < target_object_grid_size:
-            reference_object_y_margin_top = target_object_grid_size
-
-        super(ReferenceInductiveBias, self).__init__(
-            object_generator=object_generator, x_max=x_max, y_max=y_max, seed=seed,
-            add_neither_train=add_neither_train, add_neither_test=add_neither_test,
-            prop_train_reference_object_locations=prop_train_reference_object_locations,
-            reference_object_x_margin=reference_object_x_margin,
-            reference_object_y_margin_bottom=reference_object_y_margin_bottom,
-            reference_object_y_margin_top=reference_object_y_margin_top, spatial_dataset=spatial_dataset,
-            prop_train_to_validation=prop_train_to_validation, subsample_train_size=subsample_train_size
-        )
-
-        self.target_object_grid_size = target_object_grid_size
-
-        if above_or_between_left is None:
-            above_or_between_left = self.seed % 2
-        self.above_or_between_left = above_or_between_left
-
-        if n_train_target_object_locations is None:
-            n_train_target_object_locations = target_object_grid_size * (target_object_grid_size - 1)
-        self.n_train_target_object_locations = n_train_target_object_locations
-
-        possible_target_object_locations = [np.array(x) for x in
-                                            itertools.product(range(target_object_grid_size),
-                                                              range(1, target_object_grid_size + 1))]
-
-        self.train_target_object_locations, self.test_target_object_locations = \
-            self._split_train_test(possible_target_object_locations, max_train_index=n_train_target_object_locations)
-
-        self.middle_target_object_locations = [np.array(x) for x in
-                                               itertools.product(range(target_object_grid_size, self.object_generator.reference_object_length - target_object_grid_size),
-                                                                 range(1, target_object_grid_size + 1))]
-
-    def _create_left_right_dataset(self, reference_locations, target_locations, train=True):
-        raise NotImplementedError()
-
-    def _create_middle_dataset(self, reference_locations, middle_locations=None):
-        raise NotImplementedError()
-
-    def _create_training_dataset(self):
-        return self._create_left_right_dataset(self.train_reference_object_locations,
-                                                                 self.train_target_object_locations, train=True)
-
-    def _create_test_datasets(self):
-        test_datasets = dict()
-
-        test_datasets[TRAIN_REFERENCE_TEST_TARGET] = self._create_left_right_dataset(
-                self.train_reference_object_locations, self.test_target_object_locations, train=False)
-
-        test_datasets[TRAIN_REFERENCE_MIDDLE_TARGET] = self._create_middle_dataset(
-                self.train_reference_object_locations, self.middle_target_object_locations)
-
-        test_datasets[TEST_REFERENCE_TRAIN_TARGET] = self._create_left_right_dataset(
-                self.test_reference_object_locations, self.train_target_object_locations, train=False)
-
-        test_datasets[TEST_REFERENCE_TEST_TARGET] = self._create_left_right_dataset(
-                self.test_reference_object_locations, self.test_target_object_locations, train=False)
-
-        test_datasets[TEST_REFERENCE_MIDDLE_TARGET] = self._create_middle_dataset(
-                self.test_reference_object_locations, self.middle_target_object_locations)
-
-        return test_datasets
-
-
-class AboveBelowReferenceInductiveBias(ReferenceInductiveBias):
-    def __init__(self, object_generator, x_max, y_max, seed, *,
-                 target_object_grid_size=3, add_neither_train=True, above_or_between_left=None,
-                 n_train_target_object_locations=None, prop_train_reference_object_locations=0.8,
-                 reference_object_x_margin=0, reference_object_y_margin_bottom=None,
-                 reference_object_y_margin_top=None, add_neither_test=False, spatial_dataset=False,
-                 prop_train_to_validation=0.1, subsample_train_size=None):
-
-        super(AboveBelowReferenceInductiveBias, self).__init__(
-            object_generator=object_generator, x_max=x_max, y_max=y_max, seed=seed,
-            target_object_grid_size=target_object_grid_size, add_neither_train=add_neither_train,
-            n_train_target_object_locations=n_train_target_object_locations, above_or_between_left=above_or_between_left,
-            prop_train_reference_object_locations=prop_train_reference_object_locations,
-            reference_object_x_margin=reference_object_x_margin,
-            reference_object_y_margin_bottom=reference_object_y_margin_bottom,
-            reference_object_y_margin_top=reference_object_y_margin_top,
-            add_neither_test=add_neither_test, spatial_dataset=spatial_dataset,
-            prop_train_to_validation=prop_train_to_validation, subsample_train_size=subsample_train_size
-        )
-
-    def _create_left_right_dataset(self, reference_locations, target_locations, train=True):
-        objects = []
-        labels = []
-
-        if train:
-            add_neither = self.add_neither_train
-        else:
-            add_neither = self.add_neither_test
-
-        for reference_location in reference_locations:
-            reference_end = reference_location + np.array(
-                [self.object_generator.reference_object_length - self.target_object_grid_size, 0])
-
-            for target_location in target_locations:
-                target_y_below = target_location + np.array([0, -4])
-                if self.above_or_between_left:
-                    objects.append(self.create_input(reference_location + target_location, reference_location, train=train))
-                    objects.append(self.create_input(reference_end + target_y_below, reference_location, train=train))
-
-                else:
-                    objects.append(self.create_input(reference_end + target_location, reference_location, train=train))
-                    objects.append(self.create_input(reference_location + target_y_below, reference_location, train=train))
-
-                labels.extend([0 + int(add_neither), 1 + int(add_neither)])
-
-            if add_neither:
-                valid_x_locations = list(range(reference_location[0])) + list(
-                    range(reference_location[0] + self.object_generator.reference_object_length, self.x_max))
-                neither_x_locations = self.rng.choice(valid_x_locations, len(target_locations))
-                neither_y_locations = self.rng.choice(range(self.y_max), len(target_locations))
-                neither_locations = np.stack([neither_x_locations, neither_y_locations]).T
-                for loc in neither_locations:
-                    objects.append(self.create_input(loc, reference_location, train=train))
-                    labels.append(0)
-
-        return self._create_dataset(objects, labels)
-
-    def _create_middle_dataset(self, reference_locations, middle_locations=None):
-        objects = []
-        labels = []
-
-        if middle_locations is None:
-            middle_locations = self.middle_target_object_locations
-
-        for reference_location in reference_locations:
-            for target_location in middle_locations:
-                target_y_below = target_location + np.array([0, -4])
-                objects.append(self.create_input(reference_location + target_location, reference_location, train=False))
-                objects.append(self.create_input(reference_location + target_y_below, reference_location, train=False))
-                labels.extend([0 + int(self.add_neither_train), 1 + int(self.add_neither_train)])
-
-        return self._create_dataset(objects, labels)
-
-
-class BetweenReferenceInductiveBias(ReferenceInductiveBias):
-    def __init__(self, object_generator, x_max, y_max, seed, *,
-                 target_object_grid_size=3, add_neither_train=True, above_or_between_left=None,
-                 n_train_target_object_locations=None, prop_train_reference_object_locations=0.8,
-                 reference_object_x_margin=0, reference_object_y_margin_bottom=None,
-                 reference_object_y_margin_top=None, add_neither_test=False, spatial_dataset=False,
-                 prop_train_to_validation=0.1, subsample_train_size=None):
-
-        # We assume that the generated reference object location is for the bottom reference object
-        min_y_margin = 2 * target_object_grid_size + 1
-        if reference_object_y_margin_top is None or reference_object_y_margin_top < min_y_margin:
-            reference_object_y_margin_top = min_y_margin
-
-        super(BetweenReferenceInductiveBias, self).__init__(
-            object_generator=object_generator, x_max=x_max, y_max=y_max, seed=seed,
-            target_object_grid_size=target_object_grid_size, add_neither_train=add_neither_train,
-            n_train_target_object_locations=n_train_target_object_locations, above_or_between_left=above_or_between_left,
-            prop_train_reference_object_locations=prop_train_reference_object_locations,
-            reference_object_x_margin=reference_object_x_margin,
-            reference_object_y_margin_bottom=reference_object_y_margin_bottom,
-            reference_object_y_margin_top=reference_object_y_margin_top,
-            add_neither_test=add_neither_test, spatial_dataset=spatial_dataset,
-            prop_train_to_validation=prop_train_to_validation, subsample_train_size=subsample_train_size
-        )
-
-    def _create_left_right_dataset(self, reference_locations, target_locations, train=True):
-        objects = []
-        labels = []
-
-        if train:
-            add_neither = self.add_neither_train
-        else:
-            add_neither = self.add_neither_test
-
-        for bottom_reference_location in reference_locations:
-            bottom_reference_end = bottom_reference_location + np.array(
-                [self.object_generator.reference_object_length - self.target_object_grid_size, 0])
-
-            top_reference_location = bottom_reference_location + np.array(
-                [0, self.target_object_grid_size + 1])
-
-            top_reference_end = top_reference_location + np.array(
-                [self.object_generator.reference_object_length - self.target_object_grid_size, 0])
-
-            for target_location in target_locations:
-                target_y_below = target_location + np.array([0, -4])
-                if self.above_or_between_left:
-                    if self.rng.uniform() < 0.5:
-                        objects.append(self.create_input(top_reference_end + target_location,
-                                                         bottom_reference_location, top_reference_location, train=train))
-                    else:
-                        objects.append(self.create_input(bottom_reference_end + target_y_below,
-                                                         bottom_reference_location, top_reference_location, train=train))
-
-                    objects.append(self.create_input(bottom_reference_location + target_location,
-                                                     bottom_reference_location, top_reference_location, train=train))
-
-                else:
-                    if self.rng.uniform() < 0.5:
-                        objects.append(self.create_input(top_reference_location + target_location,
-                                                         bottom_reference_location, top_reference_location, train=train))
-                    else:
-                        objects.append(self.create_input(bottom_reference_location + target_y_below,
-                                                         bottom_reference_location, top_reference_location, train=train))
-                    objects.append(self.create_input(bottom_reference_end + target_location,
-                                                     bottom_reference_location, top_reference_location, train=train))
-
-                labels.extend([0 + int(add_neither), 1 + int(add_neither)])
-
-            if add_neither:
-                valid_x_locations = list(range(bottom_reference_location[0])) + list(
-                    range(bottom_reference_location[0] + self.object_generator.reference_object_length, self.x_max))
-                neither_x_locations = self.rng.choice(valid_x_locations, len(target_locations))
-                neither_y_locations = self.rng.choice(range(self.y_max), len(target_locations))
-                neither_locations = np.stack([neither_x_locations, neither_y_locations]).T
-                for loc in neither_locations:
-                    objects.append(self.create_input(loc, bottom_reference_location, top_reference_location, train=train))
-                    labels.append(0)
-
-        return self._create_dataset(objects, labels)
-
-    def _create_middle_dataset(self, reference_locations, middle_locations=None):
-        objects = []
-        labels = []
-
-        if middle_locations is None:
-            middle_locations = self.middle_target_object_locations
-
-        for bottom_reference_location in reference_locations:
-            top_reference_location = bottom_reference_location + np.array(
-                [0, self.target_object_grid_size + 1])
-
-            for target_location in middle_locations:
-                target_y_below = target_location + np.array([0, -4])
-                objects.append(self.create_input(top_reference_location + target_location,
-                                                 bottom_reference_location, top_reference_location, train=False))
-                objects.append(self.create_input(bottom_reference_location + target_y_below,
-                                                 bottom_reference_location, top_reference_location, train=False))
-                objects.append(self.create_input(bottom_reference_location + target_location,
-                                                 bottom_reference_location, top_reference_location, train=False))
-                labels.extend([0 + int(self.add_neither_train), 0 + int(self.add_neither_train),
-                               1 + int(self.add_neither_train)])
-
-        return self._create_dataset(objects, labels)
-
-
-class OneOrTwoReferenceObjects(QuinnDatasetGenerator):
+class CombinedQuinnDatasetGenerator(QuinnDatasetGenerator):
     def __init__(self, object_generator, x_max, y_max, seed, *,
                  between_relation=False, two_reference_objects=None,
-                 add_neither_train=True, prop_train_target_object_locations=0.5,
+                 prop_train_target_object_locations=0.5,
                  prop_train_reference_object_locations=0.8,
-                 target_object_grid_height=8, reference_object_x_margin=0,
+                 target_object_grid_height=8, adjacent_reference_objects=False,
+                 reference_object_x_margin=0,
                  reference_object_y_margin_bottom=None, reference_object_y_margin_top=None,
-                 add_neither_test=False, spatial_dataset=False,
+                 spatial_dataset=False,
                  prop_train_to_validation=0.1, subsample_train_size=None):
 
         self.between_relation = between_relation
@@ -663,10 +452,26 @@ class OneOrTwoReferenceObjects(QuinnDatasetGenerator):
         if reference_object_y_margin_top is None or reference_object_y_margin_top < target_object_grid_height:
             reference_object_y_margin_top = target_object_grid_height + 1 + int(self.two_reference_objects)
 
-        super(OneOrTwoReferenceObjects, self).__init__(
+        
+        self.target_object_grid_height = target_object_grid_height
+        self.adjacent_reference_objects = adjacent_reference_objects
+        
+        self.single_reference_height = self.target_object_grid_height // 2
+
+        if self.adjacent_reference_objects:
+            if between_relation or not two_reference_objects:
+                raise ValueError(f'adjacent_reference_objects=True requires between_relation=False and two_reference_objects=True')
+            self.bottom_reference_height = self.single_reference_height
+            self.top_reference_height = self.single_reference_height
+
+        else:
+            self.bottom_reference_height = self.target_object_grid_height // 4
+            self.top_reference_height = self.target_object_grid_height * 3 // 4
+
+        super(CombinedQuinnDatasetGenerator, self).__init__(
             object_generator=object_generator, x_max=x_max, y_max=y_max, seed=seed,
-            add_neither_train=add_neither_train, add_neither_test=add_neither_test,
             prop_train_reference_object_locations=prop_train_reference_object_locations,
+            prop_train_target_object_locations=prop_train_target_object_locations,
             reference_object_x_margin=reference_object_x_margin,
             reference_object_y_margin_bottom=reference_object_y_margin_bottom,
             reference_object_y_margin_top=reference_object_y_margin_top,
@@ -674,24 +479,18 @@ class OneOrTwoReferenceObjects(QuinnDatasetGenerator):
             subsample_train_size=subsample_train_size
         )
 
-        self.target_object_grid_height = target_object_grid_height
-        self.prop_train_target_object_locations = prop_train_target_object_locations
-
-        self.single_reference_height = self.target_object_grid_height // 2
-        self.bottom_reference_height = self.target_object_grid_height // 4
-        self.top_reference_height = self.target_object_grid_height * 3 // 4
-
-        self.train_target_locations, self.test_target_locations = self._generate_and_split_target_object_locations()
-
-    def _generate_and_split_target_object_locations(self, prop=None):
-        if prop is None:
-            prop = self.prop_train_target_object_locations
+    def _generate_and_split_target_object_locations(self, prop_train=None):
+        if prop_train is None:
+            prop_train = self.prop_train_target_object_locations
 
         x_range = np.arange(self.object_generator.reference_object_length)
 
-        if self.two_reference_objects:
+        if self.between_relation:
             y_ranges = (np.arange(self.bottom_reference_height),
                         np.arange(self.bottom_reference_height, self.top_reference_height),
+                        np.arange(self.top_reference_height, self.target_object_grid_height))
+        elif self.two_reference_objects and not self.adjacent_reference_objects:
+            y_ranges = (np.arange(self.bottom_reference_height),
                         np.arange(self.top_reference_height, self.target_object_grid_height))
         else:
             y_ranges = (np.arange(self.single_reference_height),
@@ -699,19 +498,14 @@ class OneOrTwoReferenceObjects(QuinnDatasetGenerator):
 
         all_locations = [[np.array(x) for x in itertools.product(x_range, y_range)]
                          for y_range in y_ranges]
-        split_locations = [self._split_train_test(locations, prop) for locations in all_locations]
+        split_locations = [self._split_train_test(locations, prop_train) for locations in all_locations]
         return [sum(split, list()) for split in zip(*split_locations)]
 
     def _create_single_dataset(self, reference_locations, target_locations, train=True):
         objects = []
         labels = []
-        
-        if train:
-            add_neither = self.add_neither_train
-        else:
-            add_neither = self.add_neither_test
 
-        if self.two_reference_objects:
+        if self.between_relation:
             for grid_bottom_left_corner in reference_locations:
                 bottom_reference_location = grid_bottom_left_corner + np.array([0, self.bottom_reference_height])
                 # the + 1 accounts for the bottom object
@@ -728,60 +522,81 @@ class OneOrTwoReferenceObjects(QuinnDatasetGenerator):
 
                     objects.append(self.create_input(target_location, bottom_reference_location,
                                                      top_reference_location, train=train))
-                    labels.append(label + int(add_neither))
+                    labels.append(label)
 
-        else:  # one reference object
+        else:  # above/below
             for grid_bottom_left_corner in reference_locations:
                 reference_location = grid_bottom_left_corner + np.array([0, self.single_reference_height])
+                bottom_reference_location = grid_bottom_left_corner + np.array([0, self.bottom_reference_height])
+                # the + 1 accounts for the bottom object
+                top_reference_location = grid_bottom_left_corner + np.array([0, self.top_reference_height + 1])
 
                 for rel_target_location in target_locations:
                     target_location = grid_bottom_left_corner + rel_target_location
                     label = 0
                     if rel_target_location[1] >= self.single_reference_height:  # above
-                        target_location += np.array([0, 1])
+                        target_location += np.array([0, 1 + int(self.two_reference_objects)])  
                         label = 1
 
-                    objects.append(self.create_input(target_location, reference_location, train=train))
-                    labels.append(label + int(add_neither))
-
-        if add_neither:
-            total_target_locations = len(target_locations) // 2
-            for grid_bottom_left_corner in reference_locations:
-                valid_x_locations = list(range(grid_bottom_left_corner[0])) + list(
-                    range(grid_bottom_left_corner[0] + self.object_generator.reference_object_length, self.x_max))
-                neither_x_locations = self.rng.choice(valid_x_locations, total_target_locations)
-                neither_y_locations = self.rng.choice(range(self.y_max), total_target_locations)
-                neither_locations = np.stack([neither_x_locations, neither_y_locations]).T
-
-                for loc in neither_locations:
                     if self.two_reference_objects:
-                        bottom_reference_location = grid_bottom_left_corner + np.array([0, self.bottom_reference_height])
-                        top_reference_location = grid_bottom_left_corner + np.array([0, self.top_reference_height])
-                        objects.append(
-                            self.create_input(loc, bottom_reference_location,
-                                              top_reference_location, train=train))
+                        objects.append(self.create_input(target_location, bottom_reference_location, top_reference_location, train=train))
                     else:
-                        reference_location = grid_bottom_left_corner + np.array([0, self.single_reference_height])
-                        objects.append(self.create_input(loc, reference_location, train=train))
-
-                    labels.append(0)
+                        objects.append(self.create_input(target_location, reference_location, train=train))
+                    labels.append(label)
 
         return self._create_dataset(objects, labels)
 
-    def _create_training_dataset(self):
-        return self._create_single_dataset(self.train_reference_object_locations,
-                                           self.train_target_locations, train=True)
+class DiagonalAboveBelowDatasetGenerator(QuinnDatasetGenerator):
+    def __init__(self, object_generator, x_max, y_max, seed, *,
+                 reference_object_x_margin=0, reference_object_y_margin=0,
+                 prop_train_reference_object_locations=0.8, prop_train_target_object_locations=0.5,
+                 spatial_dataset=False, prop_train_to_validation=0.1, subsample_train_size=None):
 
-    def _create_test_datasets(self):
-        test_datasets = dict()
+        if not isinstance(object_generator, DiagonalObjectGeneratorWithoutSize):
+            raise ValueError(f'object_generator must be a DiagonalObjectGeneratorWithoutSize, got {type(object_generator)}')
 
-        test_datasets[TRAIN_REFERENCE_TEST_TARGET] = self._create_single_dataset(
-                self.train_reference_object_locations, self.test_target_locations, train=False)
+        self.reference_object_length = object_generator.reference_object_length
+        reference_object_y_margin_bottom = reference_object_y_margin
+        reference_object_y_margin_top = self.reference_object_length + reference_object_y_margin
 
-        test_datasets[TEST_REFERENCE_TRAIN_TARGET] = self._create_single_dataset(
-                self.test_reference_object_locations, self.train_target_locations, train=False)
+        self.indices_above = None
+        self.indices_below = None
 
-        test_datasets[TEST_REFERENCE_TEST_TARGET] = self._create_single_dataset(
-                self.test_reference_object_locations, self.test_target_locations, train=False)
+        super(DiagonalAboveBelowDatasetGenerator, self).__init__(
+            object_generator=object_generator, x_max=x_max, y_max=y_max, seed=seed,
+            prop_train_reference_object_locations=prop_train_reference_object_locations,
+            prop_train_target_object_locations=prop_train_target_object_locations,
+            reference_object_x_margin=reference_object_x_margin,
+            reference_object_y_margin_bottom=reference_object_y_margin_bottom,
+            reference_object_y_margin_top=reference_object_y_margin_top,
+            spatial_dataset=spatial_dataset, prop_train_to_validation=prop_train_to_validation,
+            subsample_train_size=subsample_train_size
+        )
 
-        return test_datasets
+    def _generate_and_split_target_object_locations(self, prop_train=None) -> list:
+        if prop_train is None:
+            prop_train = self.prop_train_target_object_locations
+
+        self.indices_above = list(zip(*np.triu_indices(self.reference_object_length, 1)))
+        self.indices_below = list(zip(*np.tril_indices(self.reference_object_length, -1)))
+
+        split_locations = [self._split_train_test(locations, prop_train) 
+            for locations in (self.indices_above, self.indices_below)]
+
+        return [sum(split, list()) for split in zip(*split_locations)]
+
+    def _create_single_dataset(self, reference_locations, target_locations, train=True):
+        objects = []
+        labels = []
+
+        for grid_upper_right_corner in reference_locations:
+            reference_start_location = grid_upper_right_corner
+
+            for rel_target_location in target_locations:
+                label = int(rel_target_location[0] < rel_target_location[1])
+                target_location = grid_upper_right_corner + rel_target_location
+
+                objects.append(self.create_input(target_location, reference_start_location, train=train))
+                labels.append(label)
+
+        return self._create_dataset(objects, labels)
