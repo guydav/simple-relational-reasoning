@@ -106,10 +106,12 @@ parser.add_argument('--subsample-train-size', type=int, default=None,
 
 ABOVE_BELOW_RELATION = 'above_below'
 BETWEEN_RELATION = 'between'
+DIAGONAL_RELATION = 'diagonal'
 
 RELATIONS = (
     ABOVE_BELOW_RELATION,
-    BETWEEN_RELATION
+    BETWEEN_RELATION,
+    DIAGONAL_RELATION
 )
 parser.add_argument('--relation', type=str, action='append', choices=RELATIONS,
                     help='Which relation(s) to run (default: all)')
@@ -123,6 +125,10 @@ DEFAULT_CANVAS_SIZES = {
     BETWEEN_RELATION: {
         'x_max': 18,
         'y_max': 19,
+    },
+    DIAGONAL_RELATION: {
+        'x_max': 18,
+        'y_max': 18,
     }
 }
 
