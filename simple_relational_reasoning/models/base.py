@@ -90,8 +90,8 @@ class BaseObjectModel(pl.LightningModule):
         preds = self.forward(data)
         loss_key = f'loss{dataloader_idx if dataloader_idx is not None else ""}'
         acc_key = f'acc{dataloader_idx if dataloader_idx is not None else ""}'
-        self.log(loss_key, self.loss(preds, target), on_step=False, on_epoch=True)
-        self.log(acc_key, self._compute_accuracy(target, preds), on_step=False, on_epoch=True)
+        self.log('test_loss', self.loss(preds, target), on_step=False, on_epoch=True)
+        self.log('test_acc', self._compute_accuracy(target, preds), on_step=False, on_epoch=True)
 
     def train_dataloader(self):
         return DataLoader(self.dataset.get_training_dataset(), shuffle=True, batch_size=self.batch_size)
