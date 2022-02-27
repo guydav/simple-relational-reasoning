@@ -92,7 +92,9 @@ def run_single_setting_all_models(args):
         trainer.fit(model)
 
         logger.save()
-        logger.close()
+        logger.finalize()
+
+        wandb.finish()
 
         del trainer
         del model
