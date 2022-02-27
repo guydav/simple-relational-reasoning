@@ -77,7 +77,7 @@ def run_single_setting_all_models(args):
         print(f'For {model_class.__name__} there are {args.total_params} total parameters')
 
         logger = WandbLogger(args.wandb_run_name, args.wandb_dir, project=args.wandb_project,
-                             entity=args.wandb_entity, log_model=True)
+                             entity=f'{args.wandb_entity}-{args.subsample_train_size if args.subsample_train_size is not None else "full"}', log_model=True)
         logger.log_hyperparams(vars(args))
 
         checkpoint_callback = ModelCheckpoint(dirpath=wandb.run.dir, filename=f'{args.wandb_run_name}-{{epoch:d}}-{{val_loss:.5f}}',
