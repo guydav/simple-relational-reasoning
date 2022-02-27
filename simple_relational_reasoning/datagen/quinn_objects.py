@@ -40,10 +40,13 @@ Try both:
 
 
 class ObjectGenerator:
-    def __init__(self, seed, reference_object_length, target_object_length=1, n_reference_types=1,
-                 n_train_target_types=1, n_test_target_types=0, n_non_type_fields=None, dtype=torch.float):
+    def __init__(self, seed, reference_object_length, diagonal_reference_object=False, target_object_length=1, 
+                 n_reference_types=1, n_train_target_types=1, n_test_target_types=0, 
+                 n_non_type_fields=None, dtype=torch.float):
+
         self.seed = seed
         self.reference_object_length = reference_object_length
+        self.diagonal_reference_object = int(diagonal_reference_object)
         self.target_object_length = target_object_length
         self.n_reference_types = n_reference_types
         self.n_train_target_types = n_train_target_types
@@ -95,11 +98,11 @@ class ObjectGenerator:
         return slice(0, 2)
 
 class ObjectGeneratorWithSize(ObjectGenerator):
-    def __init__(self, seed, reference_object_length, target_object_length=1, n_reference_types=1,
+    def __init__(self, seed, reference_object_length, diagonal_reference_object=False, target_object_length=1, n_reference_types=1,
                  n_train_target_types=1, n_test_target_types=0, dtype=torch.float):
-        super(ObjectGeneratorWithSize, self).__init__(seed, reference_object_length, target_object_length,
-                                                      n_reference_types, n_train_target_types, n_test_target_types,
-                                                      n_non_type_fields=3, dtype=dtype)
+        super(ObjectGeneratorWithSize, self).__init__(seed, reference_object_length, diagonal_reference_object, 
+            target_object_length,  n_reference_types, n_train_target_types, 
+            n_test_target_types, n_non_type_fields=3, dtype=dtype)
 
     def reference_object(self, x, y, train=True):
         return torch.tensor([x, y, self.reference_object_length, *self._sample_type_one_hot(False, train)],
@@ -111,15 +114,16 @@ class ObjectGeneratorWithSize(ObjectGenerator):
 
 
 class ObjectGeneratorWithoutSize(ObjectGenerator):
-    def __init__(self, seed, reference_object_length, target_object_length=1, n_reference_types=1,
-                 n_train_target_types=1, n_test_target_types=0, dtype=torch.float):
-        super(ObjectGeneratorWithoutSize, self).__init__(seed, reference_object_length, target_object_length,
-                                                         n_reference_types, n_train_target_types, n_test_target_types,
-                                                         n_non_type_fields=2, dtype=dtype)
+    def __init__(self, seed, reference_object_length, diagonal_reference_object=False, target_object_length=1, 
+                 n_reference_types=1, n_train_target_types=1, n_test_target_types=0, dtype=torch.float):
+        super(ObjectGeneratorWithoutSize, self).__init__(seed, reference_object_length, diagonal_reference_object,
+            target_object_length, n_reference_types, n_train_target_types, 
+            n_test_target_types, n_non_type_fields=2, dtype=dtype)
+
 
     def reference_object(self, x, y, train=True):
         object_type = self._sample_type_one_hot(False, train)
-        return torch.cat([torch.tensor([x + j, y, *object_type],
+        return torch.cat([torch.tensor([x + j, y + (j * self.diagonal_reference_object), *object_type],
                                        dtype=self.dtype).unsqueeze(0)
                           for j in range(self.reference_object_length)])
 
@@ -130,25 +134,20 @@ class ObjectGeneratorWithoutSize(ObjectGenerator):
                           for j in range(self.target_object_length)])
 
 
-class DiagonalObjectGeneratorWithoutSize(ObjectGeneratorWithoutSize):
-    def __init__(self, seed, reference_object_length, target_object_length=1, n_reference_types=1,
+class StartEndObjectGenerator(ObjectGenerator):
+    def __init__(self, seed, reference_object_length, diagonal_reference_object=False, target_object_length=1, n_reference_types=1,
                  n_train_target_types=1, n_test_target_types=0, dtype=torch.float):
-        super(DiagonalObjectGeneratorWithoutSize, self).__init__(seed, reference_object_length, target_object_length,
-                                                         n_reference_types, n_train_target_types, n_test_target_types,
-                                                         dtype=dtype)
+        super(StartEndObjectGenerator, self).__init__(seed, reference_object_length, diagonal_reference_object,
+            target_object_length, n_reference_types, n_train_target_types, 
+            n_test_target_types, n_non_type_fields=4, dtype=dtype)
 
     def reference_object(self, x, y, train=True):
-        object_type = self._sample_type_one_hot(False, train)
-        return torch.cat([torch.tensor([x + j, y + j, *object_type],
-                                       dtype=self.dtype).unsqueeze(0)
-                          for j in range(self.reference_object_length)])
+        return torch.tensor([x, y, x + self.reference_object_length - 1, y + ((self.reference_object_length - 1) * self.diagonal_reference_object) , *self._sample_type_one_hot(False, train)],
+                            dtype=self.dtype).unsqueeze(0)
 
     def target_object(self, x, y, train=True):
-        object_type = self._sample_type_one_hot(True, train)
-        return torch.cat([torch.tensor([x + j, y, *object_type],
-                                       dtype=self.dtype).unsqueeze(0)
-                          for j in range(self.target_object_length)])
-
+        return torch.tensor([x, y, x +  self.target_object_length - 1, y + self.target_object_length - 1, *self._sample_type_one_hot(True, train)],
+                            dtype=self.dtype).unsqueeze(0)
 
 
 class MinimalDataset(torch.utils.data.Dataset):
@@ -571,8 +570,8 @@ class DiagonalAboveBelowDatasetGenerator(QuinnWithReferenceDatasetGenerator):
                  prop_train_reference_object_locations=0.8, prop_train_target_object_locations=0.5,
                  spatial_dataset=False, prop_train_to_validation=0.1, subsample_train_size=None):
 
-        if not isinstance(object_generator, DiagonalObjectGeneratorWithoutSize):
-            raise ValueError(f'object_generator must be a DiagonalObjectGeneratorWithoutSize, got {type(object_generator)}')
+        if not object_generator.diagonal_reference_object:
+            raise ValueError('DiagonalAboveBelowDatasetGenerator requires object generator with diagonal_reference_object=True')
 
         if reference_object_y_margin is None:
             reference_object_y_margin = 0
