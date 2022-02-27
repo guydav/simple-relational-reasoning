@@ -102,13 +102,13 @@ class BaseObjectModel(pl.LightningModule):
         # return DataLoader(self.validation_dataset, batch_size=self.batch_size)
         val_dataset = self.dataset.get_validation_dataset()
         if val_dataset is not None:
-            return DataLoader(val_dataset, shuffle=True, batch_size=self.batch_size)
+            return DataLoader(val_dataset, shuffle=False, batch_size=self.batch_size)
 
         return None
 
     def test_dataloader(self):
         test_datasets = self.dataset.get_test_datasets()
-        return [DataLoader(test_datasets[key], shuffle=True, batch_size=self.batch_size)
+        return [DataLoader(test_datasets[key], shuffle=False, batch_size=self.batch_size)
                 for key in sorted(test_datasets.keys())]
 
     # def _average_outputs(self, outputs, prefix, extra_prefix=None):
@@ -153,7 +153,7 @@ class BaseObjectModel(pl.LightningModule):
 
     #     self.log(log_dict)
 
-    def on_train_epoch_end(self):
+    def on_validation_epoch_end(self):
         print('On epoch end called')
         self.trainer.test(self)
 
