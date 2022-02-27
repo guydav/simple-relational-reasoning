@@ -92,7 +92,7 @@ def run_single_setting_all_models(args):
         trainer.fit(model)
 
         logger.save()
-        logger.finalize()
+        logger.finalize('Done')
 
         wandb.finish()
 
