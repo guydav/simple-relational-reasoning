@@ -74,22 +74,24 @@ class BaseObjectModel(pl.LightningModule):
     def training_step(self, batch, batch_idx, dataloader_idx=None):
         data, target = batch
         preds = self.forward(data)
-
-        return {'loss': self.loss(preds, target), 'acc': self._compute_accuracy(target, preds)}
+        loss = self.loss(preds, target)
+        self.log('train_loss', self.loss(preds, target), on_step=False, on_epoch=True)
+        self.log('train_acc', self._compute_accuracy(target, preds), on_step=False, on_epoch=True)
+        return loss
 
     def validation_step(self, batch, batch_idx, dataloader_idx=None):
         data, target = batch
         preds = self.forward(data)
-
-        return {'loss': self.loss(preds, target), 'acc': self._compute_accuracy(target, preds)}
-
+        self.log('val_loss', self.loss(preds, target), on_step=False, on_epoch=True)
+        self.log('val_acc', self._compute_accuracy(target, preds), on_step=False, on_epoch=True)
+        
     def test_step(self, batch, batch_idx, dataloader_idx=None):
         data, target = batch
         preds = self.forward(data)
         loss_key = f'loss{dataloader_idx if dataloader_idx is not None else ""}'
         acc_key = f'acc{dataloader_idx if dataloader_idx is not None else ""}'
-
-        return {loss_key: self.loss(preds, target), acc_key: self._compute_accuracy(target, preds)}
+        self.log(loss_key, self.loss(preds, target), on_step=False, on_epoch=True)
+        self.log(acc_key, self._compute_accuracy(target, preds), on_step=False, on_epoch=True)
 
     def train_dataloader(self):
         return DataLoader(self.dataset.get_training_dataset(), shuffle=True, batch_size=self.batch_size)
@@ -109,47 +111,47 @@ class BaseObjectModel(pl.LightningModule):
         return [DataLoader(test_datasets[key], shuffle=True, batch_size=self.batch_size)
                 for key in sorted(test_datasets.keys())]
 
-    def _average_outputs(self, outputs, prefix, extra_prefix=None):
-        avg_loss = torch.stack([x['loss'] for x in outputs]).mean()
-        avg_acc = torch.stack([x['acc'] for x in outputs]).mean()
-        logs = {f'{prefix}_loss': avg_loss, f'{prefix}_acc': avg_acc}
-        if extra_prefix is not None and len(extra_prefix) > 0:
-            logs = {f'{extra_prefix}_{key}': logs[key] for key in logs}
+    # def _average_outputs(self, outputs, prefix, extra_prefix=None):
+    #     avg_loss = torch.stack([x['loss'] for x in outputs]).mean()
+    #     avg_acc = torch.stack([x['acc'] for x in outputs]).mean()
+    #     logs = {f'{prefix}_loss': avg_loss, f'{prefix}_acc': avg_acc}
+    #     if extra_prefix is not None and len(extra_prefix) > 0:
+    #         logs = {f'{extra_prefix}_{key}': logs[key] for key in logs}
 
-        return logs
+    #     return logs
 
-    def training_epoch_end(self, outputs):
-        return self.log(self._average_outputs(outputs, 'train', self.train_log_prefix))
+    # def training_epoch_end(self, outputs):
+    #     return self.log(self._average_outputs(outputs, 'train', self.train_log_prefix))
 
-    def validation_epoch_end(self, outputs):
-        return self.log(self._average_outputs(outputs, 'val', self.validation_log_prefix))
+    # def validation_epoch_end(self, outputs):
+    #     return self.log(self._average_outputs(outputs, 'val', self.validation_log_prefix))
 
-    def test_epoch_end(self, outputs):
-        test_results = defaultdict(lambda: defaultdict(list))
+    # def test_epoch_end(self, outputs):
+    #     test_results = defaultdict(lambda: defaultdict(list))
 
-        for output_list in outputs:
-            for output_dict in output_list:
-                for key, value in output_dict.items():
-                    key_name, key_idx = key[:-1], int(key[-1])
-                    test_results[key_idx][key_name].append(value)
+    #     for output_list in outputs:
+    #         for output_dict in output_list:
+    #             for key, value in output_dict.items():
+    #                 key_name, key_idx = key[:-1], int(key[-1])
+    #                 test_results[key_idx][key_name].append(value)
 
-        # print('********** TEST EPOCH END: **********')
-        # print([(key, len(self.dataset.get_test_datasets()[key]))
-        #         for key in sorted(self.dataset.get_test_datasets().keys())])
-        # print('********** TEST EPOCH END: **********')
-        # print(val_results)
-        # print('********** TEST EPOCH END: **********')
+    #     # print('********** TEST EPOCH END: **********')
+    #     # print([(key, len(self.dataset.get_test_datasets()[key]))
+    #     #         for key in sorted(self.dataset.get_test_datasets().keys())])
+    #     # print('********** TEST EPOCH END: **********')
+    #     # print(val_results)
+    #     # print('********** TEST EPOCH END: **********')
 
-        log_dict = {}
+    #     log_dict = {}
 
-        for i, test_set_name in enumerate(sorted(self.dataset.get_test_datasets().keys())):
-            log_dict.update({f'{test_set_name}_{key}': torch.stack(test_results[i][key]).mean()
-                            for key in test_results[i]})
+    #     for i, test_set_name in enumerate(sorted(self.dataset.get_test_datasets().keys())):
+    #         log_dict.update({f'{test_set_name}_{key}': torch.stack(test_results[i][key]).mean()
+    #                         for key in test_results[i]})
 
-        # print(log_dict)
-        # print('********** TEST EPOCH END: **********')
+    #     # print(log_dict)
+    #     # print('********** TEST EPOCH END: **********')
 
-        self.log(log_dict)
+    #     self.log(log_dict)
 
     def on_train_epoch_end(self):
         print('On epoch end called')
