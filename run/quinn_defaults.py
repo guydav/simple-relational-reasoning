@@ -212,7 +212,8 @@ parser.add_argument('--wandb-project', type=str, default=None)
 
 # Handling fields with multiple potential options
 MULTIPLE_OPTION_FIELD_DEFAULTS = {
-    'model_configuration': [DEFAULT_MODELS_CONFIG_KEY],
+    'subsample_train_size': [8, 32, 128, 512, 1024, 2048, None],
+    'model_configuration': [DEFAULT_MODELS_CONFIG_KEY, LARGER_MODELS_CONFIG_KEY],
     'model': MODEL_NAMES,
     'relation': RELATIONS,
     'use_object_size': [0, 1],
