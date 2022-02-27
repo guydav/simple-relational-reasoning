@@ -151,9 +151,11 @@ class BaseObjectModel(pl.LightningModule):
 
         return dict(log=log_dict)
 
-    def on_train_epoch_end(self):
+    def on_validation_epoch_end(self):
         print('On epoch end called')
+        results = self.trainer._results
         self.trainer.test(self)
+        self.trainer._results = results
 
     # def test_epoch_end(self, outputs):
     #     print('********** TEST EPOCH END: **********')
