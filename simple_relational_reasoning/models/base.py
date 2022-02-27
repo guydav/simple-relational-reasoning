@@ -46,6 +46,8 @@ class BaseObjectModel(pl.LightningModule):
         self.validation_log_prefix = validation_log_prefix
         self.test_log_prefix = test_log_prefix
 
+        self.val_dataloader_names = []
+
     @abstractmethod
     def embed(self, x) -> torch.Tensor:
         pass
@@ -82,34 +84,39 @@ class BaseObjectModel(pl.LightningModule):
     def validation_step(self, batch, batch_idx, dataloader_idx=None):
         data, target = batch
         preds = self.forward(data)
-        self.log('val_loss', self.loss(preds, target), on_step=False, on_epoch=True)
-        self.log('val_acc', self._compute_accuracy(target, preds), on_step=False, on_epoch=True)
+        self.log(f'{self.val_dataloader_names[dataloader_idx]}_loss', self.loss(preds, target), 
+            on_step=False, on_epoch=True, add_dataloader_idx=False)
+        self.log(f'{self.val_dataloader_names[dataloader_idx]}_acc', self._compute_accuracy(target, preds), 
+            on_step=False, on_epoch=True, add_dataloader_idx=False)
         
-    def test_step(self, batch, batch_idx, dataloader_idx=None):
-        data, target = batch
-        preds = self.forward(data)
-        loss_key = f'loss{dataloader_idx if dataloader_idx is not None else ""}'
-        acc_key = f'acc{dataloader_idx if dataloader_idx is not None else ""}'
-        self.log('test_loss', self.loss(preds, target), on_step=False, on_epoch=True)
-        self.log('test_acc', self._compute_accuracy(target, preds), on_step=False, on_epoch=True)
+    # def test_step(self, batch, batch_idx, dataloader_idx=None):
+    #     data, target = batch
+    #     preds = self.forward(data)
+    #     loss_key = f'loss{dataloader_idx if dataloader_idx is not None else ""}'
+    #     acc_key = f'acc{dataloader_idx if dataloader_idx is not None else ""}'
+    #     self.log('test_loss', self.loss(preds, target), on_step=False, on_epoch=True)
+    #     self.log('test_acc', self._compute_accuracy(target, preds), on_step=False, on_epoch=True)
 
     def train_dataloader(self):
         return DataLoader(self.dataset.get_training_dataset(), shuffle=True, batch_size=self.batch_size)
 
     def val_dataloader(self):
-        # TODO: why is this val_ while the other methods are validation_
-        # TODO: this also seems to assume that the dataset is not an iterable one.
-        # return DataLoader(self.validation_dataset, batch_size=self.batch_size)
+        dataloaders = []
+
         val_dataset = self.dataset.get_validation_dataset()
         if val_dataset is not None:
-            return DataLoader(val_dataset, shuffle=False, batch_size=self.batch_size)
+            dataloaders.append(DataLoader(val_dataset, shuffle=False, batch_size=self.batch_size))
+            self.val_dataloader_names.append('val')
 
-        return None
-
-    def test_dataloader(self):
         test_datasets = self.dataset.get_test_datasets()
-        return [DataLoader(test_datasets[key], shuffle=False, batch_size=self.batch_size)
-                for key in sorted(test_datasets.keys())]
+        for key in sorted(test_datasets.keys()):
+            dataloaders.append(DataLoader(test_datasets[key], shuffle=False, batch_size=self.batch_size))
+            self.val_dataloader_names.append(key)
+
+        return dataloaders
+
+    # def test_dataloader(self):
+        
 
     # def _average_outputs(self, outputs, prefix, extra_prefix=None):
     #     avg_loss = torch.stack([x['loss'] for x in outputs]).mean()
@@ -153,9 +160,9 @@ class BaseObjectModel(pl.LightningModule):
 
     #     self.log(log_dict)
 
-    def on_validation_epoch_end(self):
-        print('On epoch end called')
-        self.trainer.test(self)
+    # def on_validation_epoch_end(self):
+    #     print('On epoch end called')
+    #     self.trainer.test(self)
 
     # def test_epoch_end(self, outputs):
     #     print('********** TEST EPOCH END: **********')
