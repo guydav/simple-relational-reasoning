@@ -119,10 +119,10 @@ class BaseObjectModel(pl.LightningModule):
         return logs
 
     def training_epoch_end(self, outputs):
-        return dict(log=(self._average_outputs(outputs, 'train', self.train_log_prefix)))
+        return self.log(self._average_outputs(outputs, 'train', self.train_log_prefix))
 
     def validation_epoch_end(self, outputs):
-        return dict(log=(self._average_outputs(outputs, 'val', self.validation_log_prefix)))
+        return self.log(self._average_outputs(outputs, 'val', self.validation_log_prefix))
 
     def test_epoch_end(self, outputs):
         test_results = defaultdict(lambda: defaultdict(list))
@@ -149,12 +149,11 @@ class BaseObjectModel(pl.LightningModule):
         # print(log_dict)
         # print('********** TEST EPOCH END: **********')
 
-        return dict(log=log_dict)
+        self.log(log_dict)
 
     def on_train_epoch_end(self):
         print('On epoch end called')
         self.trainer.test(self)
-        return None
 
     # def test_epoch_end(self, outputs):
     #     print('********** TEST EPOCH END: **********')
