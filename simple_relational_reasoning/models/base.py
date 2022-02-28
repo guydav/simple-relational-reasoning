@@ -98,13 +98,16 @@ class BaseObjectModel(pl.LightningModule):
     #     self.log('test_acc', self._compute_accuracy(target, preds), on_step=False, on_epoch=True)
 
     def train_dataloader(self):
-        return DataLoader(self.dataset.get_training_dataset(), shuffle=True, batch_size=self.batch_size)
+        train = self.dataset.get_training_dataset()
+        print(f'TRAINING SET SIZE: {len(train)}')
+        return DataLoader(train, shuffle=True, batch_size=self.batch_size)
 
     def val_dataloader(self):
         dataloaders = []
 
         val_dataset = self.dataset.get_validation_dataset()
         if val_dataset is not None:
+            print(f'VALIDATION SET SIZE: {len(val_dataset)}')
             dataloaders.append(DataLoader(val_dataset, shuffle=False, batch_size=self.batch_size))
             self.val_dataloader_names.append('val')
 

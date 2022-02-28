@@ -40,8 +40,8 @@ def run_single_setting_all_models(args):
             print(f'Skipping model {model_class_name} because it is not in {args.model}')
             continue
 
-        if model_class_name == 'simplified-cnn' and args.use_object_size:
-            print(f'Skiping running {model_class_name} with args.use_object_size={args.use_object_size} as they are incompatible')
+        if model_class_name == 'simplified-cnn' and args.use_start_end:
+            print(f'Skiping running {model_class_name} with args.use_start_end={args.use_start_end} as they are incompatible')
             continue
 
         args.model_name = model_class_name
