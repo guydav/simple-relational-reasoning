@@ -65,7 +65,7 @@ def run_single_setting_all_models(args):
         # create wandb project name
         map_args_to_suffix(args)
         if args.wandb_project is None:
-            args.wandb_project = f'one_or_two_references-{args.relation}-{args.model_configuration}-models{"-" if args.wandb_project_suffix else ""}{args.wandb_project_suffix}'
+            args.wandb_project = f'{args.subsample_train_size if args.subsample_train_size is not None else "full"}-{args.relation}-{args.model_configuration}-models{"-" if args.wandb_project_suffix else ""}{args.wandb_project_suffix}'
 
         # create wandb run with name appropriate for model and random seed
         args.wandb_run_name = f'{model_class_name}-{args.seed}{"-" if args.wandb_name_suffix else ""}{args.wandb_name_suffix}'
@@ -77,7 +77,7 @@ def run_single_setting_all_models(args):
         print(f'For {model_class.__name__} there are {args.total_params} total parameters')
 
         logger = WandbLogger(args.wandb_run_name, args.wandb_dir, project=args.wandb_project,
-                             entity=f'{args.wandb_entity}-{args.subsample_train_size if args.subsample_train_size is not None else "full"}', log_model=True)
+                             entity=args.wandb_entity, log_model=True)
         logger.log_hyperparams(vars(args))
 
         checkpoint_callback = ModelCheckpoint(dirpath=wandb.run.dir, filename=f'{args.wandb_run_name}-{{epoch:d}}-{{val_loss:.5f}}',
