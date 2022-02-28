@@ -99,19 +99,19 @@ class BaseObjectModel(pl.LightningModule):
 
     def train_dataloader(self):
         train = self.dataset.get_training_dataset()
-        return DataLoader(train, shuffle=True, batch_size=self.batch_size, num_workers=1)
+        return DataLoader(train, shuffle=True, batch_size=self.batch_size)
 
     def val_dataloader(self):
         dataloaders = []
 
         val_dataset = self.dataset.get_validation_dataset()
         if val_dataset is not None:
-            dataloaders.append(DataLoader(val_dataset, shuffle=False, batch_size=self.batch_size, num_workers=1))
+            dataloaders.append(DataLoader(val_dataset, shuffle=False, batch_size=self.batch_size))
             self.val_dataloader_names.append('val')
 
         test_datasets = self.dataset.get_test_datasets()
         for key in sorted(test_datasets.keys()):
-            dataloaders.append(DataLoader(test_datasets[key], shuffle=False, batch_size=self.batch_size, num_workers=1))
+            dataloaders.append(DataLoader(test_datasets[key], shuffle=False, batch_size=self.batch_size))
             self.val_dataloader_names.append(key)
 
         return dataloaders
