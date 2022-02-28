@@ -457,9 +457,14 @@ class CombinedQuinnDatasetGenerator(QuinnWithReferenceDatasetGenerator):
                  prop_train_to_validation=0.1, subsample_train_size=None):
 
         self.between_relation = between_relation
+
+        if two_reference_objects is not None and between_relation and not two_reference_objects:
+            raise ValueError(f'Must provide two_reference_objects=True when between_relation=True')
+
         if two_reference_objects is None:
             two_reference_objects = between_relation
         self.two_reference_objects = two_reference_objects
+
 
         if target_object_grid_height % 4 != 0:
             raise ValueError(f'Target object grid height must be divisible by 4, received target_object_grid_height={target_object_grid_height}')
