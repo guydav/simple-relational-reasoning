@@ -106,8 +106,7 @@ def map_args_to_suffix(args):
         return
 
     suffix_components = list()
-    suffix_components.append(args.use_object_size and 'with-object-size' or 'without-object-size')
-    suffix_components.append(args.add_neither_train and 'with-neither' or 'without-neither')
+    suffix_components.append(args.use_start_end and 'with-start-end' or 'without-start-end')
 
     args.wandb_project_suffix = '-'.join(suffix_components)
 
@@ -115,8 +114,8 @@ def map_args_to_suffix(args):
 def create_dataset(args):
     diagonal_reference_object = args.relation == DIAGONAL_RELATION
     
-    if args.use_object_size:
-        object_generator_class = ObjectGeneratorWithSize
+    if args.use_start_end:
+        object_generator_class = StartEndObjectGenerator
     else:
         object_generator_class = ObjectGeneratorWithoutSize
 
@@ -192,15 +191,20 @@ def main():
         var_args_copy.update({key: value for key, value in zip(MULTIPLE_OPTION_REWRITE_FIELDS,
                                                                value_combination)})
 
-        # hack to make sure I don't run a particular case that doesn't make sense
-        args_copy.add_neither_test = args_copy.add_neither_train
-
         if not args_copy.early_stopping_monitor_key.endswith('_loss'):
             args_copy.early_stopping_monitor_key += '_loss'
 
         # remove a case that doesn't make sense
-        if args_copy.relation == DIAGONAL_RELATION and (args_copy.two_reference_objects or args_copy.use_object_size):
-            print(f'Skpping because diagonal relation and either two _reference_objects={args_copy.two_reference_objects} or use_object_size={args_copy.use_object_size} is set')
+        if args_copy.relation == DIAGONAL_RELATION and args_copy.two_reference_objects:
+            print(f'Skpping because diagonal relation two_reference_objects={args_copy.two_reference_objects} is set')
+            continue
+
+        if args_copy.relation == BETWEEN_RELATION and not (args_copy.two_reference_objects):
+            print(f'Skpping because between relation and two_reference_objects={args_copy.two_reference_objects} is not set')
+            continue
+
+        if args_copy.adjacent_reference_objects and (args_copy.relation != ABOVE_BELOW_RELATION or not args_copy.two_reference_objects):
+            print(f'Skpping because adjacent_reference_objects={args_copy.adjacent_reference_objects} is set and relation is not above/below or two_reference_objects={args_copy.two_reference_objects} is set')
             continue
 
         run_single_setting_all_models(args_copy)

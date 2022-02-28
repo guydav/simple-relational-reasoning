@@ -35,7 +35,11 @@ parser.add_argument('--early-stopping-min-delta', type=float, default=DEFAULT_MI
 
 # Quinn object generator arguments
 
-parser.add_argument('--use-object-size', type=int, default=None, help='Whether or not to use object sizes')
+# parser.add_argument('--use-object-size', type=int, default=None, help='Whether or not to use object sizes')
+
+parser.add_argument('--use-start-end', type=int, default=None, help='Whether or not to use start and end object representations') 
+
+parser.add_argument('--adjacent-reference-objects', type=int, default=None, help='Whether or not to use adjacent reference objects (in the above/below, two-reference object case')
 
 DEFAULT_REFERENCE_OBJECT_LENGTH = 9
 parser.add_argument('--reference-object-length', type=int, default=DEFAULT_REFERENCE_OBJECT_LENGTH,
@@ -64,14 +68,6 @@ parser.add_argument('--x_max', type=int, default=DEFAULT_X_MAX, help='Canvas X s
 
 DEFAULT_Y_MAX = -1
 parser.add_argument('--y_max', type=int, default=DEFAULT_Y_MAX, help='Canvas Y size')
-
-DEFAULT_ADD_NEITHER_TRAIN = None
-parser.add_argument('--add-neither-train', type=int, default=DEFAULT_ADD_NEITHER_TRAIN,
-                    help='Add examples of neither (off to the side) in the training set')
-
-DEFAULT_ADD_NEITHER_TEST = None
-parser.add_argument('--add-neither-test', type=int, default=DEFAULT_ADD_NEITHER_TEST,
-                    help='Add examples of neither (off to the side) in the test set(s)')
 
 DEFAULT_PROP_TRAIN_REFERENCE_OBJECT_LOCATIONS = 0.9
 parser.add_argument('--prop-train-reference-object-locations', type=float,
@@ -216,12 +212,13 @@ MULTIPLE_OPTION_FIELD_DEFAULTS = {
     'model_configuration': [DEFAULT_MODELS_CONFIG_KEY, LARGER_MODELS_CONFIG_KEY],
     'model': MODEL_NAMES,
     'relation': RELATIONS,
-    'use_object_size': [0, 1],
-    'add_neither_train': [0, 1],
+    'use_start_end': [0, 1],
+    'two_reference_objects': [0, 1],
+    'adjacent_reference_objects': [0, 1],
 }
 
 MULTIPLE_OPTION_REWRITE_FIELDS = list(MULTIPLE_OPTION_FIELD_DEFAULTS.keys())
-MULTIPLE_OPTION_REWRITE_FIELDS.remove('model')  # intentionally no rewrite the model field downstream
+MULTIPLE_OPTION_REWRITE_FIELDS.remove('model')  # intentionally no rewrite of the model field downstream
 
 
 def handle_multiple_option_defaults(args):
