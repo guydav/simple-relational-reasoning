@@ -10,6 +10,7 @@ from tqdm.notebook import tqdm
 DEFAULT_RANDOM_SEED = 33
 TRIPLET_CACHE_SIZE = 16
 
+
 class TripletGenerator:
     def __init__(self, stimulus_generator, 
                  two_reference_objects=False, two_targets_between=True, n_target_types=1,
@@ -231,3 +232,8 @@ class QuinnTripletGenerator(TripletGenerator):
                                                       target_indices, 
                                                       normalize=normalize,
                                                       transpose_target=self.transpose)
+
+TRIPLET_GENERATORS = {
+    'equilateral': EquilateralTripletGenerator,
+    'quinn': QuinnTripletGenerator,
+}

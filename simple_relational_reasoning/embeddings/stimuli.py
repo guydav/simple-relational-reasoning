@@ -14,6 +14,94 @@ DEFAULT_CANVAS_SIZE = (224, 224)
 NORMALIZE = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225])
 
+DEFAULT_TARGET_SIZE = 15
+DEFAULT_REFERENCE_SIZE = (10, 100)
+DEFAULT_COLOR = 'black'
+DEFAULT_BLUR_FUNC = lambda x: cv2.blur(x, (5, 5))
+
+def build_colored_target_black_reference_stimulus_generator(
+    target_size=DEFAULT_TARGET_SIZE, reference_size=DEFAULT_REFERENCE_SIZE, target_colors=['blue', 'green', 'red'], 
+    reference_color=DEFAULT_COLOR, blur_func=DEFAULT_BLUR_FUNC, **kwargs):
+
+    if kwargs:
+        print('Ignoring kwargs: {}'.format(kwargs))
+
+    target_patches = [matplotlib.patches.Circle((0, 0), target_size // 2, color=c) for c in target_colors]
+    reference_patch = matplotlib.patches.Ellipse((0, 0), width=reference_size[1], 
+                                                 height=reference_size[0], color=reference_color)
+                                                    
+    return PatchStimulusGenerator(target_size, reference_size, target_patches, reference_patch, blur_func=blur_func)
+
+
+def build_dot_and_bar_stimulus_generator(
+    target_size=DEFAULT_TARGET_SIZE, reference_size=DEFAULT_REFERENCE_SIZE, 
+    color=DEFAULT_COLOR, **kwargs):
+
+    if kwargs:
+        print('Ignoring kwargs: {}'.format(kwargs))
+
+    target_patch = matplotlib.patches.Circle((0, 0), target_size // 2, color=color)
+    rectangle_reference_patch = matplotlib.patches.Rectangle(
+        (-reference_size[1] // 2, -reference_size[0] // 2), reference_size[1], reference_size[0], color=color)
+                                                    
+    return PatchStimulusGenerator(target_size, reference_size, [target_patch], rectangle_reference_patch)
+
+
+def build_dot_and_ellipse_stimulus_generator(target_size=DEFAULT_TARGET_SIZE, reference_size=DEFAULT_REFERENCE_SIZE, 
+    color=DEFAULT_COLOR, blur_func=DEFAULT_BLUR_FUNC, **kwargs):
+
+    if kwargs:
+        print('Ignoring kwargs: {}'.format(kwargs))
+
+    target_patch = matplotlib.patches.Circle((0, 0), target_size // 2, color=color)
+    ellipse_reference_patch = matplotlib.patches.Ellipse((0, 0), width=reference_size[1], 
+                                                         height=reference_size[0], color=color)
+                                                    
+    return PatchStimulusGenerator(target_size, reference_size, [target_patch], 
+        ellipse_reference_patch, blur_func=blur_func)
+
+def build_differet_shapes_stimulus_generator(target_size=DEFAULT_TARGET_SIZE, reference_size=DEFAULT_REFERENCE_SIZE, 
+    color=DEFAULT_COLOR, blur_func=DEFAULT_BLUR_FUNC, **kwargs):
+
+    if kwargs:
+        print('Ignoring kwargs: {}'.format(kwargs))
+
+    circle_patch = matplotlib.patches.Circle((0, 0), target_size // 2, color=color)
+    square_patch = matplotlib.patches.Rectangle((-target_size // 2, -target_size // 2), target_size, target_size, color=color)
+    triangle_patch = matplotlib.patches.RegularPolygon((0, 0), 3, target_size // 2, color=color)
+    reference_patch = matplotlib.patches.Ellipse((0, 0), width=reference_size[1], 
+                                                height=reference_size[0], color=color)
+
+    return PatchStimulusGenerator(target_size, reference_size, 
+        [circle_patch, square_patch, triangle_patch], reference_patch, blur_func=blur_func)
+
+
+def build_split_text_stimulus_generator(target_size=DEFAULT_TARGET_SIZE, 
+    reference_box_size=10, total_reference_size=(10, 140), n_reference_patches=8,
+    color=DEFAULT_COLOR, reference_patch_kwargs=dict(ylim=(-70, 70)), **kwargs):
+
+    if kwargs:
+        print('Ignoring kwargs: {}'.format(kwargs))
+
+    triangle_patch = matplotlib.patches.RegularPolygon((0, 0), 3, target_size[0] // 2, color=color)
+    reference_patches = [matplotlib.patches.Rectangle(((-reference_box_size // 2) + (reference_box_size * 2 * i), 
+                                                   (-reference_box_size // 2)), 
+                                                  reference_box_size, reference_box_size, color=color)
+                         for i in range(n_reference_patches)]
+
+    return PatchStimulusGenerator(target_size, total_reference_size, 
+                                  ['E', '$+$', triangle_patch, 's', '$\\to$'], 
+                                  reference_patches, 
+                                  reference_patch_kwargs=reference_patch_kwargs)
+
+STIMULUS_GENERATORS = {
+    'colored_dot_black_ellipse': build_colored_target_black_reference_stimulus_generator,
+    'black_dot_and_bar': build_dot_and_bar_stimulus_generator,
+    'same_color_dot_and_ellipse': build_dot_and_ellipse_stimulus_generator,
+    'different_shapes': build_differet_shapes_stimulus_generator,
+    'split_text': build_split_text_stimulus_generator,
+}
+
 class StimulusGenerator:
     def __init__(self, target_size, reference_size, dtype=torch.float32):
         self.target_size = target_size
