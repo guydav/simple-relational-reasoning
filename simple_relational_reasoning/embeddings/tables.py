@@ -156,7 +156,7 @@ def format_condition(condition, prev_condition):
     
 def table_per_relation_multiple_results(all_results, tablefmt='github', model_orders=MODEL_ORDERS, 
                                         n_types_to_print=(1, 2), headers=HEADERS, df_headers=DF_HEADERS, 
-                                        print_std=True, N=1024):
+                                        print_std=True, N=1024, display_tables=True):
     models_datasets = list(all_results[0].keys())
     
     results_by_relation = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
@@ -205,7 +205,8 @@ def table_per_relation_multiple_results(all_results, tablefmt='github', model_or
                            for model_and_dataset in model_orders]
                 all_df_rows.extend(df_rows)
             
-        display(Markdown(tabulate.tabulate(rows, headers, tablefmt=tablefmt)))
+        if display_tables:
+            display(Markdown(tabulate.tabulate(rows, headers, tablefmt=tablefmt)))
         
     return pd.DataFrame(all_df_rows, columns=df_headers)
     

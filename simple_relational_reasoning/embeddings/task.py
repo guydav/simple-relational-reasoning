@@ -9,7 +9,7 @@ from collections import defaultdict, namedtuple
 from IPython.display import display, Markdown
 from tqdm.notebook import tqdm
 
-from quinn_embedding_models import build_model
+from .models import build_model
 
 
 class Metric:
