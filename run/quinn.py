@@ -63,9 +63,7 @@ def run_single_setting_all_models(args):
         model_kwargs['batch_size'] = args.batch_size
 
         # create wandb project name
-        map_args_to_suffix(args)
-        if args.wandb_project is None:
-            args.wandb_project = f'{args.subsample_train_size if args.subsample_train_size is not None else "full"}-{args.relation}-{args.model_configuration}-models{"-" if args.wandb_project_suffix else ""}{args.wandb_project_suffix}'
+        map_args_to_project(args)
 
         # create wandb run with name appropriate for model and random seed
         args.wandb_run_name = f'{model_class_name}-{args.seed}{"-" if args.wandb_name_suffix else ""}{args.wandb_name_suffix}'
@@ -103,14 +101,19 @@ def run_single_setting_all_models(args):
 
 
 
-def map_args_to_suffix(args):
-    if args.wandb_project_suffix:
+def map_args_to_project(args):
+    if args.wandb_project is not None:
         return
 
-    suffix_components = list()
-    suffix_components.append(args.use_start_end and 'with-start-end' or 'without-start-end')
+    project_components = list()
+    project_components.append(args.subsample_train_size if args.subsample_train_size is not None else 'full')
+    project_components.append(args.relation)
+    project_components.append(f'{args.model_configuration}_models')
+    project_components.append('with-start-end' if args.use_start_end else 'without-start-end')
+    project_components.append('two_references' if args.two_reference_objects else 'one_reference') 
+    project_components.append('adjacent_references' if args.adjacent_reference_objects else 'gapped_references')
 
-    args.wandb_project_suffix = '-'.join(suffix_components)
+    args.wandb_project_suffix = '-'.join(project_components)
 
 
 def create_dataset(args):
@@ -196,7 +199,7 @@ def main():
         if not args_copy.early_stopping_monitor_key.endswith('_loss'):
             args_copy.early_stopping_monitor_key += '_loss'
 
-        # remove a case that doesn't make sense
+        # remove cases that doesn't make sense
         if args_copy.relation == DIAGONAL_RELATION and args_copy.two_reference_objects:
             print(f'Skpping because diagonal relation two_reference_objects={args_copy.two_reference_objects} is set')
             continue
@@ -206,7 +209,7 @@ def main():
             continue
 
         if args_copy.adjacent_reference_objects and (args_copy.relation != ABOVE_BELOW_RELATION or not args_copy.two_reference_objects):
-            print(f'Skpping because adjacent_reference_objects={args_copy.adjacent_reference_objects} is set and relation is not above/below or two_reference_objects={args_copy.two_reference_objects} is set')
+            print(f'Skpping because adjacent_reference_objects={args_copy.adjacent_reference_objects} is set and relation={args_copy.relation} is not above/below or two_reference_objects={args_copy.two_reference_objects} is not set')
             continue
 
         run_single_setting_all_models(args_copy)
