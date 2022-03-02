@@ -106,14 +106,14 @@ def map_args_to_project(args):
         return
 
     project_components = list()
-    project_components.append(args.subsample_train_size if args.subsample_train_size is not None else 'full')
+    project_components.append(str(args.subsample_train_size) if args.subsample_train_size is not None else 'full')
     project_components.append(args.relation)
     project_components.append(f'{args.model_configuration}_models')
     project_components.append('with-start-end' if args.use_start_end else 'without-start-end')
     project_components.append('two_references' if args.two_reference_objects else 'one_reference') 
     project_components.append('adjacent_references' if args.adjacent_reference_objects else 'gapped_references')
 
-    args.wandb_project_suffix = '-'.join(project_components)
+    args.wandb_project = '-'.join(project_components)
 
 
 def create_dataset(args):
