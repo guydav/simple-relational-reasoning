@@ -11,7 +11,7 @@ import pandas as pd
 import torch
 
 from simple_relational_reasoning.embeddings.stimuli import STIMULUS_GENERATORS
-from simple_relational_reasoning.embeddings.triplets import TRIPLET_GENERATORS
+from simple_relational_reasoning.embeddings.triplets import TRIPLET_GENERATORS, RELATIONS
 from simple_relational_reasoning.embeddings.models import MODELS
 from simple_relational_reasoning.embeddings.task import run_multiple_models_multiple_generators
 from simple_relational_reasoning.embeddings.tables import table_per_relation_multiple_results
@@ -34,15 +34,7 @@ parser.add_argument('--stimulus-generator-kwargs', action='append',
 DEFAULT_DISTANCE_ENDPOINTS = (30, 70)
 parser.add_argument('--target-distance-endpoints', type=int, nargs=2, default=DEFAULT_DISTANCE_ENDPOINTS,)
 
-ABOVE_BELOW_RELATION = 'above_below'
-BETWEEN_RELATION = 'between'
-DIAGONAL_RELATION = 'diagonal'
 
-RELATIONS = (
-    ABOVE_BELOW_RELATION,
-    BETWEEN_RELATION,
-    DIAGONAL_RELATION
-)
 parser.add_argument('-r', '--relation', type=str, action='append', choices=RELATIONS,
                     help='Which relation(s) to run (default: all)')
 
