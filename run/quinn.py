@@ -97,6 +97,7 @@ def run_single_setting_all_models(args):
 
         wandb.finish()
 
+        del logger
         del trainer
         del model
 
