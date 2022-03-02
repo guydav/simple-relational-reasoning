@@ -19,6 +19,7 @@ DEFAULT_REFERENCE_SIZE = (10, 100)
 DEFAULT_COLOR = 'black'
 DEFAULT_BLUR_FUNC = lambda x: cv2.blur(x, (5, 5))
 
+
 def build_colored_target_black_reference_stimulus_generator(
     target_size=DEFAULT_TARGET_SIZE, reference_size=DEFAULT_REFERENCE_SIZE, target_colors=['blue', 'green', 'red'], 
     reference_color=DEFAULT_COLOR, blur_func=DEFAULT_BLUR_FUNC, **kwargs):
@@ -77,11 +78,14 @@ def build_differet_shapes_stimulus_generator(target_size=DEFAULT_TARGET_SIZE, re
 
 
 def build_split_text_stimulus_generator(target_size=DEFAULT_TARGET_SIZE, 
-    reference_box_size=10, total_reference_size=(10, 140), n_reference_patches=8,
-    color=DEFAULT_COLOR, reference_patch_kwargs=dict(ylim=(-70, 70)), **kwargs):
+    reference_box_size=8, total_reference_size=(10, 140), n_reference_patches=7,
+    color=DEFAULT_COLOR, reference_patch_kwargs=None, **kwargs):
 
     if kwargs:
         print('Ignoring kwargs: {}'.format(kwargs))
+
+    if reference_patch_kwargs is None:
+        reference_patch_kwargs = {}
 
     triangle_patch = matplotlib.patches.RegularPolygon((0, 0), 3, target_size[0] // 2, color=color)
     reference_patches = [matplotlib.patches.Rectangle(((-reference_box_size // 2) + (reference_box_size * 2 * i), 
@@ -125,9 +129,10 @@ class StimulusGenerator:
 #             if torch.any(torch.eq(torch.tensor(x[:, rp[0]:rp[0] + self.reference_size[0],
 #                  rp[1]:rp[1] + self.reference_size[1]].shape), 0)):
 #                 print(ref_pos, rp)
-            
-            x[:, rp[0]:rp[0] + self.reference_size[0],
-                 rp[1]:rp[1] + self.reference_size[1]] = self._reference_object()
+            ref_object = self._reference_object()
+
+            x[:, rp[0]:rp[0] + ref_object.shape[1],
+                 rp[1]:rp[1] + ref_object.shape[2]] = ref_object
             
         target_centering = np.array([center_positions * s // 2 for s in self.target_size])
         target_pos = np.array(target_position) - target_centering
@@ -135,8 +140,8 @@ class StimulusGenerator:
         if transpose_target:
             target = np.transpose(target, (0, 2, 1))
             
-        x[:, target_pos[0]:target_pos[0] + self.target_size[0],
-             target_pos[1]:target_pos[1] + self.target_size[1]] = target
+        x[:, target_pos[0]:target_pos[0] + target.shape[1],
+             target_pos[1]:target_pos[1] + target.shape[2]] = target
         
         return x
     
@@ -163,7 +168,7 @@ class StimulusGenerator:
         if len(target_indices) != len(target_positions):
             raise ValueError(f'Expected target indices (N={len(target_indices)} to have the same length as the target positions (N={len(target_positions)}. Aborting...')
             
-        target_positions = tuple(target_positions)
+        target_positions = tuple([tuple(pos) for pos in target_positions])
         reference_positions = tuple(reference_positions)
         return self.cached_batch_generate(target_positions, reference_positions, target_indices, 
                                           normalize=normalize, transpose_target=transpose_target)
@@ -233,13 +238,27 @@ class NaiveStimulusGenerator(StimulusGenerator):
         return self.target_color
     
 
+EMPTY_PIXEL = np.array([255, 255, 255, 0], dtype=np.uint8)
+
 class PatchStimulusGenerator(StimulusGenerator):
-    def _patch_to_array(self, patch, size, xlim=None, ylim=None, fontsize=16):
+    def _patch_to_array(self, patch, size, rotate_angle=None, xlim=None, ylim=None, fontsize=16):
         fig = Figure(figsize=(4, 4))
         # attach a non-interactive Agg canvas to the figure
         # (as a side-effect of the ``__init__``)
         canvas = FigureCanvas(fig)
         ax = fig.subplots()
+        max_size = max(size)
+
+        if xlim is None:
+            ax.set_xlim(-max_size, max_size)
+        else:
+            ax.set_xlim(*xlim)
+
+        if ylim is None:
+            ax.set_ylim(-max_size, max_size)
+        else:
+            ax.set_ylim(*ylim)
+
         ax.set_facecolor(np.array(self.background_color).squeeze())
         
         if isinstance(patch, (list, tuple)):
@@ -255,52 +274,79 @@ class PatchStimulusGenerator(StimulusGenerator):
                 ax.add_patch(patch)  
             
         ax.set_axis_off()
-        ax.autoscale(tight=True)
-        if xlim is not None:
-            ax.set_xlim(*xlim)
-        if ylim is not None:
-            ax.set_ylim(*ylim)
+        # ax.autoscale(tight=True)
             
         # Force a draw so we can grab the pixel buffer
         canvas.draw()
         # grab the pixel buffer and dump it into a numpy array
         X = np.array(canvas.renderer.buffer_rgba())
+        
+        # print(X.shape, X.dtype, X[0, 0], size)
+        # plt.imshow(X)
+        # plt.show()
 
-        row_start = 0
-        for i in range(X.shape[0]):
-            if not np.all(X[i] == np.array([255, 255, 255, 0])):
-                row_start = i
-                break
+        if rotate_angle is not None:
+            X_float = X.astype(np.float32) / 255.0
 
-        row_end = X.shape[0]
-        for i in range(X.shape[0] - 1, 0, -1):
-            if not np.all(X[i] == np.array([255, 255, 255, 0])):
-                row_end = i
-                break
+            center = tuple([s / 2 for s in X.shape[:-1]])
+            rotation_matrix = cv2.getRotationMatrix2D(center, rotate_angle, 1.0)
+            X_float = cv2.warpAffine(X_float, rotation_matrix, X.shape[:-1], flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+            
+            X = (X_float * 255).astype(np.uint8)
+            # recompute the scaled size by considering the longest size as the hypotenuse:
+            long_size = max(size)
+            size = (int(long_size * np.sin(np.radians(np.abs(rotate_angle)))), 
+                    int(long_size * np.cos(np.radians(np.abs(rotate_angle)))))
 
-        col_start = 0
-        for i in range(X.shape[1]):
-            if not np.all(X[:,i] == np.array([255, 255, 255, 0])):
-                col_start = i
-                break
+            # print(X.shape, X.dtype, X[0, 0], size)
+            # plt.imshow(X)
+            # plt.show()
 
-        col_end = X.shape[1]
-        for i in range(X.shape[1] - 1, 0, -1):
-            if not np.all(X[:,i] == np.array([255, 255, 255, 0])):
-                col_end = i
-                break
-                
-        X_trim = X[row_start:row_end + 1, col_start:col_end + 1, :]
-        X_resized = cv2.resize(X_trim, dsize=size[::-1])
+        X_resized = self.trim_and_resize(X, size)
         X_rgb = cv2.cvtColor(X_resized, cv2.COLOR_RGBA2RGB)
         if self.blur_func is not None:
             X_rgb = self.blur_func(X_rgb)
         X_float_tensor = torch.tensor(X_rgb, dtype=self.dtype).permute(2, 0, 1)
         return X_float_tensor / X_float_tensor.max()
+
+    def trim_and_resize(self, X, size):
+        row_start = 0
+        for i in range(X.shape[0]):
+            if not np.all(X[i] == EMPTY_PIXEL):
+                row_start = i
+                break
+
+        row_end = X.shape[0]
+        for i in range(X.shape[0] - 1, 0, -1):
+            if not np.all(X[i] == EMPTY_PIXEL):
+                row_end = i
+                break
+
+        col_start = 0
+        for i in range(X.shape[1]):
+            if not np.all(X[:,i] == EMPTY_PIXEL):
+                col_start = i
+                break
+
+        col_end = X.shape[1]
+        for i in range(X.shape[1] - 1, 0, -1):
+            if not np.all(X[:,i] == EMPTY_PIXEL):
+                col_end = i
+                break
+                
+        # print(row_start, row_end, col_start, col_end)
+        X_trim = X[row_start:row_end + 1, col_start:col_end + 1, :]
+        # plt.imshow(X_trim)
+        # plt.show()
+        X_resized = cv2.resize(X_trim, dsize=size[::-1])
+        # plt.imshow(X_resized)
+        # plt.show()
+
+        return X_resized
     
     def __init__(self, target_size, reference_size, target_patch, reference_patch,
                  blur_func=None, target_patch_kawrgs=None, reference_patch_kwargs=None,
-                 canvas_size=DEFAULT_CANVAS_SIZE, 
+                 canvas_size=DEFAULT_CANVAS_SIZE, rotate_angle=None,
                  background_color='white', dtype=torch.float32):
         super(PatchStimulusGenerator, self).__init__(target_size, reference_size, dtype)
         
@@ -314,6 +360,8 @@ class PatchStimulusGenerator(StimulusGenerator):
         self.reference_size = self._validate_input_to_tuple(reference_size)
         self.canvas_size = self._validate_input_to_tuple(canvas_size)
         
+        self.rotate_angle = rotate_angle
+
         self.blur_func = blur_func
         self.background_color = self._validate_color_input(background_color)
         
@@ -322,7 +370,7 @@ class PatchStimulusGenerator(StimulusGenerator):
           
         self.targets_arrs = [self._patch_to_array(patch, self.target_size, **target_patch_kawrgs) for patch in target_patch]
         self.n_target_types = len(self.targets_arrs)
-        self.reference_arr = self._patch_to_array(reference_patch, self.reference_size, **reference_patch_kwargs)
+        self.reference_arr = self._patch_to_array(reference_patch, self.reference_size, rotate_angle=self.rotate_angle, **reference_patch_kwargs)
         
     def _canvas(self):
         return torch.ones(3, *self.canvas_size, dtype=self.dtype) * self.background_color
