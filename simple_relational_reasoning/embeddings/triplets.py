@@ -164,6 +164,7 @@ class QuinnTripletGenerator(TripletGenerator):
                  adjacent_reference_objects=False,
                  n_target_types=1, transpose=False,
                  vertical_margin=0, horizontal_margin=0,
+                 diagonal_margin_buffer=10,
                  seed=DEFAULT_RANDOM_SEED, use_tqdm=False):
         super(QuinnTripletGenerator, self).__init__(
             stimulus_generator=stimulus_generator, relation=relation,
@@ -180,9 +181,10 @@ class QuinnTripletGenerator(TripletGenerator):
         self.adjacent_reference_objects = adjacent_reference_objects
         self.pair_above = pair_above
         self.two_objects_left = two_objects_left
+        self.diagonal_margin_buffer = diagonal_margin_buffer
 
-        self.reference_width = self.stimulus_generator.reference_size[1]
-        self.reference_height = self.stimulus_generator.reference_size[0]
+        self.reference_width = self.stimulus_generator._reference_object().shape[2]
+        self.reference_height = self.stimulus_generator._reference_object().shape[1]
         self.target_width = self.stimulus_generator.target_size[1]
         self.target_height = self.stimulus_generator.target_size[0]
     
@@ -193,17 +195,18 @@ class QuinnTripletGenerator(TripletGenerator):
         inter_reference_distance = 0
         if self.two_reference_objects:
             if self.adjacent_reference_objects:
-                inter_reference_distance = self.reference_height
+                inter_reference_distance = self.reference_height * 1.5
             elif self.relation == BETWEEN_RELATION:
                 inter_reference_distance = target_distance
             else: # self.relation == ABOVE_BELOW_RELATION
                 inter_reference_distance = half_target_distance
 
         # compute the margins
-        min_horizontal_margin = self.stimulus_generator.reference_size[1] // 2 + 1
+        min_horizontal_margin = self.reference_width // 2 + 1
 
         if self.relation == DIAGONAL_RELATION:
-            min_vertical_margin = min_horizontal_margin = self.reference_height / (8 ** 0.5) * 1.1
+            min_horizontal_margin += self.diagonal_margin_buffer
+            min_vertical_margin = self.reference_height // 2 + 1 + self.diagonal_margin_buffer
 
         elif self.relation == BETWEEN_RELATION:
             min_vertical_margin = target_distance + (self.reference_height // 2) + 1
@@ -253,17 +256,70 @@ class QuinnTripletGenerator(TripletGenerator):
         # TODO: after doing the above, go to the task implementation and make sure that won't break
 
         target_positions = []
-        if self.relation == DIAGONAL_RELATION:
-            # TODO: handle target placements in diagonal condition
-            # Idea: sample margin as below, treat it diagonally instead of horizontally
-            # = horizontally with respect to the stimulus itself
-            # generate the two mirrored positions across the reference object
-            # and check if either or both are in the square whose diagonal is the reference stimulus
-            # at least one should be -- if not, we need smaller margins
 
-            # TODO: this code also assumes a PatchStimulusGenerator that can generate diagonal stimuli
-            # But maybe that's just using a rotated rectangle/ellipse as the patch?
-            return
+        if self.relation == DIAGONAL_RELATION:
+            refernce_angle = self.stimulus_generator.rotate_angle
+
+            if refernce_angle is None:
+                raise ValueError('Diagonal relation requires the stimulus generation have a rotation angle')            
+
+            if np.abs(refernce_angle) >= 90:
+                raise ValueError('Diagonal relation requires the stimulus generation have a rotation angle between -90 and 90')
+
+            approx_radius = np.mean((self.target_height, self.target_width)) / 2
+            sin_angle = np.sin(np.deg2rad(refernce_angle))
+            cos_angle = np.cos(np.deg2rad(refernce_angle))
+            angle_vec = np.array([-sin_angle, cos_angle])  # (row, column) rather than (x, y), and rows increase down, rather than up
+            cot_angle = cos_angle / sin_angle
+            
+            # slightly annoying geometry to figure out how far left/right on the referrence we can place target above/below
+            if pair_above == (refernce_angle > 0):
+                left_target_min_margin = - cot_angle * (half_target_distance - approx_radius)
+                right_target_min_margin = cot_angle * (half_target_distance + approx_radius)
+
+            else:
+                left_target_min_margin = cot_angle * (half_target_distance - approx_radius)
+                right_target_min_margin = - cot_angle * (half_target_distance + approx_radius)
+                
+            left_target_horizontal_offset = self.rng.integers(
+                int(-self.reference_width / 2 + left_target_min_margin), 
+                int(self.reference_width / 2 + right_target_min_margin - target_distance))
+
+            right_target_horizontal_offset = left_target_horizontal_offset + target_distance
+
+            # TODO: compute the actual positions for the two points whose offsets we just computed
+            left_position_on_reference = stimulus_centroid_position + left_target_horizontal_offset * angle_vec
+            right_position_on_reference = stimulus_centroid_position + right_target_horizontal_offset * angle_vec
+
+            left_target_position, right_target_position = self._project_positions(half_target_distance, pair_above, angle_vec, left_position_on_reference, right_position_on_reference)
+
+            left_potential_position, right_potential_position = self._project_positions(half_target_distance, -1 * pair_above, angle_vec, left_position_on_reference, right_position_on_reference)
+
+            reference_box_corner_1 = stimulus_centroid_position - self.reference_width / 2 * angle_vec
+            reference_box_corner_2 = stimulus_centroid_position + self.reference_width / 2 * angle_vec
+            
+            row_limits = (min(reference_box_corner_1[0], reference_box_corner_2[0]), max(reference_box_corner_1[0], reference_box_corner_2[0]))
+            col_limits = (min(reference_box_corner_1[1], reference_box_corner_2[1]), max(reference_box_corner_1[1], reference_box_corner_2[1]))
+
+            left_potential_valid = self._check_point_in_limits(left_potential_position, row_limits, col_limits)
+            right_potential_valid = self._check_point_in_limits(right_potential_position, row_limits, col_limits)
+
+            use_left = None
+            if left_potential_valid and right_potential_valid:
+                use_left = self.rng.uniform() < 0.5
+            elif left_potential_valid:
+                use_left = True
+            elif right_potential_valid:
+                use_left = False
+            else:
+                use_left = np.linalg.norm(left_potential_position - stimulus_centroid_position) < np.linalg.norm(right_potential_position - stimulus_centroid_position)
+                
+            if use_left:
+                target_positions = [left_target_position, right_target_position, left_potential_position]
+            else:
+                target_positions = [right_target_position, left_target_position, right_potential_position]
+
+            
 
         else:
             target_horizontal_margin = (self.reference_width - self.target_width) // 2
@@ -302,7 +358,7 @@ class QuinnTripletGenerator(TripletGenerator):
             
         elif self.n_target_types == 3:
             target_indices = [0, 1, 2]
-            self.rng.shuffle(target_indices)
+            # self.rng.shuffle(target_indices)
             target_indices = tuple(target_indices)
 
         return self.stimulus_generator.batch_generate(target_positions, 
@@ -310,6 +366,20 @@ class QuinnTripletGenerator(TripletGenerator):
                                                       target_indices, 
                                                       normalize=normalize,
                                                       transpose_target=self.transpose)
+
+    def _project_positions(self, projection_distance, pair_above, angle_vec, left_position_on_reference, right_position_on_reference):
+        pair_rotation_angle = 90 if (pair_above == 1) else -90
+        pair_rotation_matrix = np.array([[np.cos(np.deg2rad(pair_rotation_angle)), -np.sin(np.deg2rad(pair_rotation_angle))],
+                                        [np.sin(np.deg2rad(pair_rotation_angle)), np.cos(np.deg2rad(pair_rotation_angle))]])
+            
+        offset_angle_vec = pair_rotation_matrix @ angle_vec
+        left_target_position = left_position_on_reference + offset_angle_vec * projection_distance
+        right_target_position = right_position_on_reference + offset_angle_vec * projection_distance
+        return left_target_position.astype(int), right_target_position.astype(int)
+
+    def _check_point_in_limits(self, point, row_limits, col_limits):
+        return (row_limits[0] <= point[0] <= row_limits[1] and
+                col_limits[0] <= point[1] <= col_limits[1])
 
 TRIPLET_GENERATORS = {
     'equilateral': EquilateralTripletGenerator,

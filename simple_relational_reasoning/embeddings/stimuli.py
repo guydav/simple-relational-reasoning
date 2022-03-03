@@ -122,17 +122,16 @@ class StimulusGenerator:
         x = self._canvas()
         
         # reference first in case of overlap
-        reference_centering = np.array([center_positions * s // 2 for s in self.reference_size])
         for ref_pos in reference_positions:
-            rp = np.array(ref_pos) - reference_centering
-            
-#             if torch.any(torch.eq(torch.tensor(x[:, rp[0]:rp[0] + self.reference_size[0],
-#                  rp[1]:rp[1] + self.reference_size[1]].shape), 0)):
-#                 print(ref_pos, rp)
             ref_object = self._reference_object()
+            ref_shape = ref_object.shape
 
-            x[:, rp[0]:rp[0] + ref_object.shape[1],
-                 rp[1]:rp[1] + ref_object.shape[2]] = ref_object
+            if center_positions:
+                reference_centering = np.array([s // 2 for s in ref_shape[1:]])
+                ref_pos = np.array(ref_pos) - reference_centering
+
+            x[:, ref_pos[0]:ref_pos[0] + ref_shape[1],
+                 ref_pos[1]:ref_pos[1] + ref_shape[2]] = ref_object
             
         target_centering = np.array([center_positions * s // 2 for s in self.target_size])
         target_pos = np.array(target_position) - target_centering
