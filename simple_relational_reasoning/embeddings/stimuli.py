@@ -106,16 +106,19 @@ STIMULUS_GENERATORS = {
     'split_text': build_split_text_stimulus_generator,
 }
 
+
+
 class StimulusGenerator:
-    def __init__(self, target_size, reference_size, dtype=torch.float32):
+    def __init__(self, target_size, reference_size, rotate_angle=None, dtype=torch.float32):
         self.target_size = target_size
         self.reference_size = reference_size
+        self.rotate_angle = rotate_angle
         self.dtype = dtype
         
         self.n_target_types = 1
     
     def generate(self, target_position, reference_positions, target_index=0, 
-                 center_positions=True, transpose_target=False) -> torch.Tensor:
+                 center_positions=True, transpose_target=False, stimulus_centroid=None) -> torch.Tensor:
         if not hasattr(reference_positions[0], '__len__'):
             reference_positions = [reference_positions]
         
@@ -142,14 +145,49 @@ class StimulusGenerator:
             
         x[:, target_pos[0]:target_pos[0] + target.shape[1],
              target_pos[1]:target_pos[1] + target.shape[2]] = target
+
+        if self.rotate_angle is not None:
+            if stimulus_centroid is None:
+                stimulus_centroid = np.array([s // 2 for s in x.shape[1:]], dtype=np.int)
+
+            # record current value at the centroid, mark it, find it again after rotating, crop such that it's centered
+            original_centroid_value = x[:, stimulus_centroid[0], stimulus_centroid[1]]
+            centroid_marker = None
+
+            while centroid_marker is None:
+                centroid_marker = torch.randint(0, 101, (3, 1, 1), dtype=self.dtype) / 100
+                marker_exists = (x == centroid_marker).all(axis=0).any().item()
+                if marker_exists:
+                    centroid_marker = None
+
+            x[:, stimulus_centroid[0], stimulus_centroid[1]] = centroid_marker.squeeze()
+
+            x_rot = transforms.functional.rotate(x, self.rotate_angle, center=tuple(stimulus_centroid),
+                expand=True, fill=[1.0, 1.0, 1.0])
+            
+            if x_rot.shape != x.shape:
+                new_centroid = (x_rot == centroid_marker).all(axis=0).nonzero().squeeze().numpy()
+                if len(new_centroid.shape) > 1:
+                    new_centroid = new_centroid[0]
+
+                # TODO: check if this would override bounds, and if it does, min/max it
+                top, left = new_centroid - stimulus_centroid
+                top = np.clip(top, 0, x_rot.shape[1] - x.shape[1])
+                left = np.clip(left, 0, x_rot.shape[2] - x.shape[2])
+
+                x_rot = transforms.functional.crop(x_rot, top, left, *x.shape[1:])
+                x_rot[:, stimulus_centroid[0], stimulus_centroid[1]] = original_centroid_value
+
+            x = x_rot
         
         return x
     
-    def __call__(self, target_position, reference_positions, transpose_target=False) -> torch.Tensor:
-        return NORMALIZE(self.generate(target_position, reference_positions, transpose_target=transpose_target))
+    def __call__(self, target_position, reference_positions, transpose_target=False, stimulus_centroid=None) -> torch.Tensor:
+        return NORMALIZE(self.generate(target_position, reference_positions, 
+            transpose_target=transpose_target, stimulus_centroid=stimulus_centroid))
         
     def batch_generate(self, target_positions, reference_positions, target_indices=None, 
-                       normalize=True, transpose_target=False) -> torch.Tensor:
+                       normalize=True, transpose_target=False, stimulus_centroid=None) -> torch.Tensor:
         if len(reference_positions) != len(target_positions):
             if isinstance(reference_positions[0], np.ndarray):
                 reference_positions = [tuple([tuple(ref) for ref in reference_positions])] * len(target_positions)
@@ -170,18 +208,21 @@ class StimulusGenerator:
             
         target_positions = tuple([tuple(pos) for pos in target_positions])
         reference_positions = tuple(reference_positions)
+        if stimulus_centroid is not None:
+            stimulus_centroid = tuple(stimulus_centroid)
         return self.cached_batch_generate(target_positions, reference_positions, target_indices, 
-                                          normalize=normalize, transpose_target=transpose_target)
+                                          normalize=normalize, transpose_target=transpose_target, 
+                                          stimulus_centroid=stimulus_centroid)
                 
     @lru_cache(maxsize=CACHE_SIZE)
     def cached_batch_generate(self, target_positions, reference_positions, target_indices, 
-                              normalize=True, transpose_target=False):
+                              normalize=True, transpose_target=False, stimulus_centroid=None):
         zip_gen = zip(target_positions, reference_positions, target_indices)
         if normalize:
-            return torch.stack([NORMALIZE(self.generate(t, p, i, transpose_target=transpose_target)) 
+            return torch.stack([NORMALIZE(self.generate(t, p, i, transpose_target=transpose_target, stimulus_centroid=stimulus_centroid)) 
                                 for (t, p, i) in zip_gen])
         else:
-            return torch.stack([self.generate(t, p, i, transpose_target=transpose_target) 
+            return torch.stack([self.generate(t, p, i, transpose_target=transpose_target, stimulus_centroid=stimulus_centroid) 
                                 for (t, p, i) in zip_gen])
 
     def _to_tensor(self, t):
@@ -217,8 +258,8 @@ class StimulusGenerator:
 class NaiveStimulusGenerator(StimulusGenerator):
     def __init__(self, target_size, reference_size, canvas_size=DEFAULT_CANVAS_SIZE,
                  target_color='black', reference_color='blue', background_color='white',
-                 dtype=torch.float32):
-        super(NaiveStimulusGenerator, self).__init__(target_size, reference_size, dtype)
+                 rotate_angle=None, dtype=torch.float32):
+        super(NaiveStimulusGenerator, self).__init__(target_size, reference_size, rotate_angle=rotate_angle, dtype=dtype)
         
         self.target_size = self._validate_input_to_tuple(target_size)
         self.reference_size = self._validate_input_to_tuple(reference_size)
@@ -241,7 +282,7 @@ class NaiveStimulusGenerator(StimulusGenerator):
 EMPTY_PIXEL = np.array([255, 255, 255, 0], dtype=np.uint8)
 
 class PatchStimulusGenerator(StimulusGenerator):
-    def _patch_to_array(self, patch, size, rotate_angle=None, xlim=None, ylim=None, fontsize=16):
+    def _patch_to_array(self, patch, size, xlim=None, ylim=None, fontsize=16):
         fig = Figure(figsize=(4, 4))
         # attach a non-interactive Agg canvas to the figure
         # (as a side-effect of the ``__init__``)
@@ -284,23 +325,6 @@ class PatchStimulusGenerator(StimulusGenerator):
         # print(X.shape, X.dtype, X[0, 0], size)
         # plt.imshow(X)
         # plt.show()
-
-        if rotate_angle is not None:
-            X_float = X.astype(np.float32) / 255.0
-
-            center = tuple([s / 2 for s in X.shape[:-1]])
-            rotation_matrix = cv2.getRotationMatrix2D(center, rotate_angle, 1.0)
-            X_float = cv2.warpAffine(X_float, rotation_matrix, X.shape[:-1], flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
-            
-            X = (X_float * 255).astype(np.uint8)
-            # recompute the scaled size by considering the longest size as the hypotenuse:
-            long_size = max(size)
-            size = (int(long_size * np.sin(np.radians(np.abs(rotate_angle)))), 
-                    int(long_size * np.cos(np.radians(np.abs(rotate_angle)))))
-
-            # print(X.shape, X.dtype, X[0, 0], size)
-            # plt.imshow(X)
-            # plt.show()
 
         X_resized = self.trim_and_resize(X, size)
         X_rgb = cv2.cvtColor(X_resized, cv2.COLOR_RGBA2RGB)
@@ -370,7 +394,7 @@ class PatchStimulusGenerator(StimulusGenerator):
           
         self.targets_arrs = [self._patch_to_array(patch, self.target_size, **target_patch_kawrgs) for patch in target_patch]
         self.n_target_types = len(self.targets_arrs)
-        self.reference_arr = self._patch_to_array(reference_patch, self.reference_size, rotate_angle=self.rotate_angle, **reference_patch_kwargs)
+        self.reference_arr = self._patch_to_array(reference_patch, self.reference_size, **reference_patch_kwargs)
         
     def _canvas(self):
         return torch.ones(3, *self.canvas_size, dtype=self.dtype) * self.background_color
