@@ -17,6 +17,8 @@ RELATIONS = (
     ABOVE_BELOW_RELATION,
     BETWEEN_RELATION,
 )
+
+DEFAULT_MULTIPLE_HABITUATION_RADIUS = 10
 class TripletGenerator:
     def __init__(self, stimulus_generator, relation,
                  two_reference_objects=False, two_targets_between=True, n_target_types=1,
@@ -73,7 +75,7 @@ class QuinnTripletGenerator(TripletGenerator):
                  vertical_margin=0, horizontal_margin=0,
                  extra_diagonal_margin=0,
                  n_habituation_stimuli=1,
-                 multiple_habituation_radius=10,
+                 multiple_habituation_radius=DEFAULT_MULTIPLE_HABITUATION_RADIUS,
                  seed=DEFAULT_RANDOM_SEED, use_tqdm=False):
         super(QuinnTripletGenerator, self).__init__(
             stimulus_generator=stimulus_generator, relation=relation,
@@ -152,19 +154,6 @@ class QuinnTripletGenerator(TripletGenerator):
             pair_above = np.sign(self.rng.uniform(-0.5, 0.5))
         else:
             pair_above = self.pair_above and 1 or -1
-            
-        # TODO: consider the case of multiple habituation stimuli
-        # this is not actually that hard -- 
-        # (1) make sure that the patch stimulus generator accepts an arbitrary number of targets
-        # (2) fix the target indices generated at the end of this function to be identical 
-        # all of the habituation stimuli
-        # (3) accept a parameter for the radius on which we're placing the targets around the sampled position
-        # (4) increase the margin from the edge by this radius
-        # (5) sample positions uniformly on the circle around that radius
-        # making sure to also take into account the `two_objects_left` parameter
-        # (6) in the above case for diagonal, first check which one we can place across, then place the multiple stimuli
-
-        # TODO: after doing the above, go to the task implementation and make sure that won't break
 
         target_positions = []
         
