@@ -104,7 +104,7 @@ class QuinnTripletGenerator(TripletGenerator):
         inter_reference_distance = 0
         if self.two_reference_objects:
             if self.adjacent_reference_objects:
-                inter_reference_distance = self.reference_height
+                inter_reference_distance = self.reference_height * 1.5
             elif self.relation == BETWEEN_RELATION:
                 inter_reference_distance = target_distance
             else: # self.relation == ABOVE_BELOW_RELATION
