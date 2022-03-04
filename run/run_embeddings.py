@@ -7,6 +7,7 @@ import sys
 sys.path.append(os.path.abspath('.'))
 sys.path.append(os.path.abspath('..'))
 
+import numpy as np
 import pandas as pd
 import torch
 
@@ -21,6 +22,8 @@ parser = argparse.ArgumentParser()
 
 DEFAULT_SEED = 33
 parser.add_argument('--seed', type=int, default=DEFAULT_SEED, help='Random seed to run with')
+
+parser.add_argument('--replications', type=int, default=1, help='Number of replications to run')
 
 DEFAULT_N = 1024
 parser.add_argument('-n', '--n-examples', type=int, default=DEFAULT_N, help='Number of examples to generate')
@@ -131,17 +134,7 @@ if __name__ == '__main__':
     else:
         device = 'cpu'
 
-    stimulus_generator_builder = STIMULUS_GENERATORS[args.stimulus_generator]
-    stimulus_generator_kwargs = {s.split('=')[0]: s.split('=')[1] for s in args.stimulus_generator_kwargs}
-    stimulus_generator = stimulus_generator_builder(**stimulus_generator_kwargs)
-
-    value_sets = {key: getattr(args, key) if getattr(args, key) is not None else default_value
-        for key, default_value in MULTIPLE_OPTION_FIELD_DEFAULTS.items()}
-
-    triplet_names, triplet_generators = create_generators_and_names(
-        TRIPLET_GENERATORS[args.triplet_generator], stimulus_generator, 
-        value_sets, name_func_kwargs=dict(base_name=args.base_model_name))
-
+    
     model_kwarg_dicts = []
     for model_name in args.model:
         if args.saycam:
@@ -156,8 +149,26 @@ if __name__ == '__main__':
     model_names = [ f'{d["name"]}-{"saycam({s})".format(s=d["syacam"]) if "saycam" in d else (d["pretrained"] and "imagenet" or "random")}'
                for d in model_kwarg_dicts]
 
-    all_model_results = run_multiple_models_multiple_generators(
-        model_names, model_kwarg_dicts, triplet_names, triplet_generators, args.n_examples)
+    stimulus_generator_builder = STIMULUS_GENERATORS[args.stimulus_generator]
+    stimulus_generator_kwargs = {s.split('=')[0]: s.split('=')[1] for s in args.stimulus_generator_kwargs}
+
+    all_model_results = []
+    for r in range(args.n_replications):
+        stimulus_generator_kwargs['rng'] = np.random.default_rng(args.seed + r)
+        stimulus_generator = stimulus_generator_builder(**stimulus_generator_kwargs) 
+
+        value_sets = {key: getattr(args, key) if getattr(args, key) is not None else default_value
+            for key, default_value in MULTIPLE_OPTION_FIELD_DEFAULTS.items()}
+
+        triplet_names, triplet_generators = create_generators_and_names(
+            TRIPLET_GENERATORS[args.triplet_generator], stimulus_generator, 
+            value_sets, name_func_kwargs=dict(base_name=args.base_model_name))
+
+        all_model_results.append(run_multiple_models_multiple_generators(
+            model_names, model_kwarg_dicts, triplet_names, triplet_generators, args.n_examples))
+
+    if len(all_model_results) == 1:
+        all_model_results = all_model_results[0]
 
     result_df = table_per_relation_multiple_results(all_model_results, N=args.n_examples,
         display_tables=False)

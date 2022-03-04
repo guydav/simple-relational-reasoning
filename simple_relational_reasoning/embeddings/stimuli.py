@@ -1,13 +1,15 @@
 from abc import abstractmethod
 from functools import lru_cache
-import numpy as np
+
+import colorcet as cc
 import cv2
-import torch
-import torchvision.transforms as transforms
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvas
+import numpy as np
+import torch
+import torchvision.transforms as transforms
 from scipy import ndimage as nd
 
 
@@ -100,12 +102,32 @@ def build_split_text_stimulus_generator(target_size=DEFAULT_TARGET_SIZE,
                                   reference_patches, rotate_angle=rotate_angle,
                                   reference_patch_kwargs=reference_patch_kwargs)
 
+
+def build_random_color_stimulus_generator(rng, cmap=cc.cm.glasbey, cmap_range=(0, 255),
+    target_size=DEFAULT_TARGET_SIZE, reference_size=DEFAULT_REFERENCE_SIZE, 
+    blur_func=DEFAULT_BLUR_FUNC, rotate_angle=None, **kwargs):
+
+    if kwargs:
+        print('Ignoring kwargs: {}'.format(kwargs))
+
+    start_int = rng.integers(cmap_range[0], cmap_range[1] - 4)
+
+    target_patches = [matplotlib.patches.Circle((0, 0), target_size // 2, color=cmap(start_int + i)) for i in range(1, 4)]
+    reference_patch = matplotlib.patches.Ellipse((0, 0), width=reference_size[1], 
+                                                 height=reference_size[0], 
+                                                 color=cmap(start_int))
+
+    return PatchStimulusGenerator(target_size, reference_size, target_patches,
+                                  reference_patch, blur_func=blur_func, rotate_angle=rotate_angle)
+
+
 STIMULUS_GENERATORS = {
     'colored_dot_black_ellipse': build_colored_target_black_reference_stimulus_generator,
     'black_dot_and_bar': build_dot_and_bar_stimulus_generator,
     'same_color_dot_and_ellipse': build_dot_and_ellipse_stimulus_generator,
     'different_shapes': build_differet_shapes_stimulus_generator,
     'split_text': build_split_text_stimulus_generator,
+    'random_color': build_random_color_stimulus_generator,
 }
 
 
