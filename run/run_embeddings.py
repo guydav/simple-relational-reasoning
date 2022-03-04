@@ -12,7 +12,7 @@ import pandas as pd
 import torch
 
 from simple_relational_reasoning.embeddings.stimuli import STIMULUS_GENERATORS
-from simple_relational_reasoning.embeddings.triplets import TRIPLET_GENERATORS, RELATIONS
+from simple_relational_reasoning.embeddings.triplets import TRIPLET_GENERATORS, RELATIONS, DEFAULT_MULTIPLE_HABITUATION_RADIUS
 from simple_relational_reasoning.embeddings.models import MODELS
 from simple_relational_reasoning.embeddings.task import run_multiple_models_multiple_generators
 from simple_relational_reasoning.embeddings.tables import table_per_relation_multiple_results
@@ -51,20 +51,15 @@ DEFAULT_N_TARGET_TYPES = None
 VALID_N_TARGET_TYPES = list(range(1, 4))
 parser.add_argument('--n-target-types', type=int, default=DEFAULT_N_TARGET_TYPES, choices=VALID_N_TARGET_TYPES)
 
+parser.add_argument('-h', '--n-habituation_stimuli', type=int, default=1, help='Number of habituation stimuli')
+
+parser.add_argument('--multiple-habituation-radius', type=int, default=DEFAULT_MULTIPLE_HABITUATION_RADIUS, 
+    help='Radius to place multiple habituation stimuli in')
+
 parser.add_argument('-t', '--triplet-generator', type=str, 
     choices=list(TRIPLET_GENERATORS.keys()), help='Which triplet generator to run with')
 
 parser.add_argument('--base-model-name', type=str, default='', help='Base name for the models')
-
-# TODO: implment above/below with two reference objects
-
-# TODO: with or without a gap, presumably?
-
-# TODO: implement the random colors mode
-
-# TODO: implement diagonal relation
-
-# TODO: implement the habituation stimuli thing, remember to register in the TRIPLET_GENERATORS dict
 
 parser.add_argument('-m', '--model', type=str, action='append', choices=MODELS,
                     help='Which models to run')
@@ -81,6 +76,8 @@ MULTIPLE_OPTION_FIELD_DEFAULTS = {
     'two_reference_objects': [0, 1],
     'transpose_stimuli': [0, 1],
     'n_target_types': VALID_N_TARGET_TYPES,
+    'n_habituation_stimuli': [1, 4,],
+    'multiple_habituation_radius': [DEFAULT_MULTIPLE_HABITUATION_RADIUS,],
 }
 
 
@@ -133,7 +130,6 @@ if __name__ == '__main__':
         device = torch.device('cuda:0')
     else:
         device = 'cpu'
-
     
     model_kwarg_dicts = []
     for model_name in args.model:
