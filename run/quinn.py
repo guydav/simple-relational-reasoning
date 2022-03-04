@@ -79,14 +79,14 @@ def run_single_setting_all_models(args):
         logger.log_hyperparams(vars(args))
 
         checkpoint_callback = ModelCheckpoint(dirpath=wandb.run.dir, filename=f'{args.wandb_run_name}-{{epoch:d}}-{{val_loss:.5f}}',
-                                              save_top_k=1, verbose=True, monitor=args.early_stopping_monitor_key, mode='min')
+                                                save_top_k=1, verbose=True, monitor=args.early_stopping_monitor_key, mode='min')
         early_stopping_callback = EarlyStopping(args.early_stopping_monitor_key, patience=args.patience_epochs, verbose=True,
                                                 min_delta=args.early_stopping_min_delta)
 
         # run with wandb logger
         trainer = Trainer(logger=logger, gpus=args.use_gpu, max_epochs=args.max_epochs,
-                          callbacks=[checkpoint_callback, early_stopping_callback],
-                          log_every_n_steps=min(max(1, args.subsample_train_size // args.batch_size), 50))
+                            callbacks=[checkpoint_callback, early_stopping_callback],
+                            log_every_n_steps=min(max(1, args.subsample_train_size // args.batch_size), 50))
 
         trainer.fit(model)
 
