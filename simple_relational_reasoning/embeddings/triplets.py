@@ -72,6 +72,8 @@ class QuinnTripletGenerator(TripletGenerator):
                  n_target_types=1, transpose=False,
                  vertical_margin=0, horizontal_margin=0,
                  extra_diagonal_margin=0,
+                 n_habituation_stimuli=1,
+                 multiple_habituation_radius=10,
                  seed=DEFAULT_RANDOM_SEED, use_tqdm=False):
         super(QuinnTripletGenerator, self).__init__(
             stimulus_generator=stimulus_generator, relation=relation,
@@ -89,6 +91,8 @@ class QuinnTripletGenerator(TripletGenerator):
         self.pair_above = pair_above
         self.two_objects_left = two_objects_left
         self.extra_diagonal_margin = extra_diagonal_margin
+        self.n_habituation_stimuli = n_habituation_stimuli
+        self.multiple_habituation_radius = multiple_habituation_radius
 
         self.centroids = []
 
@@ -184,6 +188,7 @@ class QuinnTripletGenerator(TripletGenerator):
         # for between, no need to shift the first two targets vertically
         # third target is either above or below, and either above the left or above the right
         # shifted up/down by the target distance (if between/outside) or half the distance (if above/below)
+
         third_target_position = np.copy(target_positions[0])
         third_target_position[0] += -pair_above * (target_distance if self.relation == BETWEEN_RELATION else half_target_distance)
         target_positions.append(third_target_position)
@@ -193,19 +198,34 @@ class QuinnTripletGenerator(TripletGenerator):
             target_positions[0][0] += pair_above * half_target_distance
             target_positions[1][0] += pair_above * half_target_distance
 
+        # at this point, target_positions[0] is the habituation target, so if I need to create multiple ones, do it here:
+        if self.n_habituation_stimuli > 1:
+            habituation_centroid = target_positions[0]
+            angle_step = 360 // self.n_habituation_stimuli
+            habituation_angles = np.arange(0, 360, angle_step)
+            angle_offset = self.rng.integers(0, angle_step)
+            habituation_angles = (habituation_angles + angle_offset) % 360
+
+            habituation_positions = []
+            for angle in habituation_angles:
+                angle_vec = np.array([-np.sin(np.deg2rad(angle)), np.cos(np.deg2rad(angle))])
+                habituation_positions.append((habituation_centroid + (angle_vec * self.multiple_habituation_radius)).astype(np.int))
+
+            habituation_positions.extend(target_positions[1:])
+            target_positions = habituation_positions
+
         if self.n_target_types == 1:
-            target_indices = (self.rng.integers(0, self.stimulus_generator.n_target_types), ) * 3
+            target_indices = [self.rng.integers(0, self.stimulus_generator.n_target_types)] * len(target_positions)
+
         if self.n_target_types == 2:
             pair_color, single_color = self.rng.choice(np.arange(self.stimulus_generator.n_target_types),
                                                        size=2, replace=False)
-#             pair_color = self.rng.uniform() > 0.5
-#             single_color = 1 - pair_color
-            target_indices = (single_color, pair_color, pair_color)
+            target_indices = [single_color] * self.n_habituation_stimuli + [pair_color] * 2
             
         elif self.n_target_types == 3:
             target_indices = [0, 1, 2]
             self.rng.shuffle(target_indices)
-            target_indices = tuple(target_indices)
+            target_indices = target_indices[:1] * self.n_habituation_stimuli + target_indices[1:]
 
         self.centroids.append(stimulus_centroid_position)
 
