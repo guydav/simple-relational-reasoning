@@ -174,13 +174,17 @@ class QuinnTripletGenerator(TripletGenerator):
 
         target_positions.append(np.copy(stimulus_centroid_position))
         target_positions.append(np.copy(stimulus_centroid_position))
+
         target_positions[0][1] += left_target_horizontal_offset
         target_positions[1][1] += right_target_horizontal_offset
+
+        if not two_objects_left:
+            target_positions = target_positions[::-1]
 
         # for between, no need to shift the first two targets vertically
         # third target is either above or below, and either above the left or above the right
         # shifted up/down by the target distance (if between/outside) or half the distance (if above/below)
-        third_target_position = np.copy(target_positions[0] if two_objects_left else target_positions[1])
+        third_target_position = np.copy(target_positions[0])
         third_target_position[0] += -pair_above * (target_distance if self.relation == BETWEEN_RELATION else half_target_distance)
         target_positions.append(third_target_position)
 
