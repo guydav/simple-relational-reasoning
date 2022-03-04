@@ -131,7 +131,6 @@ STIMULUS_GENERATORS = {
 }
 
 
-
 class StimulusGenerator:
     def __init__(self, target_size, reference_size, rotate_angle=None, centroid_patch_size=1, dtype=torch.float32):
         self.target_size = target_size
