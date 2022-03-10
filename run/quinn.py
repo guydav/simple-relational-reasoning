@@ -25,12 +25,6 @@ def run_single_setting_all_models(args):
     for k, v in vars(args).items():
         print(' ' * 26 + k + ': ' + str(v))
 
-    if args.x_max == DEFAULT_X_MAX:
-        args.x_max = DEFAULT_CANVAS_SIZES[args.relation]['x_max']
-
-    if args.y_max == DEFAULT_Y_MAX:
-        args.y_max = DEFAULT_CANVAS_SIZES[args.relation]['y_max']
-
     # for each model
     model_configurations = MODEL_CONFIGURATIONS[args.model_configuration]
 

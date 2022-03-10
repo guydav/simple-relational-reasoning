@@ -456,6 +456,7 @@ class CombinedQuinnDatasetGenerator(QuinnWithReferenceDatasetGenerator):
                  spatial_dataset=False,
                  prop_train_to_validation=0.1, subsample_train_size=None):
 
+
         self.between_relation = between_relation
 
         if two_reference_objects is not None and between_relation and not two_reference_objects:
@@ -472,14 +473,20 @@ class CombinedQuinnDatasetGenerator(QuinnWithReferenceDatasetGenerator):
         if reference_object_y_margin_bottom is None:
             reference_object_y_margin_bottom = 0
 
+        self.n_reference_objects = 1 + int(self.two_reference_objects)
+        self.half_grid_height = target_object_grid_height // 2
+
         if reference_object_y_margin_top is None or reference_object_y_margin_top < target_object_grid_height:
-            reference_object_y_margin_top = target_object_grid_height + 1 + int(self.two_reference_objects)
+            reference_object_y_margin_top = target_object_grid_height + self.n_reference_objects
+            # check fo the special case where we do above/below with two reference objects and a gap
+            if not between_relation and two_reference_objects and not adjacent_reference_objects:
+                reference_object_y_margin_top += self.half_grid_height
 
         
         self.target_object_grid_height = target_object_grid_height
         self.adjacent_reference_objects = adjacent_reference_objects
         
-        self.single_reference_height = self.target_object_grid_height // 2
+        self.single_reference_height = self.half_grid_height
 
         if self.adjacent_reference_objects:
             if between_relation or not two_reference_objects:
@@ -487,9 +494,19 @@ class CombinedQuinnDatasetGenerator(QuinnWithReferenceDatasetGenerator):
             self.bottom_reference_height = self.single_reference_height
             self.top_reference_height = self.single_reference_height
 
-        else:
+        elif self.between_relation:
             self.bottom_reference_height = self.target_object_grid_height // 4
             self.top_reference_height = self.target_object_grid_height * 3 // 4
+
+        else:  # above/below with two gapped reference objects
+            self.bottom_reference_height = self.single_reference_height
+            self.top_reference_height = self.target_object_grid_height
+
+        if two_reference_objects:
+            y_max += 1
+
+        if two_reference_objects and not between_relation and not adjacent_reference_objects:
+            y_max += self.half_grid_height 
 
         super(CombinedQuinnDatasetGenerator, self).__init__(
             object_generator=object_generator, x_max=x_max, y_max=y_max, seed=seed,
@@ -511,9 +528,6 @@ class CombinedQuinnDatasetGenerator(QuinnWithReferenceDatasetGenerator):
         if self.between_relation:
             y_ranges = (np.arange(self.bottom_reference_height),
                         np.arange(self.bottom_reference_height, self.top_reference_height),
-                        np.arange(self.top_reference_height, self.target_object_grid_height))
-        elif self.two_reference_objects and not self.adjacent_reference_objects:
-            y_ranges = (np.arange(self.bottom_reference_height),
                         np.arange(self.top_reference_height, self.target_object_grid_height))
         else:
             y_ranges = (np.arange(self.single_reference_height),
@@ -558,7 +572,12 @@ class CombinedQuinnDatasetGenerator(QuinnWithReferenceDatasetGenerator):
                     target_location = grid_bottom_left_corner + rel_target_location
                     label = 0
                     if rel_target_location[1] >= self.single_reference_height:  # above
-                        target_location += np.array([0, 1 + int(self.two_reference_objects)])  
+                        vertical_increment = self.n_reference_objects
+                
+                        if self.two_reference_objects and not self.adjacent_reference_objects:
+                            vertical_increment += self.half_grid_height
+
+                        target_location += np.array([0, vertical_increment])  
                         label = 1
 
                     if self.two_reference_objects:
@@ -619,7 +638,7 @@ class DiagonalAboveBelowDatasetGenerator(QuinnWithReferenceDatasetGenerator):
             reference_start_location = grid_upper_right_corner
 
             for rel_target_location in target_locations:
-                label = int(rel_target_location[0] < rel_target_location[1])
+                label = int(rel_target_location[0] > rel_target_location[1])
                 target_location = grid_upper_right_corner + rel_target_location
 
                 objects.append(self.create_input(target_location, reference_start_location, train=train))
