@@ -63,10 +63,10 @@ parser.add_argument('--n-test-target-object-types', type=int, default=DEFAULT_N_
 
 # Quinn dataset arguments
 
-DEFAULT_X_MAX = -1
+DEFAULT_X_MAX = 18
 parser.add_argument('--x_max', type=int, default=DEFAULT_X_MAX, help='Canvas X size')
 
-DEFAULT_Y_MAX = -1
+DEFAULT_Y_MAX = 18
 parser.add_argument('--y_max', type=int, default=DEFAULT_Y_MAX, help='Canvas Y size')
 
 DEFAULT_PROP_TRAIN_REFERENCE_OBJECT_LOCATIONS = 0.9
@@ -111,22 +111,6 @@ RELATIONS = (
 )
 parser.add_argument('--relation', type=str, action='append', choices=RELATIONS,
                     help='Which relation(s) to run (default: all)')
-
-
-DEFAULT_CANVAS_SIZES = {
-    ABOVE_BELOW_RELATION: {
-        'x_max': 18,
-        'y_max': 18,
-    },
-    BETWEEN_RELATION: {
-        'x_max': 18,
-        'y_max': 19,
-    },
-    DIAGONAL_RELATION: {
-        'x_max': 18,
-        'y_max': 18,
-    }
-}
 
 DEFAULT_TWO_REFERENCE_OBJECTS = None
 parser.add_argument('--two-reference-objects', type=int, default=DEFAULT_TWO_REFERENCE_OBJECTS,
