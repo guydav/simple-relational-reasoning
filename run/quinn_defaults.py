@@ -95,6 +95,7 @@ DEFAULT_EARLY_STOPPING_MONITOR_KEY = 'val'
 parser.add_argument('--early-stopping-monitor-key', type=str, default=DEFAULT_EARLY_STOPPING_MONITOR_KEY,
                     help='Which key to monitor for validation/test stopping')
 
+SUBSAMPLE_FULL_DATASET = -1
 parser.add_argument('--subsample-train-size', type=int, default=None,
                     help='How much to subsample the training set to (default is None to keep the full set)')
 
@@ -192,7 +193,7 @@ parser.add_argument('--wandb-project', type=str, default=None)
 
 # Handling fields with multiple potential options
 MULTIPLE_OPTION_FIELD_DEFAULTS = {
-    'subsample_train_size': [8, 32, 128, 512, 1024, 2048, None],
+    'subsample_train_size': [8, 32, 128, 512, 1024, 2048, SUBSAMPLE_FULL_DATASET],
     'model_configuration': [DEFAULT_MODELS_CONFIG_KEY, LARGER_MODELS_CONFIG_KEY],
     'model': MODEL_NAMES,
     'relation': RELATIONS,
