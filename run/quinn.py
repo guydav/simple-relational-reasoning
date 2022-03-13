@@ -112,6 +112,9 @@ def map_args_to_project(args):
 
 def create_dataset(args):
     diagonal_reference_object = args.relation == DIAGONAL_RELATION
+
+    if args.subsample_train_size == SUBSAMPLE_FULL_DATASET:
+        args.subsample_train_size = None
     
     if args.use_start_end:
         object_generator_class = StartEndObjectGenerator
