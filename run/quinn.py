@@ -80,7 +80,7 @@ def run_single_setting_all_models(args):
         # run with wandb logger
         trainer = Trainer(logger=logger, gpus=args.use_gpu, max_epochs=args.max_epochs,
                             callbacks=[checkpoint_callback, early_stopping_callback],
-                            log_every_n_steps=min(max(1, len(dataset) // args.batch_size), 50))
+                            log_every_n_steps=min(max(1, len(dataset.get_training_dataset()) // args.batch_size), 50))
 
         trainer.fit(model)
 
