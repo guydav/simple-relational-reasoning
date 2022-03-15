@@ -1,5 +1,6 @@
 
 import argparse
+import copy
 import itertools
 import os
 import sys
@@ -70,6 +71,8 @@ parser.add_argument('--untrained', action='store_true', help='Use untrained mode
 
 parser.add_argument('-o', '--output-file', type=str, help='Output file to write to')
 
+parser.add_argument('--rotate-angle', type=int, default=None, help='Angle to rotate the stimuli by')
+
 
 MULTIPLE_OPTION_FIELD_DEFAULTS = {
     'relation': RELATIONS,
@@ -77,9 +80,9 @@ MULTIPLE_OPTION_FIELD_DEFAULTS = {
     'transpose_stimuli': [0, 1],
     'n_target_types': VALID_N_TARGET_TYPES,
     'n_habituation_stimuli': [1, 4,],
-    'multiple_habituation_radius': [DEFAULT_MULTIPLE_HABITUATION_RADIUS,],
+    'rotate_angle': [-45, -30, 0, 30, 45],
 }
-
+MULTIPLE_OPTION_REWRITE_FIELDS = list(MULTIPLE_OPTION_FIELD_DEFAULTS.keys())
 
 def default_name_func(generator_kwargs, base_name=''):
     two_reference_objects = generator_kwargs['two_reference_objects']
@@ -122,10 +125,20 @@ def create_generators_and_names(triplet_generator_class, stimulus_generator, kwa
     return names, triplet_generators
     
 
-if __name__ == '__main__':
-    args = parser.parse_args()
+def handle_multiple_option_defaults(args):
+    var_args = vars(args)
+    for key in MULTIPLE_OPTION_FIELD_DEFAULTS:
+        if key not in var_args or var_args[key] is None or (hasattr(var_args[key], '__len__') and len(var_args[key]) == 0):
+            var_args[key] = MULTIPLE_OPTION_FIELD_DEFAULTS[key]
 
-    torch.manual_seed(args)
+        elif not hasattr(var_args[key], '__len__'):
+            var_args[key] = [var_args[key]]
+
+    return args
+
+
+def handle_single_args_setting(args):
+    torch.manual_seed(args.seed)
     if torch.cuda.is_available():
         device = torch.device('cuda:0')
     else:
@@ -151,6 +164,7 @@ if __name__ == '__main__':
     all_model_results = []
     for r in range(args.n_replications):
         stimulus_generator_kwargs['rng'] = np.random.default_rng(args.seed + r)
+        stimulus_generator_kwargs['rotate_angle'] = args.rotate_angle
         stimulus_generator = stimulus_generator_builder(**stimulus_generator_kwargs) 
 
         value_sets = {key: getattr(args, key) if getattr(args, key) is not None else default_value
@@ -169,4 +183,32 @@ if __name__ == '__main__':
     result_df = table_per_relation_multiple_results(all_model_results, N=args.n_examples,
         display_tables=False)
 
+    for multiple_option_key in MULTIPLE_OPTION_REWRITE_FIELDS:
+        result_df[multiple_option_key] = args.__dict__[multiple_option_key]
+
     result_df.to_csv(args.output_file)
+
+
+if __name__ == '__main__':
+    main_args = parser.parse_args()
+    main_var_args = vars(main_args)
+    print(' ' * 26 + 'Global Options')
+    for k, v in main_var_args.items():
+        print(' ' * 26 + k + ': ' + str(v))
+
+    multiple_option_field_values = [main_var_args[key] for key in MULTIPLE_OPTION_REWRITE_FIELDS]
+
+    dataframes = []
+
+    for value_combination in itertools.product(*multiple_option_field_values):
+        args_copy = copy.deepcopy(main_args)
+        var_args_copy = vars(args_copy)
+        var_args_copy.update({key: value for key, value in zip(MULTIPLE_OPTION_REWRITE_FIELDS,
+                                                               value_combination)})
+    
+        # TODO: any checks for arg combinations we shouldn't run?
+        dataframes.append(handle_single_args_setting(args_copy))
+
+    out_df = pd.concat(dataframes)
+    out_df.reset_index(drop=True, inplace=True)
+    out_df.to_csv(main_args.output_file)
