@@ -30,10 +30,10 @@ parser.add_argument('--replications', type=int, default=1, help='Number of repli
 DEFAULT_N = 1024
 parser.add_argument('-n', '--n-examples', type=int, default=DEFAULT_N, help='Number of examples to generate')
 
-parser.add_argument('-s', '--stimulus-generator', action='append', 
+parser.add_argument('-s', '--stimulus-generators', action='append', required=True,
     choices=list(STIMULUS_GENERATORS.keys()), help='Stimulus generator to run with')
 
-parser.add_argument('--stimulus-generator-kwargs', action='append', 
+parser.add_argument('--stimulus-generator-kwargs', action='append', default=list(),
     help='Specify key=value pairs to pass to the stimulus generator.')
 
 DEFAULT_DISTANCE_ENDPOINTS = (-1, -1)
@@ -42,7 +42,7 @@ DISTANCE_ENDPOINTS_DICT = {  # two_reference_objects, adjacent_reference_objects
     (True, False): (50, 80),
     (True, True): (40, 80),  
 }
-parser.add_argument('--target-distance-endpoints', type=int, nargs=2, default=DEFAULT_DISTANCE_ENDPOINTS,)
+parser.add_argument('--distance-endpoints', type=int, nargs=2, default=DEFAULT_DISTANCE_ENDPOINTS,)
 
 parser.add_argument('-r', '--relation', type=str, action='append', choices=RELATIONS,
                     help='Which relation(s) to run (default: all)')
@@ -105,7 +105,7 @@ def create_triplet_generators(args, name_func_kwargs=None):
 
     triplet_generators = []
 
-    for stimulus_generator_name in args.stimulus_generator:
+    for stimulus_generator_name in args.stimulus_generators:
         stimulus_generator_builder = STIMULUS_GENERATORS[stimulus_generator_name]        
         stimulus_generator = stimulus_generator_builder(**args.stimulus_generator_kwargs)
 
@@ -167,10 +167,10 @@ def handle_single_args_setting(args):
         if args.distance_endpoints == DEFAULT_DISTANCE_ENDPOINTS:
             var_args['distance_endpoints'] = DISTANCE_ENDPOINTS_DICT[bool(args.two_reference_objects), bool(args.adjacent_reference_objects)]
 
-        triplet_names, triplet_generators = create_triplet_generators(args)
+        triplet_generators = create_triplet_generators(args)
 
         all_model_results.append(run_multiple_models_multiple_generators(
-            model_names, model_kwarg_dicts, triplet_names, triplet_generators, args.n_examples))
+            model_names, model_kwarg_dicts, args.stimulus_generators, triplet_generators, args.n_examples))
 
     if len(all_model_results) == 1:
         all_model_results = all_model_results[0]
