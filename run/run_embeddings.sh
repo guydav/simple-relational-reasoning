@@ -4,6 +4,7 @@ python3.7 run/run_embeddings.py \
     --stimulus-generators "split_text" \
     --stimulus-generators "random_color" \
     --replications 10 \
+    --extra-diagonal-margin 5 \
     --model "mobilenet" \
     --model "resnext" \
     --untrained \
