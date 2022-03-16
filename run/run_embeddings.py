@@ -60,7 +60,7 @@ DEFAULT_N_TARGET_TYPES = None
 VALID_N_TARGET_TYPES = list(range(1, 4))
 parser.add_argument('--n-target-types', type=int, default=DEFAULT_N_TARGET_TYPES, choices=VALID_N_TARGET_TYPES)
 
-parser.add_argument('-h', '--n-habituation_stimuli', type=int, default=1, help='Number of habituation stimuli')
+parser.add_argument('--n-habituation_stimuli', type=int, default=1, help='Number of habituation stimuli')
 
 parser.add_argument('--multiple-habituation-radius', type=int, default=DEFAULT_MULTIPLE_HABITUATION_RADIUS, 
     help='Radius to place multiple habituation stimuli in')
