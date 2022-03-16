@@ -145,13 +145,13 @@ def handle_single_args_setting(args):
     model_kwarg_dicts = []
     for model_name in args.model:
         if args.saycam:
-            model_kwarg_dicts.append(name=model_name, device=device, pretrained=False, saycam=args.saycam)
+            model_kwarg_dicts.append(dict(name=model_name, device=device, pretrained=False, saycam=args.saycam))
         
         if args.imagenet_pretrained:
-            model_kwarg_dicts.append(name=model_name, device=device, pretrained=True)
+            model_kwarg_dicts.append(dict(name=model_name, device=device, pretrained=True))
 
         if args.untrained:
-            model_kwarg_dicts.append(name=model_name, device=device, pretrained=False)
+            model_kwarg_dicts.append(dict(name=model_name, device=device, pretrained=False))
 
     model_names = [ f'{d["name"]}-{"saycam({s})".format(s=d["syacam"]) if "saycam" in d else (d["pretrained"] and "imagenet" or "random")}'
                for d in model_kwarg_dicts]
