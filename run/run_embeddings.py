@@ -34,7 +34,7 @@ parser.add_argument('-s', '--stimulus-generator', action='append',
     choices=list(STIMULUS_GENERATORS.keys()), help='Stimulus generator to run with')
 
 parser.add_argument('--stimulus-generator-kwargs', action='append', 
-    Help='Specify key=value pairs to pass to the stimulus generator.')
+    help='Specify key=value pairs to pass to the stimulus generator.')
 
 DEFAULT_DISTANCE_ENDPOINTS = (-1, -1)
 DISTANCE_ENDPOINTS_DICT = {  # two_reference_objects, adjacent_reference_objects
