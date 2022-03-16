@@ -65,6 +65,8 @@ parser.add_argument('--n-habituation_stimuli', type=int, default=1, help='Number
 parser.add_argument('--multiple-habituation-radius', type=int, default=DEFAULT_MULTIPLE_HABITUATION_RADIUS, 
     help='Radius to place multiple habituation stimuli in')
 
+parser.add_argument('--extra-diagonal-margin', type=int, default=0, help='Extra margin to add to diagonal stimuli')
+
 parser.add_argument('-t', '--triplet-generator', type=str, 
     choices=list(TRIPLET_GENERATORS.keys()), help='Which triplet generator to run with')
 
@@ -94,7 +96,7 @@ MULTIPLE_OPTION_FIELD_DEFAULTS = {
 }
 MULTIPLE_OPTION_REWRITE_FIELDS = list(MULTIPLE_OPTION_FIELD_DEFAULTS.keys())
 
-SINGLE_OPTION_FIELDS_TO_DF = ['seed', 'n_examples', ]
+SINGLE_OPTION_FIELDS_TO_DF = ['seed', 'n_examples', 'extra_diagonal_margin']
 
 
 def create_triplet_generators(args, name_func_kwargs=None):
@@ -114,7 +116,8 @@ def create_triplet_generators(args, name_func_kwargs=None):
             adjacent_reference_objects=args.adjacent_reference_objects,
             n_target_types=args.n_target_types, transpose=args.transpose_stimuli,
             n_habituation_stimuli=args.n_habituation_stimuli, 
-            multiple_habituation_radius=args.multiple_habituation_radius)
+            multiple_habituation_radius=args.multiple_habituation_radius,
+            extra_diagonal_margin=args.extra_diagonal_margin)
         
         triplet_generators.append(triplet_generator)
 
