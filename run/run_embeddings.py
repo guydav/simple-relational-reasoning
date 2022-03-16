@@ -73,7 +73,7 @@ parser.add_argument('--base-model-name', type=str, default='', help='Base name f
 parser.add_argument('-m', '--model', type=str, action='append', choices=MODELS,
                     help='Which models to run')
 
-parser.add_argument('--saycam', type='str', default=None, help='Which SAYcam model to use')
+parser.add_argument('--saycam', type=str, default=None, help='Which SAYcam model to use')
 parser.add_argument('--imagenet-pretrained', action='store_true', help='Use imagenet pretrained models')
 parser.add_argument('--untrained', action='store_true', help='Use untrained models')
 
