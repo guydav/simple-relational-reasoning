@@ -106,7 +106,7 @@ def quinn_embedding_task_single_generator(
         x = b[0]  # shape (B, H + 2, 3, 224, 224) where H is the number of habituation stimuli
         H = x.shape[1] - 2
         x = x.view(-1, *x.shape[2:])
-        e = model(x.to(device))
+        e = model(x.to(device)).detach()
         e = e.view(B, H + 2, -1)  # shape (B, H + 2, Z)
         
         if H > 1:  # if we have multiple habituation stimuli, average them
@@ -117,10 +117,10 @@ def quinn_embedding_task_single_generator(
         embedding_pairwise_cosine = cos(e[:, :, None, :], e[:, None, :, :])  # shape (B, 3, 3)
         triplet_cosines = embedding_pairwise_cosine[:, triangle_indices[0], triangle_indices[1]] # shape (B, 3)
 
-        triplet_cosines.detach()
+        # triplet_cosines
 
         for metric in metrics:
-            model_results[metric.name].append(metric(triplet_cosines))
+            model_results[metric.name].append(metric(triplet_cosines).cpu())
 
     for metric in metrics:
         model_results[metric.name] = metric.aggregate(model_results[metric.name])

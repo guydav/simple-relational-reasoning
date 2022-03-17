@@ -117,13 +117,13 @@ class QuinnTripletGenerator(TripletGenerator):
                 inter_reference_distance = half_target_distance
 
         # compute the margins
-        min_horizontal_margin = self.stimulus_generator.reference_size[1] // 2 + 1
+        min_horizontal_margin = self.stimulus_generator.reference_size[1] // 2 + 3
 
         if self.relation == BETWEEN_RELATION:
-            min_vertical_margin = target_distance + (self.reference_height // 2) + 1
+            min_vertical_margin = target_distance + (self.reference_height // 2) + 3
             
         else:  # self.relation == ABOVE_BELOW_RELATION:
-            min_vertical_margin = half_target_distance + (self.reference_height // 2) + 1
+            min_vertical_margin = half_target_distance + (self.reference_height // 2) + 3
 
         if self.extra_diagonal_margin and self.stimulus_generator.rotate_angle is not None:
             min_vertical_margin += self.extra_diagonal_margin
