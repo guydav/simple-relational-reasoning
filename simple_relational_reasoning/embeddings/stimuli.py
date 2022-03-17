@@ -110,15 +110,16 @@ def build_random_color_stimulus_generator(rng, cmap=cc.cm.glasbey, cmap_range=(0
     if kwargs:
         print('Ignoring kwargs: {}'.format(kwargs))
 
-    start_int = rng.integers(cmap_range[0], cmap_range[1] - 4)
+    def target_patch_func(color_index):
+        return matplotlib.patches.Circle((0, 0), target_size // 2, color=cmap(color_index))
 
-    target_patches = [matplotlib.patches.Circle((0, 0), target_size // 2, color=cmap(start_int + i)) for i in range(1, 4)]
-    reference_patch = matplotlib.patches.Ellipse((0, 0), width=reference_size[1], 
+    def reference_patch_func(color_index):
+        return matplotlib.patches.Ellipse((0, 0), width=reference_size[1], 
                                                  height=reference_size[0], 
-                                                 color=cmap(start_int))
+                                                 color=cmap(color_index))
 
-    return PatchStimulusGenerator(target_size, reference_size, target_patches,
-                                  reference_patch, blur_func=blur_func, rotate_angle=rotate_angle)
+    return PatchStimulusGenerator(target_size, reference_size, target_patch_func,
+        reference_patch_func, blur_func=blur_func, rotate_angle=rotate_angle, rng=rng)
 
 
 STIMULUS_GENERATORS = {
@@ -216,6 +217,7 @@ class StimulusGenerator:
         
     def batch_generate(self, target_positions, reference_positions, target_indices=None, 
                        normalize=True, transpose_target=False, stimulus_centroid=None) -> torch.Tensor:
+        
         if len(reference_positions) != len(target_positions):
             if isinstance(reference_positions[0], np.ndarray):
                 reference_positions = [tuple([tuple(ref) for ref in reference_positions])] * len(target_positions)
@@ -245,6 +247,8 @@ class StimulusGenerator:
     @lru_cache(maxsize=CACHE_SIZE)
     def cached_batch_generate(self, target_positions, reference_positions, target_indices, 
                               normalize=True, transpose_target=False, stimulus_centroid=None):
+        
+        self.new_stimulus()
         zip_gen = zip(target_positions, reference_positions, target_indices)
         if normalize:
             return torch.stack([NORMALIZE(self.generate(t, p, i, transpose_target=transpose_target, stimulus_centroid=stimulus_centroid)) 
@@ -282,6 +286,8 @@ class StimulusGenerator:
     def _target_object(self, index=0):
         pass
     
+    def new_stimulus(self):
+        pass
 
 class NaiveStimulusGenerator(StimulusGenerator):
     def __init__(self, target_size, reference_size, canvas_size=DEFAULT_CANVAS_SIZE,
@@ -399,7 +405,7 @@ class PatchStimulusGenerator(StimulusGenerator):
     def __init__(self, target_size, reference_size, target_patch, reference_patch,
                  blur_func=None, target_patch_kawrgs=None, reference_patch_kwargs=None,
                  canvas_size=DEFAULT_CANVAS_SIZE, rotate_angle=None,
-                 background_color='white', dtype=torch.float32):
+                 background_color='white', rng=None, random_max_color=253, dtype=torch.float32):
         super(PatchStimulusGenerator, self).__init__(target_size, reference_size, dtype)
         
         if target_patch_kawrgs is None:
@@ -416,19 +422,59 @@ class PatchStimulusGenerator(StimulusGenerator):
 
         self.blur_func = blur_func
         self.background_color = self._validate_color_input(background_color)
+
+        self.rng = rng
+        self.random_max_color = random_max_color
+        self.patch_rng_index = 0
         
-        if not isinstance(target_patch, (list, tuple)):
-            target_patch = [target_patch]
-          
-        self.targets_arrs = [self._patch_to_array(patch, self.target_size, **target_patch_kawrgs) for patch in target_patch]
-        self.n_target_types = len(self.targets_arrs)
-        self.reference_arr = self._patch_to_array(reference_patch, self.reference_size, **reference_patch_kwargs)
-        
+        if callable(target_patch):
+            self.target_patch_func = target_patch
+            self.target_patch_kawrgs = target_patch_kawrgs   
+            self.n_target_types = 3
+            self.target_patch_cache = {}
+
+        else:
+            self.target_patch_func = None
+            if not isinstance(target_patch, (list, tuple)):
+                target_patch = [target_patch]
+            
+            self.targets_arrs = [self._patch_to_array(patch, self.target_size, **target_patch_kawrgs) for patch in target_patch]
+            self.n_target_types = len(self.targets_arrs)
+
+        if callable(reference_patch):
+            self.reference_patch_func = reference_patch
+            self.reference_patch_kwargs = reference_patch_kwargs
+            self.reference_patch_cache = {}
+            
+        else:
+            self.reference_patch_func = None
+            self.reference_arr = self._patch_to_array(reference_patch, self.reference_size, **reference_patch_kwargs)
+
+    def new_stimulus(self):
+        if self.rng is not None:
+            self.patch_rng_index = self.rng.integers(self.random_max_color, size=1)[0]
+
     def _canvas(self):
         return torch.ones(3, *self.canvas_size, dtype=self.dtype) * self.background_color
     
     def _reference_object(self):
-        return self.reference_arr
-    
+        if self.reference_patch_func is None:
+            return self.reference_arr
+
+        return self._cached_reference_object(self.patch_rng_index)
+
+    @lru_cache(maxsize=256)
+    def _cached_reference_object(self, index):
+        reference_patch = self.reference_patch_func(index)
+        return self._patch_to_array(reference_patch, self.reference_size, **self.reference_patch_kwargs)
+        
     def _target_object(self, index=0):
-        return self.targets_arrs[index]
+        if self.target_patch_func is None:
+            return self.targets_arrs[index]
+
+        return self._cached_target_object(self.patch_rng_index + index + 1)
+
+    @lru_cache(maxsize=256)
+    def _cached_target_object(self, index):
+        target_patch = self.target_patch_func(index)
+        return self._patch_to_array(target_patch, self.target_size, **self.target_patch_kawrgs)
