@@ -61,7 +61,7 @@ DEFAULT_N_TARGET_TYPES = None
 VALID_N_TARGET_TYPES = list(range(1, 4))
 parser.add_argument('--n-target-types', type=int, default=DEFAULT_N_TARGET_TYPES, choices=VALID_N_TARGET_TYPES)
 
-parser.add_argument('--n-habituation_stimuli', type=int, default=1, help='Number of habituation stimuli')
+parser.add_argument('--n-habituation_stimuli', type=int, default=None, help='Number of habituation stimuli')
 
 parser.add_argument('--multiple-habituation-radius', type=int, default=DEFAULT_MULTIPLE_HABITUATION_RADIUS, 
     help='Radius to place multiple habituation stimuli in')
@@ -95,10 +95,10 @@ MULTIPLE_OPTION_FIELD_DEFAULTS = {
     'relation': RELATIONS,
     'two_reference_objects': [0, 1],
     'adjacent_reference_objects': [0, 1],
-    'n_target_types': VALID_N_TARGET_TYPES,
+    'n_target_types': [1, 2],
     'transpose_stimuli': [0, 1],
     'n_habituation_stimuli': [1, 4,],
-    'rotate_angle': [-45, -30, 0, 30, 45],
+    'rotate_angle': [None, 30, 45, 60],
 }
 MULTIPLE_OPTION_REWRITE_FIELDS = list(MULTIPLE_OPTION_FIELD_DEFAULTS.keys())
 
