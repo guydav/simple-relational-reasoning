@@ -132,12 +132,14 @@ STIMULUS_GENERATORS = {
 
 
 class StimulusGenerator:
-    def __init__(self, target_size, reference_size, rotate_angle=None, centroid_patch_size=1, dtype=torch.float32):
+    def __init__(self, target_size, reference_size, rotate_angle=None, centroid_patch_size=1, 
+        centroid_marker_value=0, dtype=torch.float32):
         self.target_size = target_size
         self.reference_size = reference_size
         self.rotate_angle = rotate_angle
         self.dtype = dtype
         self.centroid_patch_size = centroid_patch_size
+        self.centroid_marker_value = centroid_marker_value
         
         self.n_target_types = 1
     
@@ -174,44 +176,37 @@ class StimulusGenerator:
             if stimulus_centroid is None:
                 stimulus_centroid = np.array([s // 2 for s in x.shape[1:]], dtype=np.int)
 
-            # record current value at the centroid, mark it, find it again after rotating, crop such that it's centered
-            original_centroid_value = x[:, stimulus_centroid[0] - self.centroid_patch_size:stimulus_centroid[0] + self.centroid_patch_size + 1, 
-                stimulus_centroid[1] - self.centroid_patch_size:stimulus_centroid[1] + self.centroid_patch_size + 1]
-            centroid_marker = None
+            x_stack = torch.stack((x, torch.ones_like(x)))
+            x_stack[1, :, stimulus_centroid[0] - self.centroid_patch_size:stimulus_centroid[0] + self.centroid_patch_size + 1, 
+                stimulus_centroid[1] - self.centroid_patch_size:stimulus_centroid[1] + self.centroid_patch_size + 1] = self.centroid_marker_value
 
-            while centroid_marker is None:
-                centroid_marker = torch.randint(0, 101, (3, 1, 1), dtype=self.dtype) / 100
-                marker_exists = (x == centroid_marker).all(axis=0).any().item()
-                if marker_exists:
-                    centroid_marker = None
-
-            x[:, stimulus_centroid[0] - self.centroid_patch_size:stimulus_centroid[0] + self.centroid_patch_size + 1, 
-                stimulus_centroid[1] - self.centroid_patch_size:stimulus_centroid[1] + self.centroid_patch_size + 1] = centroid_marker
-
-            x_rot = transforms.functional.rotate(x, self.rotate_angle, center=tuple(stimulus_centroid),
+            x_stack_rot = transforms.functional.rotate(x_stack, self.rotate_angle, center=tuple(stimulus_centroid),
                 expand=True, fill=[1.0, 1.0, 1.0])
+
+            if x_stack_rot.shape[2:] == x.shape[1:]:
+                x = x_stack_rot[0]
             
-            if x_rot.shape != x.shape:
-                new_centroid_mask = (x_rot == centroid_marker).all(axis=0)
+            else:  # rotation changed shape, need to recenter
+                x_centroid = x_stack_rot[1]
+                new_centroid_mask = (x_centroid == self.centroid_marker_value).all(axis=0)
                 new_centroid = new_centroid_mask.nonzero().squeeze().numpy()
                 if len(new_centroid.shape) > 1:
                     new_centroid = new_centroid.mean(0).astype(np.int)
 
-                # TODO: check if this would override bounds, and if it does, min/max it
+                # check if this would override bounds, and if it does, min/max it
+                x_rot = x_stack_rot[0]
                 top, left = new_centroid - stimulus_centroid
                 top = np.clip(top, 0, x_rot.shape[1] - x.shape[1])
                 left = np.clip(left, 0, x_rot.shape[2] - x.shape[2])
 
-                new_centroid_neighbor_indices = nd.distance_transform_edt(new_centroid_mask, 
-                    return_distances=False, return_indices=True)  # has shape (2, x_rot.shape[1], x_rot.shape[2])
-                x_rot = x_rot[:, new_centroid_neighbor_indices[0], new_centroid_neighbor_indices[1]]
+                # new_centroid_neighbor_indices = nd.distance_transform_edt(new_centroid_mask, 
+                #     return_distances=False, return_indices=True)  # has shape (2, x_rot.shape[1], x_rot.shape[2])
+                # x_rot = x_rot[:, new_centroid_neighbor_indices[0], new_centroid_neighbor_indices[1]]
 
                 # x_rot[:, new_centroid[0] - self.centroid_patch_size:new_centroid[0] + self.centroid_patch_size + 1, 
                 #       new_centroid[1] - self.centroid_patch_size:new_centroid[1] + self.centroid_patch_size + 1] = original_centroid_value  
 
-                x_rot = transforms.functional.crop(x_rot, top, left, *x.shape[1:])
-                
-            x = x_rot
+                x = transforms.functional.crop(x_rot, top, left, *x.shape[1:])
         
         return x
     
