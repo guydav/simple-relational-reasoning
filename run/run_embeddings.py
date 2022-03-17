@@ -163,8 +163,8 @@ def handle_single_args_setting(args):
 
     all_model_results = []
 
-    rep_iter = trange(args.replications) if args.tqdm else args.replications
-    for r in range(rep_iter):
+    rep_iter = trange(args.replications) if args.tqdm else range(args.replications)
+    for r in rep_iter:
         var_args['seed'] = args.seed + 1
         torch.manual_seed(args.seed)
         var_args['stimulus_generator_kwargs']['rng'] = np.random.default_rng(args.seed)
