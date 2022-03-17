@@ -9,4 +9,5 @@ python3.7 run/run_embeddings.py \
     --model "resnext" \
     --untrained \
     --output-file "embedding_outputs/untrained_models.csv" \
-    --tqdm
+    --tqdm \
+    --profile
