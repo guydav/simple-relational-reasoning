@@ -43,7 +43,7 @@ class TripletGenerator:
         self.rng = np.random.default_rng(self.seed)
         self.use_tqdm = use_tqdm
         
-    @lru_cache(maxsize=TRIPLET_CACHE_SIZE)
+    # @lru_cache(maxsize=TRIPLET_CACHE_SIZE)
     def __call__(self, n=1, normalize=True, seed=None):
         if seed is None:
             seed = self.seed

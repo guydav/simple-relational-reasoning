@@ -26,7 +26,7 @@ DEFAULT_BLUR_FUNC = lambda x: cv2.blur(x, (5, 5))
 
 def build_colored_target_black_reference_stimulus_generator(
     target_size=DEFAULT_TARGET_SIZE, reference_size=DEFAULT_REFERENCE_SIZE, target_colors=['blue', 'green', 'red'], 
-    reference_color=DEFAULT_COLOR, blur_func=DEFAULT_BLUR_FUNC, rotate_angle=None, **kwargs):
+    reference_color=DEFAULT_COLOR, blur_func=DEFAULT_BLUR_FUNC, rotate_angle=None, device=None, **kwargs):
 
     if kwargs:
         print('Ignoring kwargs: {}'.format(kwargs))
@@ -35,12 +35,13 @@ def build_colored_target_black_reference_stimulus_generator(
     reference_patch = matplotlib.patches.Ellipse((0, 0), width=reference_size[1], 
                                                  height=reference_size[0], color=reference_color)
                                                     
-    return PatchStimulusGenerator(target_size, reference_size, target_patches, reference_patch, rotate_angle=rotate_angle, blur_func=blur_func)
+    return PatchStimulusGenerator(target_size, reference_size, target_patches, reference_patch, 
+        rotate_angle=rotate_angle, blur_func=blur_func, device=device)
 
 
 def build_dot_and_bar_stimulus_generator(
     target_size=DEFAULT_TARGET_SIZE, reference_size=DEFAULT_REFERENCE_SIZE, 
-    color=DEFAULT_COLOR, rotate_angle=None, **kwargs):
+    color=DEFAULT_COLOR, rotate_angle=None, device=None, **kwargs):
 
     if kwargs:
         print('Ignoring kwargs: {}'.format(kwargs))
@@ -49,11 +50,12 @@ def build_dot_and_bar_stimulus_generator(
     rectangle_reference_patch = matplotlib.patches.Rectangle(
         (-reference_size[1] // 2, -reference_size[0] // 2), reference_size[1], reference_size[0], color=color)
                                                     
-    return PatchStimulusGenerator(target_size, reference_size, [target_patch], rectangle_reference_patch, rotate_angle=rotate_angle)
+    return PatchStimulusGenerator(target_size, reference_size, [target_patch], rectangle_reference_patch, 
+        rotate_angle=rotate_angle, device=device)
 
 
 def build_dot_and_ellipse_stimulus_generator(target_size=DEFAULT_TARGET_SIZE, reference_size=DEFAULT_REFERENCE_SIZE, 
-    color=DEFAULT_COLOR, blur_func=DEFAULT_BLUR_FUNC, rotate_angle=None, **kwargs):
+    color=DEFAULT_COLOR, blur_func=DEFAULT_BLUR_FUNC, rotate_angle=None, device=None, **kwargs):
 
     if kwargs:
         print('Ignoring kwargs: {}'.format(kwargs))
@@ -63,10 +65,10 @@ def build_dot_and_ellipse_stimulus_generator(target_size=DEFAULT_TARGET_SIZE, re
                                                          height=reference_size[0], color=color)
                                                     
     return PatchStimulusGenerator(target_size, reference_size, [target_patch], 
-        ellipse_reference_patch, blur_func=blur_func, rotate_angle=rotate_angle)
+        ellipse_reference_patch, blur_func=blur_func, rotate_angle=rotate_angle, device=device)
 
 def build_differet_shapes_stimulus_generator(target_size=DEFAULT_TARGET_SIZE, reference_size=DEFAULT_REFERENCE_SIZE, 
-    color=DEFAULT_COLOR, blur_func=DEFAULT_BLUR_FUNC, rotate_angle=None, **kwargs):
+    color=DEFAULT_COLOR, blur_func=DEFAULT_BLUR_FUNC, rotate_angle=None, device=None, **kwargs):
 
     if kwargs:
         print('Ignoring kwargs: {}'.format(kwargs))
@@ -78,12 +80,13 @@ def build_differet_shapes_stimulus_generator(target_size=DEFAULT_TARGET_SIZE, re
                                                 height=reference_size[0], color=color)
 
     return PatchStimulusGenerator(target_size, reference_size, 
-        [circle_patch, square_patch, triangle_patch], reference_patch, rotate_angle=rotate_angle, blur_func=blur_func)
+        [circle_patch, square_patch, triangle_patch], reference_patch, 
+        rotate_angle=rotate_angle, blur_func=blur_func, device=device)
 
 
 def build_split_text_stimulus_generator(target_size=DEFAULT_TARGET_SIZE, 
     reference_box_size=8, total_reference_size=(10, 140), n_reference_patches=7,
-    color=DEFAULT_COLOR, reference_patch_kwargs=None, rotate_angle=None, **kwargs):
+    color=DEFAULT_COLOR, reference_patch_kwargs=None, rotate_angle=None, device=None, **kwargs):
 
     if kwargs:
         print('Ignoring kwargs: {}'.format(kwargs))
@@ -99,13 +102,13 @@ def build_split_text_stimulus_generator(target_size=DEFAULT_TARGET_SIZE,
 
     return PatchStimulusGenerator(target_size, total_reference_size, 
                                   ['E', '$+$', triangle_patch, 's', '$\\to$'], 
-                                  reference_patches, rotate_angle=rotate_angle,
-                                  reference_patch_kwargs=reference_patch_kwargs)
+                                  reference_patches, reference_patch_kwargs=reference_patch_kwargs, 
+                                  rotate_angle=rotate_angle, device=device)
 
 
 def build_random_color_stimulus_generator(rng, cmap=cc.cm.glasbey, cmap_range=(0, 255),
     target_size=DEFAULT_TARGET_SIZE, reference_size=DEFAULT_REFERENCE_SIZE, 
-    blur_func=DEFAULT_BLUR_FUNC, rotate_angle=None, **kwargs):
+    blur_func=DEFAULT_BLUR_FUNC, rotate_angle=None, device=None, **kwargs):
 
     if kwargs:
         print('Ignoring kwargs: {}'.format(kwargs))
@@ -117,8 +120,8 @@ def build_random_color_stimulus_generator(rng, cmap=cc.cm.glasbey, cmap_range=(0
                                                  height=reference_size[0], 
                                                  color=cmap(start_int))
 
-    return PatchStimulusGenerator(target_size, reference_size, target_patches,
-                                  reference_patch, blur_func=blur_func, rotate_angle=rotate_angle)
+    return PatchStimulusGenerator(target_size, reference_size, target_patches, reference_patch, 
+        blur_func=blur_func, rotate_angle=rotate_angle, device=device)
 
 
 STIMULUS_GENERATORS = {
@@ -133,10 +136,11 @@ STIMULUS_GENERATORS = {
 
 class StimulusGenerator:
     def __init__(self, target_size, reference_size, rotate_angle=None, centroid_patch_size=1, 
-        centroid_marker_value=0, dtype=torch.float32):
+        centroid_marker_value=0, device=None, dtype=torch.float32):
         self.target_size = target_size
         self.reference_size = reference_size
         self.rotate_angle = rotate_angle
+        self.device = device if device is not None else 'cpu'
         self.dtype = dtype
         self.centroid_patch_size = centroid_patch_size
         self.centroid_marker_value = centroid_marker_value
@@ -189,7 +193,7 @@ class StimulusGenerator:
             else:  # rotation changed shape, need to recenter
                 x_centroid = x_stack_rot[1]
                 new_centroid_mask = (x_centroid == self.centroid_marker_value).all(axis=0)
-                new_centroid = new_centroid_mask.nonzero().squeeze().numpy()
+                new_centroid = new_centroid_mask.cpu().nonzero().squeeze().numpy()
                 if len(new_centroid.shape) > 1:
                     new_centroid = new_centroid.mean(0).astype(np.int)
 
@@ -254,7 +258,7 @@ class StimulusGenerator:
                                 for (t, p, i) in zip_gen])
 
     def _to_tensor(self, t):
-        return torch.tensor(t, dtype=self.dtype)
+        return torch.tensor(t, dtype=self.dtype, device=self.device)
     
     def _validate_input_to_tuple(self, input_value, n_args=2):
         if not hasattr(input_value, '__len__') or len(input_value) == 1:
@@ -262,13 +266,15 @@ class StimulusGenerator:
         
         return input_value
     
-    def _validate_color_input(self, c):
+    def _validate_color_input(self, c, tensor=False):
         if isinstance(c, str):
-            t = self._to_tensor(matplotlib.colors.to_rgb(c))
-        else:
-            t = self.to_tensor(self._validate_input_to_tuple(c, 3))
+            c = matplotlib.colors.to_rgb(c)
         
-        return t.view(3, 1, 1)
+        arr = np.array(self._validate_input_to_tuple(c, 3))
+        if not tensor:
+            return arr
+
+        return self._to_tensor(arr).view(3, 1, 1)
     
     @abstractmethod
     def _canvas(self):
@@ -286,19 +292,19 @@ class StimulusGenerator:
 class NaiveStimulusGenerator(StimulusGenerator):
     def __init__(self, target_size, reference_size, canvas_size=DEFAULT_CANVAS_SIZE,
                  target_color='black', reference_color='blue', background_color='white',
-                 rotate_angle=None, dtype=torch.float32):
-        super(NaiveStimulusGenerator, self).__init__(target_size, reference_size, rotate_angle=rotate_angle, dtype=dtype)
+                 rotate_angle=None, device=None, dtype=torch.float32):
+        super(NaiveStimulusGenerator, self).__init__(target_size, reference_size, rotate_angle=rotate_angle, device=device, dtype=dtype)
         
         self.target_size = self._validate_input_to_tuple(target_size)
         self.reference_size = self._validate_input_to_tuple(reference_size)
         self.canvas_size = self._validate_input_to_tuple(canvas_size)
         
-        self.target_color = self._validate_color_input(target_color)
-        self.reference_color = self._validate_color_input(reference_color)
-        self.background_color = self._validate_color_input(background_color)
+        self.target_color = self._validate_color_input(target_color, True)
+        self.reference_color = self._validate_color_input(reference_color, True)
+        self.background_color = self._validate_color_input(background_color, True)
         
     def _canvas(self):
-        return torch.ones(3, *self.canvas_size, dtype=self.dtype) * self.background_color
+        return torch.ones(3, *self.canvas_size, dtype=self.dtype, device=self.device) * self.background_color
     
     def _reference_object(self):
         return self.reference_color
@@ -328,7 +334,7 @@ class PatchStimulusGenerator(StimulusGenerator):
         else:
             ax.set_ylim(*ylim)
 
-        ax.set_facecolor(np.array(self.background_color).squeeze())
+        ax.set_facecolor(self.background_color.squeeze())
         
         if isinstance(patch, (list, tuple)):
             for p in patch:
@@ -358,7 +364,7 @@ class PatchStimulusGenerator(StimulusGenerator):
         X_rgb = cv2.cvtColor(X_resized, cv2.COLOR_RGBA2RGB)
         if self.blur_func is not None:
             X_rgb = self.blur_func(X_rgb)
-        X_float_tensor = torch.tensor(X_rgb, dtype=self.dtype).permute(2, 0, 1)
+        X_float_tensor = torch.tensor(X_rgb, dtype=self.dtype, device=self.device).permute(2, 0, 1)
         return X_float_tensor / X_float_tensor.max()
 
     def trim_and_resize(self, X, size):
@@ -399,8 +405,8 @@ class PatchStimulusGenerator(StimulusGenerator):
     def __init__(self, target_size, reference_size, target_patch, reference_patch,
                  blur_func=None, target_patch_kawrgs=None, reference_patch_kwargs=None,
                  canvas_size=DEFAULT_CANVAS_SIZE, rotate_angle=None,
-                 background_color='white', dtype=torch.float32):
-        super(PatchStimulusGenerator, self).__init__(target_size, reference_size, dtype)
+                 background_color='white', dtype=torch.float32, device=None):
+        super(PatchStimulusGenerator, self).__init__(target_size, reference_size, rotate_angle=rotate_angle, device=device, dtype=dtype)
         
         if target_patch_kawrgs is None:
             target_patch_kawrgs = {}
@@ -411,11 +417,10 @@ class PatchStimulusGenerator(StimulusGenerator):
         self.target_size = self._validate_input_to_tuple(target_size)
         self.reference_size = self._validate_input_to_tuple(reference_size)
         self.canvas_size = self._validate_input_to_tuple(canvas_size)
-        
-        self.rotate_angle = rotate_angle
 
         self.blur_func = blur_func
         self.background_color = self._validate_color_input(background_color)
+        self.background_color_tensor = self._validate_color_input(background_color, True)
         
         if not isinstance(target_patch, (list, tuple)):
             target_patch = [target_patch]
@@ -425,7 +430,7 @@ class PatchStimulusGenerator(StimulusGenerator):
         self.reference_arr = self._patch_to_array(reference_patch, self.reference_size, **reference_patch_kwargs)
         
     def _canvas(self):
-        return torch.ones(3, *self.canvas_size, dtype=self.dtype) * self.background_color
+        return torch.ones(3, *self.canvas_size, dtype=self.dtype, device=self.device) * self.background_color_tensor
     
     def _reference_object(self):
         return self.reference_arr

@@ -169,6 +169,7 @@ def handle_single_args_setting(args):
         torch.manual_seed(args.seed)
         var_args['stimulus_generator_kwargs']['rng'] = np.random.default_rng(args.seed)
         var_args['stimulus_generator_kwargs']['rotate_angle'] = args.rotate_angle
+        var_args['stimulus_generator_kwargs']['device'] = args.device
 
         if args.distance_endpoints == DEFAULT_DISTANCE_ENDPOINTS:
             var_args['distance_endpoints'] = DISTANCE_ENDPOINTS_DICT[bool(args.two_reference_objects), bool(args.adjacent_reference_objects)]
