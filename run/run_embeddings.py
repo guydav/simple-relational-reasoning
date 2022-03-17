@@ -4,7 +4,7 @@ import copy
 import itertools
 import os
 import sys
-from tqdm import tqdm
+from tqdm import tqdm, trange
 
 sys.path.append(os.path.abspath('.'))
 sys.path.append(os.path.abspath('..'))
@@ -162,7 +162,9 @@ def handle_single_args_setting(args):
     var_args['stimulus_generator_kwargs'] = {s.split('=')[0]: s.split('=')[1] for s in args.stimulus_generator_kwargs}
 
     all_model_results = []
-    for r in range(args.replications):
+
+    rep_iter = trange(args.replications) if args.tqdm else args.replications
+    for r in range(rep_iter):
         var_args['seed'] = args.seed + 1
         var_args['stimulus_generator_kwargs']['rng'] = np.random.default_rng(args.seed)
         var_args['stimulus_generator_kwargs']['rotate_angle'] = args.rotate_angle
