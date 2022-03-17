@@ -11,7 +11,7 @@ MODEL_ORDERS = [f'{model}-{dataset}' for (dataset, model)
                 in itertools.product(('saycam(S)', 'imagenet', 'random'), ('mobilenet', 'resnext'))]
 
 HEADERS = ['Stimulus Rendering', 'Target Type'] + MODEL_ORDERS
-DF_HEADERS = ['relation', 'rendering', 'n_target_types', 'model_name', 'dataset', 'acc_mean', 'acc_std', 'acc_sem'] 
+DF_HEADERS = ['model_name', 'condition', 'acc_mean', 'acc_std', 'acc_sem'] 
 
 PRETTY_NAMES = {
     'Quinn-Split-Reference-Text': 'Quinn-like',
@@ -139,74 +139,48 @@ def format_result_or_result_list(task_result_or_list, print_std=True):
     return format_results(task_result_or_list, print_std=print_std)
 
 
-def result_or_list_to_numbers(task_result_or_list, N=1024):
-    if isinstance(task_result_or_list, list):
-        means = np.array([tr.mean for tr in task_result_or_list])
-        return [means.mean(), means.std(), means.std() / (len(means) ** 0.5)]
-    
-    return [task_result_or_list.mean, task_result_or_list.std, task_result_or_list.std / (N ** 0.5)]
-
-
 def format_condition(condition, prev_condition):
     if condition == prev_condition:
         return ''
     
     return f'\\multirow{{2}}{{*}}{{\\textbf{{ {condition} }}}}'
 
+def result_or_list_to_number_list(task_result_or_list, N=1024):
+    if isinstance(task_result_or_list, list):
+        if len(task_result_or_list) > 1:
+            means = np.array([tr.mean for tr in task_result_or_list])
+            return [means.mean(), means.std(), means.std() / (len(means) ** 0.5)]
+
+        # len(task_result_or_list) == 0
+        task_result_or_list = task_result_or_list[0]
     
-def table_per_relation_multiple_results(all_results, tablefmt='github', model_orders=MODEL_ORDERS, 
-                                        n_types_to_print=(1, 2), headers=HEADERS, df_headers=DF_HEADERS, 
-                                        print_std=True, N=1024, display_tables=True):
-    models_datasets = list(all_results[0].keys())
+    return [task_result_or_list.mean, task_result_or_list.std, task_result_or_list.std / (N ** 0.5)]
+
     
-    results_by_relation = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
+def multiple_results_to_df(all_results, df_headers=DF_HEADERS, N=1024):
+    results_by_model_and_condition = defaultdict(list)
     
     for result_set in all_results:
-        # TODO: handle the case where it's a list and I need to average over it
+        # handle the case where it's a list and I need to later average over it
+        # flattens from a list of dicts of dicts to a dict of lists
         if isinstance(result_set, list):
             for result_set_replication in result_set:
-                for model_and_dataset, model_and_dataset_results in result_set_replication.items():
-                    for full_condition_name, condition_results in model_and_dataset_results.items():
-                        relation, condition, n_types = parse_condition_name(full_condition_name)
-                        if model_and_dataset not in results_by_relation[relation][condition][n_types]:
-                            results_by_relation[relation][condition][n_types][model_and_dataset] = []
-                        results_by_relation[relation][condition][n_types][model_and_dataset].append(condition_results['Accuracy'])
-            
+                _parse_single_replication(results_by_model_and_condition, result_set_replication)
+
         # it's a dict
         else:
-            for model_and_dataset, model_and_dataset_results in result_set.items():
-                for full_condition_name, condition_results in model_and_dataset_results.items():
-                    relation, condition, n_types = parse_condition_name(full_condition_name)
-                    results_by_relation[relation][condition][n_types][model_and_dataset] = condition_results['Accuracy']
-                
-    # parse out results by relation to a set of tables
-    all_df_rows = []
-    
-    for relation, relation_results in results_by_relation.items():
-        display(Markdown(f'## {relation}'))
-        rows = []
-        prev_condition = None
-        for condition, condition_results in relation_results.items():
-            for n_types in n_types_to_print:
-                condition_and_n_types_results = condition_results[n_types]
-                types_name = n_types == 1 and 'Same Target' or 'Different Target'
-                formatted_condition = format_condition(condition, prev_condition)
-                prev_condition = condition
-                formatted_results = [format_result_or_result_list(condition_and_n_types_results[model_and_dataset], 
-                                                                                        print_std=print_std) 
-                                                           for model_and_dataset in model_orders]
-                row = [formatted_condition, types_name] + formatted_results
-                rows.append(row)
-                
-                df_row_prefix = [simplify(relation), simplify(condition), n_types]
-                
-                df_rows = [df_row_prefix + [s.replace('(S)', '')  for s in (model_and_dataset.split('-'))] + 
-                           result_or_list_to_numbers(condition_and_n_types_results[model_and_dataset], N=N)
-                           for model_and_dataset in model_orders]
-                all_df_rows.extend(df_rows)
+            _parse_single_replication(results_by_model_and_condition, result_set)
             
-        if display_tables:
-            display(Markdown(tabulate.tabulate(rows, headers, tablefmt=tablefmt)))
+    # parse out results to a dataframe
+    df_rows = []
+
+    for model_and_condition_tuple, model_x_condition_results in results_by_model_and_condition.items():
+        df_rows.append(list(model_and_condition_tuple) + result_or_list_to_number_list(model_x_condition_results, N=N))
         
-    return pd.DataFrame(all_df_rows, columns=df_headers)
-    
+    return pd.DataFrame(df_rows, columns=df_headers)
+
+def _parse_single_replication(results_by_model_and_condition, result_set_replication):
+    for model_name, model_results in result_set_replication.items():
+        for condition_name, model_x_condition_results in model_results.items():
+            results_by_model_and_condition[(model_name, condition_name)].append(model_x_condition_results['Accuracy'])
+     

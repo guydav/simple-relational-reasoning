@@ -1,6 +1,7 @@
 
 import argparse
 import copy
+import cProfile
 import itertools
 import os
 import sys
@@ -17,7 +18,7 @@ from simple_relational_reasoning.embeddings.stimuli import STIMULUS_GENERATORS
 from simple_relational_reasoning.embeddings.triplets import TRIPLET_GENERATORS, RELATIONS, DEFAULT_MULTIPLE_HABITUATION_RADIUS
 from simple_relational_reasoning.embeddings.models import MODELS
 from simple_relational_reasoning.embeddings.task import run_multiple_models_multiple_generators
-from simple_relational_reasoning.embeddings.tables import table_per_relation_multiple_results
+from simple_relational_reasoning.embeddings.tables import multiple_results_to_df
 
 
 parser = argparse.ArgumentParser()
@@ -85,6 +86,11 @@ parser.add_argument('--rotate-angle', type=int, default=None, help='Angle to rot
 
 parser.add_argument('--tqdm', action='store_true', help='Use tqdm progress bar')
 
+parser.add_argument('--device', default=None, help='Which device to use. Defaults to cuda:0 if available and cpu if not.')
+
+parser.add_argument('--profile', action='store_true', help='Profile')
+parser.add_argument('--profile-output', default='/home/gd1279/scratch/profile/embeddings_profile')
+
 MULTIPLE_OPTION_FIELD_DEFAULTS = {
     'relation': RELATIONS,
     'two_reference_objects': [0, 1],
@@ -139,22 +145,16 @@ def handle_multiple_option_defaults(args):
 def handle_single_args_setting(args):
     var_args = vars(args)
     
-    torch.manual_seed(args.seed)
-    if torch.cuda.is_available():
-        device = torch.device('cuda:0')
-    else:
-        device = 'cpu'
-    
     model_kwarg_dicts = []
     for model_name in args.model:
         if args.saycam:
-            model_kwarg_dicts.append(dict(name=model_name, device=device, pretrained=False, saycam=args.saycam))
+            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=False, saycam=args.saycam))
         
         if args.imagenet_pretrained:
-            model_kwarg_dicts.append(dict(name=model_name, device=device, pretrained=True))
+            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=True))
 
         if args.untrained:
-            model_kwarg_dicts.append(dict(name=model_name, device=device, pretrained=False))
+            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=False))
 
     model_names = [ f'{d["name"]}-{"saycam({s})".format(s=d["syacam"]) if "saycam" in d else (d["pretrained"] and "imagenet" or "random")}'
                for d in model_kwarg_dicts]
@@ -166,6 +166,7 @@ def handle_single_args_setting(args):
     rep_iter = trange(args.replications) if args.tqdm else args.replications
     for r in range(rep_iter):
         var_args['seed'] = args.seed + 1
+        torch.manual_seed(args.seed)
         var_args['stimulus_generator_kwargs']['rng'] = np.random.default_rng(args.seed)
         var_args['stimulus_generator_kwargs']['rotate_angle'] = args.rotate_angle
 
@@ -177,11 +178,7 @@ def handle_single_args_setting(args):
         all_model_results.append(run_multiple_models_multiple_generators(
             model_names, model_kwarg_dicts, args.stimulus_generators, triplet_generators, args.n_examples))
 
-    if len(all_model_results) == 1:
-        all_model_results = all_model_results[0]
-
-    result_df = table_per_relation_multiple_results(all_model_results, N=args.n_examples,
-        display_tables=False)
+    result_df = multiple_results_to_df(all_model_results, N=args.n_examples)
 
     for key in MULTIPLE_OPTION_REWRITE_FIELDS + SINGLE_OPTION_FIELDS_TO_DF:
         result_df[key] = var_args[key]
@@ -193,6 +190,15 @@ if __name__ == '__main__':
     main_args = parser.parse_args()
     main_args = handle_multiple_option_defaults(main_args)
     main_var_args = vars(main_args)
+
+    if main_args.device is not None:
+        main_args.device = torch.device(main_args.device)
+
+    else:
+        if torch.cuda.is_available():
+            main_args.device = torch.device('cuda:0')
+        else:
+            main_args.device = 'cpu'
 
     print(' ' * 26 + 'Global Options')
     for k, v in main_var_args.items():
@@ -207,7 +213,7 @@ if __name__ == '__main__':
         total = np.prod([len(v) for v in multiple_option_field_values])
         value_iter = tqdm(value_iter, desc='Setting', total=total)
 
-    for value_combination in value_iter:
+    for i, value_combination in enumerate(value_iter):
         args_copy = copy.deepcopy(main_args)
         var_args_copy = vars(args_copy)
         var_args_copy.update({key: value for key, value in zip(MULTIPLE_OPTION_REWRITE_FIELDS,
@@ -218,7 +224,11 @@ if __name__ == '__main__':
             print(f'Skipping because adjacent_reference_object={args_copy.adjacent_reference_objects} and two_reference_objects={args_copy.two_reference_objects}')
             continue
 
-        dataframes.append(handle_single_args_setting(args_copy))
+        if main_args.profile:
+            print('Profiling...')
+            cProfile.run('handle_single_args_setting(args_copy)', f'{main_args.profile_output}_{i}')
+        else:
+            dataframes.append(handle_single_args_setting(args_copy))
 
     out_df = pd.concat(dataframes)
     out_df.reset_index(drop=True, inplace=True)

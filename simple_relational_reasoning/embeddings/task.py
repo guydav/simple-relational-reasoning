@@ -126,15 +126,14 @@ def quinn_embedding_task_single_generator(
     return model_results
 
 def quinn_embedding_task_multiple_generators(
-    model_name, model, condition_names, triplet_generators, 
+    model, condition_names, triplet_generators, 
     metrics=METRICS, N=1024, batch_size=BATCH_SIZE):
     
-    headers = ['ConditionNames'] + [metric.name for metric in metrics]
     all_results = {}
-    for name, triplet_gen in zip(condition_names, triplet_generators):
+    for condition_name, triplet_gen in zip(condition_names, triplet_generators):
         results = quinn_embedding_task_single_generator(model, triplet_gen, metrics=metrics,
                                                         N=N, batch_size=batch_size)
-        all_results[name] = {metric.name: TaskResults(np.mean(results[metric.name]), 
+        all_results[condition_name] = {metric.name: TaskResults(np.mean(results[metric.name]), 
                                                       np.std(results[metric.name]), N) 
                              for metric in metrics}
     return all_results
@@ -148,7 +147,7 @@ def run_multiple_models_multiple_generators(model_names, model_kwarg_dicts,
         model = build_model(**model_kwargs)
 
         all_model_results[name] = quinn_embedding_task_multiple_generators(
-            name, model, condition_names, condition_generators, N=N)
+            model, condition_names, condition_generators, N=N)
 
         del model
         
