@@ -15,7 +15,7 @@ import pandas as pd
 import torch
 
 from simple_relational_reasoning.embeddings.stimuli import STIMULUS_GENERATORS
-from simple_relational_reasoning.embeddings.triplets import TRIPLET_GENERATORS, RELATIONS, DEFAULT_MULTIPLE_HABITUATION_RADIUS
+from simple_relational_reasoning.embeddings.triplets import TRIPLET_GENERATORS, RELATIONS, ABOVE_BELOW_RELATION, BETWEEN_RELATION, DEFAULT_MULTIPLE_HABITUATION_RADIUS
 from simple_relational_reasoning.embeddings.models import MODELS
 from simple_relational_reasoning.embeddings.task import run_multiple_models_multiple_generators
 from simple_relational_reasoning.embeddings.tables import multiple_results_to_df
@@ -220,8 +220,12 @@ if __name__ == '__main__':
                                                                value_combination)})
 
         # TODO: any checks for arg combinations we shouldn't run?
-        if not args_copy.two_reference_objects and args_copy.adjacent_reference_objects:
-            print(f'Skipping because adjacent_reference_object={args_copy.adjacent_reference_objects} and two_reference_objects={args_copy.two_reference_objects}')
+        if args_copy.relation == ABOVE_BELOW_RELATION and not args_copy.two_reference_objects:
+            print(f'Skpping because between relation and two_reference_objects={args_copy.two_reference_objects} is not set')
+            continue
+
+        if args_copy.adjacent_reference_objects and (args_copy.relation != ABOVE_BELOW_RELATION or not args_copy.two_reference_objects):
+            print(f'Skpping because adjacent_reference_objects={args_copy.adjacent_reference_objects} is set and relation={args_copy.relation} is not above/below or two_reference_objects={args_copy.two_reference_objects} is not set')
             continue
 
         if main_args.profile:
