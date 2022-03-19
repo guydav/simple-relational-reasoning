@@ -17,12 +17,28 @@ SAYCAM_models = (MOBILENET, RESNEXT)
 SAYCAM_n_out = {'S': 2765, 'SAY':6269}
 
 
-def build_model(name, device, pretrained=True, saycam=None):
+FLIPPING_OPTIONS = ('s', 'h', 'v', 'hv')
+
+def build_model(name, device, pretrained=True, saycam=None, flip=None):
     name = name.lower()
     assert(name in MODELS)
     model = None
     
-    if saycam:
+    if flip:
+        assert(flip in FLIPPING_OPTIONS)
+        assert(name == RESNEXT)
+
+        checkpoint = torch.load(os.path.join(CHECKPOINT_FOLDER, f'TC-S-{flip}.tar'))
+
+        model = models.resnext50_32x4d(pretrained=False)
+        model = nn.DataParallel(model) 
+        model = model.to(device)
+        model.module.fc = nn.Linear(2048, SAYCAM_n_out['S'])
+        # TODO: if this fails, model might have been saved from cpu, should mmove to device later
+        model.load_state_dict(checkpoint['model_state_dict'])
+        model.module.fc = nn.Sequential()
+
+    elif saycam:
 #         print('Loading SAYcam model')
         if saycam is True:
             saycam = 'SAY'
