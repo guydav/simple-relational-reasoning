@@ -16,7 +16,7 @@ import torch
 
 from simple_relational_reasoning.embeddings.stimuli import STIMULUS_GENERATORS
 from simple_relational_reasoning.embeddings.triplets import TRIPLET_GENERATORS, RELATIONS, ABOVE_BELOW_RELATION, BETWEEN_RELATION, DEFAULT_MULTIPLE_HABITUATION_RADIUS
-from simple_relational_reasoning.embeddings.models import MODELS
+from simple_relational_reasoning.embeddings.models import MODELS, FLIPPING_OPTIONS
 from simple_relational_reasoning.embeddings.task import run_multiple_models_multiple_generators, BATCH_SIZE
 from simple_relational_reasoning.embeddings.tables import multiple_results_to_df
 
@@ -79,6 +79,8 @@ parser.add_argument('-m', '--model', type=str, action='append', choices=MODELS,
 parser.add_argument('--saycam', type=str, default=None, help='Which SAYcam model to use')
 parser.add_argument('--imagenet', action='store_true', help='Use imagenet pretrained models')
 parser.add_argument('--untrained', action='store_true', help='Use untrained models')
+parser.add_argument('--flipping', action='append', default=list,
+    choices=FLIPPING_OPTIONS, help='Use one of the flipping models Emin created')
 
 parser.add_argument('-o', '--output-file', type=str, help='Output file to write to')
 
@@ -154,18 +156,27 @@ def handle_single_args_setting(args):
             print(' ' * 26 + k + ': ' + str(var_args[k]))
     
     model_kwarg_dicts = []
+    model_names = []
     for model_name in args.model:
         if args.saycam:
             model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=False, saycam=args.saycam))
+            model_names.append(f'{model_name}-saycam({args.saycam})')
         
         if args.imagenet:
             model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=True))
+            model_names.append(f'{model_name}-imagenet')
 
         if args.untrained:
             model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=False))
+            model_names.append(f'{model_name}-random')
 
-    model_names = [ f'{d["name"]}-{"saycam({s})".format(s=d["saycam"]) if "saycam" in d else (d["pretrained"] and "imagenet" or "random")}'
-               for d in model_kwarg_dicts]
+        if args.flipping and len(args.flipping) > 0:
+            for flip_type in args.flipping:
+                model_kwarg_dicts.append(dict(name=model_name, device=args.device, 
+                    pretrained=False, flip=flip_type))
+
+                model_names.append(f'{model_name}-saycam(S)-{flip_type}')
+
 
     var_args['stimulus_generator_kwargs'] = {s.split('=')[0]: s.split('=')[1] for s in args.stimulus_generator_kwargs}
 
