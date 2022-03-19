@@ -195,7 +195,8 @@ def handle_single_args_setting(args):
         triplet_generators = create_triplet_generators(args)
 
         all_model_results.append(run_multiple_models_multiple_generators(
-            model_names, model_kwarg_dicts, args.stimulus_generators, triplet_generators, args.n_examples, args.batch_size))
+            model_names, model_kwarg_dicts, args.stimulus_generators, 
+            triplet_generators, args.n_examples, args.batch_size))
 
     result_df = multiple_results_to_df(all_model_results, N=args.n_examples)
 
