@@ -9,5 +9,5 @@ python3.7 run/run_embeddings.py \
     --untrained \
     --output-file "embedding_outputs/untrained_models.csv" \
     --tqdm \
-    --profile
+    --print-setting-options
     

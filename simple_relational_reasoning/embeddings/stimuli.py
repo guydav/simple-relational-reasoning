@@ -169,7 +169,10 @@ class StimulusGenerator:
         target = self._target_object(target_index)
         if transpose_target:
             target = np.transpose(target, (0, 2, 1))
-            
+        
+        if (target_pos < 0).any() or ((target_pos + np.array(target.shape[1:])) > DEFAULT_CANVAS_SIZE[0]).any():
+            print(f'Target out of bounds: target: {target_pos}, centering: {target_centering}, references: {reference_positions}, angle: {self.rotate_angle} ')
+
         x[:, target_pos[0]:target_pos[0] + target.shape[1],
              target_pos[1]:target_pos[1] + target.shape[2]] = target
 
