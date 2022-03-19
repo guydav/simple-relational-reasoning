@@ -77,7 +77,7 @@ METRICS = (AccuracyMetric('Accuracy', pair_only=True),
 
 TaskResults = namedtuple('TaskResults', ('mean', 'std', 'n'))
 
-BATCH_SIZE = 64
+BATCH_SIZE = 32
 
 def quinn_embedding_task_single_generator(
     model, triplet_generator, metrics=METRICS, N=1024, batch_size=BATCH_SIZE, use_tqdm=False, device=None):
@@ -106,7 +106,8 @@ def quinn_embedding_task_single_generator(
         x = b[0]  # shape (B, H + 2, 3, 224, 224) where H is the number of habituation stimuli
         H = x.shape[1] - 2
         x = x.view(-1, *x.shape[2:])
-        e = model(x.to(device)).detach()
+        x = x.to(device)
+        e = model(x).detach()
         e = e.view(B, H + 2, -1)  # shape (B, H + 2, Z)
         
         if H > 1:  # if we have multiple habituation stimuli, average them
@@ -125,6 +126,9 @@ def quinn_embedding_task_single_generator(
     for metric in metrics:
         model_results[metric.name] = metric.aggregate(model_results[metric.name])
 
+    del dataloader
+    del data
+
     return model_results
 
 def quinn_embedding_task_multiple_generators(
@@ -141,7 +145,7 @@ def quinn_embedding_task_multiple_generators(
     return all_results
     
 def run_multiple_models_multiple_generators(model_names, model_kwarg_dicts, 
-                                            condition_names, condition_generators, N):
+                                            condition_names, condition_generators, N, batch_size=BATCH_SIZE):
     all_model_results = {}
     
     for name, model_kwargs in zip (model_names, model_kwarg_dicts):
@@ -149,9 +153,11 @@ def run_multiple_models_multiple_generators(model_names, model_kwarg_dicts,
         model = build_model(**model_kwargs)
 
         all_model_results[name] = quinn_embedding_task_multiple_generators(
-            model, condition_names, condition_generators, N=N)
+            model, condition_names, condition_generators, N=N, batch_size=batch_size)
 
         del model
+
+        torch.cuda.empty_cache()
         
     return all_model_results
 
