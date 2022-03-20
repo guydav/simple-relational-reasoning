@@ -79,7 +79,7 @@ parser.add_argument('-m', '--model', type=str, action='append', choices=MODELS,
 parser.add_argument('--saycam', type=str, default=None, help='Which SAYcam model to use')
 parser.add_argument('--imagenet', action='store_true', help='Use imagenet pretrained models')
 parser.add_argument('--untrained', action='store_true', help='Use untrained models')
-parser.add_argument('--flipping', action='append', default=list,
+parser.add_argument('--flipping', action='append',
     choices=FLIPPING_OPTIONS, help='Use one of the flipping models Emin created')
 
 parser.add_argument('-o', '--output-file', type=str, help='Output file to write to')

@@ -15,7 +15,7 @@ MODELS = (RESNET, VGG, MOBILENET, RESNEXT)
 
 SAYCAM_models = (MOBILENET, RESNEXT)
 SAYCAM_n_out = {'S': 2765, 'SAY':6269}
-
+FLIPPING_n_out = 2575
 
 FLIPPING_OPTIONS = ('s', 'h', 'v', 'hv')
 
@@ -33,7 +33,7 @@ def build_model(name, device, pretrained=True, saycam=None, flip=None):
         model = models.resnext50_32x4d(pretrained=False)
         model = nn.DataParallel(model) 
         model = model.to(device)
-        model.module.fc = nn.Linear(2048, SAYCAM_n_out['S'])
+        model.module.fc = nn.Linear(2048, FLIPPING_n_out)
         # TODO: if this fails, model might have been saved from cpu, should mmove to device later
         model.load_state_dict(checkpoint['model_state_dict'])
         model.module.fc = nn.Sequential()
