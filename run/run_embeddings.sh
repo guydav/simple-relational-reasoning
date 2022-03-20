@@ -4,10 +4,10 @@ python3.7 run/run_embeddings.py \
     --stimulus-generators "split_text" \
     --stimulus-generators "random_color" \
     --extra-diagonal-margin 5 \
-    --model "mobilenet" \
     --model "resnext" \
-    --untrained \
-    --output-file "embedding_outputs/untrained_models.csv" \
+    --flipping "h" \
+    --flipping "v" \
+    --batch-size 32 \
+    --output-file "embedding_outputs/flipping_h_v.csv" \
     --tqdm \
     --print-setting-options
-    
