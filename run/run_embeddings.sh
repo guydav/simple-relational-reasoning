@@ -5,9 +5,8 @@ python3.7 run/run_embeddings.py \
     --stimulus-generators "random_color" \
     --extra-diagonal-margin 5 \
     --model "resnext" \
-    --flipping "h" \
-    --flipping "v" \
+    --dino "ImageNet" \
     --batch-size 32 \
-    --output-file "embedding_outputs/flipping_h_v.csv" \
+    --output-file "embedding_outputs/dino_ImageNet.csv" \
     --tqdm \
     --print-setting-options

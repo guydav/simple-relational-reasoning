@@ -1,7 +1,7 @@
+from collections import OrderedDict
 import os
 import torch
 from torch import nn
-import torchvision
 import torchvision.models as models
 
 
@@ -18,13 +18,24 @@ SAYCAM_n_out = {'S': 2765, 'SAY':6269}
 FLIPPING_n_out = 2575
 
 FLIPPING_OPTIONS = ('s', 'h', 'v', 'hv')
+DINO_OPTIONS = ('S', 'ImageNet')
 
-def build_model(name, device, pretrained=True, saycam=None, flip=None):
+def build_model(name, device, pretrained=True, saycam=None, flip=None, dino=None):
     name = name.lower()
     assert(name in MODELS)
     model = None
     
-    if flip:
+    if dino:
+        assert(dino in DINO_OPTIONS)
+        assert(name == RESNEXT)
+
+        checkpoint_path = os.path.join(CHECKPOINT_FOLDER, f'DINO-{dino}.pth')
+        model = models.resnext50_32x4d(pretrained=False)
+        model = load_dino_model(model, checkpoint_path, False)   
+        model = model.to(device)
+        model.fc = nn.Sequential()
+
+    elif flip:
         assert(flip in FLIPPING_OPTIONS)
         assert(name == RESNEXT)
 
@@ -98,4 +109,36 @@ def build_model(name, device, pretrained=True, saycam=None, flip=None):
         
     return model
 
+
+
+def load_dino_model(model, checkpoint_path, verbose=False):
+    """
+    Args:
+        model (a torchvision model): Initial model to be filled.
+        checkpoint_path (path): path where the pretrained model checkpoint is stored.
+    Returns:
+        the filled model.
+    """
+    checkpoint = torch.load(checkpoint_path)
+    student_state_dict = checkpoint['student']
+    new_student_state_dict = OrderedDict()
+
+    if verbose:
+        print('=== Initial model state dict keys ===')
+        print(model.state_dict().keys())
+
+    for key in model.state_dict().keys():
+        
+        if 'module.backbone.' + key in student_state_dict.keys():
+            new_student_state_dict[key] = student_state_dict['module.backbone.' + key]
+            if verbose:
+                print('Parameter', key, 'taken from the pretrained model')
+        else:    
+            new_student_state_dict[key] = model.state_dict()[key]
+            if verbose:
+                print('Parameter', key, 'taken from the random init')
+
+    model.load_state_dict(new_student_state_dict)
+
+    return model
     

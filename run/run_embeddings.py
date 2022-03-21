@@ -16,7 +16,7 @@ import torch
 
 from simple_relational_reasoning.embeddings.stimuli import STIMULUS_GENERATORS
 from simple_relational_reasoning.embeddings.triplets import TRIPLET_GENERATORS, RELATIONS, ABOVE_BELOW_RELATION, BETWEEN_RELATION, DEFAULT_MULTIPLE_HABITUATION_RADIUS
-from simple_relational_reasoning.embeddings.models import MODELS, FLIPPING_OPTIONS
+from simple_relational_reasoning.embeddings.models import MODELS, FLIPPING_OPTIONS, DINO_OPTIONS
 from simple_relational_reasoning.embeddings.task import run_multiple_models_multiple_generators, BATCH_SIZE
 from simple_relational_reasoning.embeddings.tables import multiple_results_to_df
 
@@ -81,6 +81,8 @@ parser.add_argument('--imagenet', action='store_true', help='Use imagenet pretra
 parser.add_argument('--untrained', action='store_true', help='Use untrained models')
 parser.add_argument('--flipping', action='append',
     choices=FLIPPING_OPTIONS, help='Use one of the flipping models Emin created')
+parser.add_argument('--dino', action='append',
+    choices=DINO_OPTIONS, help='Use one of the DINO models Emin created')
 
 parser.add_argument('-o', '--output-file', type=str, help='Output file to write to')
 
@@ -176,6 +178,13 @@ def handle_single_args_setting(args):
                     pretrained=False, flip=flip_type))
 
                 model_names.append(f'{model_name}-saycam(S)-{flip_type}')
+
+        if args.dino and len(args.dino) > 0:
+            for dino in args.dino:
+                model_kwarg_dicts.append(dict(name=model_name, device=args.device, 
+                    pretrained=False, dino=dino))
+
+                model_names.append(f'{model_name}-DINO-{dino}')
 
 
     var_args['stimulus_generator_kwargs'] = {s.split('=')[0]: s.split('=')[1] for s in args.stimulus_generator_kwargs}
