@@ -103,7 +103,7 @@ def build_split_text_stimulus_generator(target_size=DEFAULT_TARGET_SIZE,
                                   reference_patch_kwargs=reference_patch_kwargs)
 
 
-def build_random_color_stimulus_generator(rng, cmap=cc.cm.glasbey, cmap_range=(0, 255),
+def build_random_color_stimulus_generator(rng, cmap=cc.cm.glasbey,
     target_size=DEFAULT_TARGET_SIZE, reference_size=DEFAULT_REFERENCE_SIZE, 
     blur_func=DEFAULT_BLUR_FUNC, rotate_angle=None, **kwargs):
 
@@ -408,7 +408,7 @@ class PatchStimulusGenerator(StimulusGenerator):
     def __init__(self, target_size, reference_size, target_patch, reference_patch,
                  blur_func=None, target_patch_kawrgs=None, reference_patch_kwargs=None,
                  canvas_size=DEFAULT_CANVAS_SIZE, rotate_angle=None,
-                 background_color='white', rng=None, random_max_color=253, dtype=torch.float32):
+                 background_color='white', rng=None, cmap_max_color=256, function_n_target_types=5, dtype=torch.float32):
         super(PatchStimulusGenerator, self).__init__(target_size, reference_size, dtype)
         
         if target_patch_kawrgs is None:
@@ -427,13 +427,13 @@ class PatchStimulusGenerator(StimulusGenerator):
         self.background_color = self._validate_color_input(background_color)
 
         self.rng = rng
-        self.random_max_color = random_max_color
+        self.random_max_color = cmap_max_color - function_n_target_types
         self.patch_rng_index = 0
         
         if callable(target_patch):
             self.target_patch_func = target_patch
             self.target_patch_kawrgs = target_patch_kawrgs   
-            self.n_target_types = 3
+            self.n_target_types = function_n_target_types
             self.target_patch_cache = {}
 
         else:
