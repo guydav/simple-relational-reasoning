@@ -242,34 +242,37 @@ if __name__ == '__main__':
         total = np.prod([len(v) for v in multiple_option_field_values])
         value_iter = tqdm(value_iter, desc='Setting', total=total)
 
-    for i, value_combination in enumerate(value_iter):
-        args_copy = copy.deepcopy(main_args)
-        var_args_copy = vars(args_copy)
-        var_args_copy.update({key: value for key, value in zip(MULTIPLE_OPTION_REWRITE_FIELDS,
-                                                               value_combination)})
+    try:
+        for i, value_combination in enumerate(value_iter):
+            args_copy = copy.deepcopy(main_args)
+            var_args_copy = vars(args_copy)
+            var_args_copy.update({key: value for key, value in zip(MULTIPLE_OPTION_REWRITE_FIELDS,
+                                                                value_combination)})
 
-        # TODO: any checks for arg combinations we shouldn't run?
-        if args_copy.relation == BETWEEN_RELATION and not args_copy.two_reference_objects:
-            print(f'Skpping because between relation and two_reference_objects={args_copy.two_reference_objects} is not set')
-            continue
+            # TODO: any checks for arg combinations we shouldn't run?
+            if args_copy.relation == BETWEEN_RELATION and not args_copy.two_reference_objects:
+                print(f'Skpping because between relation and two_reference_objects={args_copy.two_reference_objects} is not set')
+                continue
 
-        if args_copy.adjacent_reference_objects and (args_copy.relation != ABOVE_BELOW_RELATION or not args_copy.two_reference_objects):
-            print(f'Skpping because adjacent_reference_objects={args_copy.adjacent_reference_objects} is set and relation={args_copy.relation} is not above/below or two_reference_objects={args_copy.two_reference_objects} is not set')
-            continue
+            if args_copy.adjacent_reference_objects and (args_copy.relation != ABOVE_BELOW_RELATION or not args_copy.two_reference_objects):
+                print(f'Skpping because adjacent_reference_objects={args_copy.adjacent_reference_objects} is set and relation={args_copy.relation} is not above/below or two_reference_objects={args_copy.two_reference_objects} is not set')
+                continue
 
-        if main_args.profile:
-            print('Profiling...')
-            cProfile.run('handle_single_args_setting(args_copy)', f'{main_args.profile_output}_{i}')
-        else:
-            dataframes.append(handle_single_args_setting(args_copy))
+            if main_args.profile:
+                print('Profiling...')
+                cProfile.run('handle_single_args_setting(args_copy)', f'{main_args.profile_output}_{i}')
+            else:
+                dataframes.append(handle_single_args_setting(args_copy))
 
-    out_df = pd.concat(dataframes)
-    out_df.reset_index(drop=True, inplace=True)
-    output_file = main_args.output_file
+    finally:
+        if len(dataframes) > 0:
+            out_df = pd.concat(dataframes)
+            out_df.reset_index(drop=True, inplace=True)
+            output_file = main_args.output_file
 
-    output_folder, _ = os.path.split(output_file)
-    os.makedirs(output_folder, exist_ok=True)
+            output_folder, _ = os.path.split(output_file)
+            os.makedirs(output_folder, exist_ok=True)
 
-    while os.path.exists(output_file):
-        output_file += '_1'
-    out_df.to_csv(output_file)
+            while os.path.exists(output_file):
+                output_file += '_1'
+            out_df.to_csv(output_file)
