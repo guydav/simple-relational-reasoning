@@ -104,7 +104,11 @@ class QuinnTripletGenerator(TripletGenerator):
         self.target_height = self.stimulus_generator.target_size[0]
     
     def generate_single_triplet(self, normalize=True):
-        target_distance = self.rng.integers(*self.distance_endpoints)
+        distance_endpoints = self.distance_endpoints
+        if self.n_habituation_stimuli > 1:
+            distance_endpoints = (distance_endpoints[0] + self.multiple_habituation_radius, distance_endpoints[1])
+
+        target_distance = self.rng.integers(*distance_endpoints)
         half_target_distance = target_distance // 2
 
         inter_reference_distance = 0
@@ -127,8 +131,9 @@ class QuinnTripletGenerator(TripletGenerator):
 
         # account for wonkiness in rotation stimuli and ending out of frame
         if self.extra_diagonal_margin and self.stimulus_generator.rotate_angle is not None:
-            min_vertical_margin += self.extra_diagonal_margin
-            min_horizontal_margin += self.extra_diagonal_margin
+            angle_sin = np.sin(np.deg2rad(self.stimulus_generator.rotate_angle))
+            min_vertical_margin += self.extra_diagonal_margin * angle_sin
+            min_horizontal_margin += self.extra_diagonal_margin * angle_sin
 
         # account for the multuiple habituation stimuli radius 
         if self.n_habituation_stimuli > 1:
@@ -213,14 +218,22 @@ class QuinnTripletGenerator(TripletGenerator):
             target_indices = [self.rng.integers(0, self.stimulus_generator.n_target_types)] * len(target_positions)
 
         if self.n_target_types == 2:
-            pair_color, single_color = self.rng.choice(np.arange(self.stimulus_generator.n_target_types),
-                                                       size=2, replace=False)
-            target_indices = [single_color] * self.n_habituation_stimuli + [pair_color] * 2
+            # can we allocate a unique target to each stimulus?
+            if self.stimulus_generator.n_target_types > self.n_habituation_stimuli > 1:
+                target_indices = self.rng.choice(np.arange(self.stimulus_generator.n_target_types),
+                    size=self.n_habituation_stimuli + 1, replace=False)
+
+                target_indices = list(target_indices[:-1]) + [target_indices[-1]] * 2
+
+            else:  # either only one habituation stimulus or not enough target types for unique habituation targets
+                pair_color, single_color = self.rng.choice(np.arange(self.stimulus_generator.n_target_types),
+                    size=2, replace=False)
+                target_indices = [single_color] * self.n_habituation_stimuli + [pair_color] * 2
             
         elif self.n_target_types == 3:
-            target_indices = [0, 1, 2]
-            self.rng.shuffle(target_indices)
-            target_indices = target_indices[:1] * self.n_habituation_stimuli + target_indices[1:]
+            target_indices = self.rng.choice(np.arange(self.stimulus_generator.n_target_types),
+                size=3, replace=False)
+            target_indices = [target_indices[0]] * self.n_habituation_stimuli + target_indices[1:]
 
         self.centroids.append(stimulus_centroid_position)
 
