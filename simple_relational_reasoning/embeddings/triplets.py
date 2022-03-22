@@ -133,7 +133,7 @@ class QuinnTripletGenerator(TripletGenerator):
         if self.extra_diagonal_margin and self.stimulus_generator.rotate_angle is not None:
             angle_sin = np.sin(np.deg2rad(self.stimulus_generator.rotate_angle))
             min_vertical_margin += self.extra_diagonal_margin * angle_sin
-            min_horizontal_margin += self.extra_diagonal_margin * angle_sin
+            # min_horizontal_margin = self.extra_diagonal_margin * angle_sin / 2
 
         # account for the multuiple habituation stimuli radius 
         if self.n_habituation_stimuli > 1:

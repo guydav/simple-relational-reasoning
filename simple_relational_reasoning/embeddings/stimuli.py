@@ -10,6 +10,7 @@ from matplotlib.backends.backend_agg import FigureCanvas
 import numpy as np
 import torch
 import torchvision.transforms as transforms
+from torchvision.transforms import functional_tensor
 from scipy import ndimage as nd
 
 
@@ -22,6 +23,19 @@ DEFAULT_TARGET_SIZE = 15
 DEFAULT_REFERENCE_SIZE = (10, 100)
 DEFAULT_COLOR = 'black'
 DEFAULT_BLUR_FUNC = lambda x: cv2.blur(x, (5, 5))
+
+
+def crop_with_fill(img, top: int, left: int, height: int, width: int, fill: float):
+    functional_tensor._assert_image_tensor(img)
+
+    h, w = functional_tensor.get_image_size(img)
+    right = left + width
+    bottom = top + height
+
+    if left < 0 or top < 0 or right > w or bottom > h:
+        padding_ltrb = [max(-left, 0), max(-top, 0), max(right - w, 0), max(bottom - h, 0)]
+        return functional_tensor.pad(img[..., max(top, 0) : bottom, max(left, 0) : right], padding_ltrb, fill=fill)
+    return img[..., top:bottom, left:right]
 
 
 def build_colored_target_black_reference_stimulus_generator(
@@ -132,16 +146,18 @@ STIMULUS_GENERATORS = {
 }
 
 
+DEFAULT_MIN_ROTATE_MARGIN = 2
+
 class StimulusGenerator:
-    def __init__(self, target_size, reference_size, rotate_angle=None, centroid_patch_size=1, 
-        centroid_marker_value=0, dtype=torch.float32):
+    def __init__(self, target_size, reference_size, rotate_angle=None, min_rotate_margin=DEFAULT_MIN_ROTATE_MARGIN, 
+        centroid_patch_size=1, centroid_marker_value=0,  dtype=torch.float32):
         self.target_size = target_size
         self.reference_size = reference_size
         self.rotate_angle = rotate_angle
-        self.dtype = dtype
+        self.min_rotate_margin = min_rotate_margin
         self.centroid_patch_size = centroid_patch_size
         self.centroid_marker_value = centroid_marker_value
-        
+        self.dtype = dtype
         self.n_target_types = 1
     
     def generate(self, target_position, reference_positions, target_index=0, 
@@ -200,17 +216,20 @@ class StimulusGenerator:
                 # check if this would override bounds, and if it does, min/max it
                 x_rot = x_stack_rot[0]
                 top, left = new_centroid - stimulus_centroid
-                top = np.clip(top, 0, x_rot.shape[1] - x.shape[1])
-                left = np.clip(left, 0, x_rot.shape[2] - x.shape[2])
+                # top = np.clip(top, 0, x_rot.shape[1] - x.shape[1])
+                # left = np.clip(left, 0, x_rot.shape[2] - x.shape[2])
+                # check if this would leave any filled indices outside the canvas
+                first_non_empty_row, last_non_empty_row, first_non_empty_col, last_non_empty_col = find_non_empty_indices(x_rot, empty_value=EMPTY_TENSOR_PIXEL, color_axis=0)
+                
+                top = np.clip(top, 0, first_non_empty_row - self.min_rotate_margin)
+                if top + x.shape[1] < last_non_empty_row:
+                    top += last_non_empty_row - x.shape[1] + self.min_rotate_margin
+                
+                left = np.clip(left, 0, first_non_empty_col - self.min_rotate_margin)
+                if left + x.shape[2] < last_non_empty_col:
+                    left += last_non_empty_col - x.shape[2] + self.min_rotate_margin
 
-                # new_centroid_neighbor_indices = nd.distance_transform_edt(new_centroid_mask, 
-                #     return_distances=False, return_indices=True)  # has shape (2, x_rot.shape[1], x_rot.shape[2])
-                # x_rot = x_rot[:, new_centroid_neighbor_indices[0], new_centroid_neighbor_indices[1]]
-
-                # x_rot[:, new_centroid[0] - self.centroid_patch_size:new_centroid[0] + self.centroid_patch_size + 1, 
-                #       new_centroid[1] - self.centroid_patch_size:new_centroid[1] + self.centroid_patch_size + 1] = original_centroid_value  
-
-                x = transforms.functional.crop(x_rot, top, left, *x.shape[1:])
+                x = crop_with_fill(x_rot, top, left, *x.shape[1:], fill=1.0)
         
         return x
     
@@ -314,9 +333,47 @@ class NaiveStimulusGenerator(StimulusGenerator):
     
     def _target_object(self, index=0):
         return self.target_color
-    
+
+
 
 EMPTY_PIXEL = np.array([255, 255, 255, 0], dtype=np.uint8)
+EMPTY_TENSOR_PIXEL = torch.tensor([1., 1., 1.], dtype=torch.float32).view(3, 1, 1)
+
+def find_non_empty_indices(X, empty_value=EMPTY_PIXEL, color_axis=2):
+    if isinstance(X, np.ndarray):
+        if not isinstance(empty_value, np.ndarray):
+            raise ValueError('Expected empty_value to be a numpy array when X is a numpy array')
+
+        empty_pixels = (X == empty_value).all(axis=color_axis)
+        non_empty_rows = ~(empty_pixels.all(axis=1))
+        non_empty_cols = ~(empty_pixels.all(axis=0))
+        
+        first_non_empty_row = non_empty_rows.argmax()
+        last_non_empty_row = non_empty_rows.shape[0] - non_empty_rows[::-1].argmax()
+
+        first_non_empty_col = non_empty_cols.argmax() 
+        last_non_empty_col = non_empty_cols.shape[0] - non_empty_cols[::-1].argmax()
+
+    elif isinstance(X, torch.Tensor):
+        if not isinstance(empty_value, torch.Tensor):
+            raise ValueError('Expected empty_value to be a torch tensor when X is a torch tensor')
+
+        empty_pixels = (X == empty_value).all(dim=color_axis)
+        non_empty_rows = (~(empty_pixels.all(dim=1))).double()  # torch doesn't support argmax for booleans
+        non_empty_cols = (~(empty_pixels.all(dim=0))).double()
+        
+        first_non_empty_row = non_empty_rows.argmax()
+        last_non_empty_row = non_empty_rows.shape[0] - non_empty_rows.flip(0).argmax()
+
+        first_non_empty_col = non_empty_cols.argmax() 
+        last_non_empty_col = non_empty_cols.shape[0] - non_empty_cols.flip(0).argmax()
+
+    else:
+        raise ValueError('Expected X to be a numpy array or a torch tensor')
+
+
+    return first_non_empty_row, last_non_empty_row, first_non_empty_col, last_non_empty_col
+
 
 class PatchStimulusGenerator(StimulusGenerator):
     def _patch_to_array(self, patch, size, xlim=None, ylim=None, fontsize=16):
@@ -371,32 +428,9 @@ class PatchStimulusGenerator(StimulusGenerator):
         return X_float_tensor / X_float_tensor.max()
 
     def trim_and_resize(self, X, size):
-        row_start = 0
-        for i in range(X.shape[0]):
-            if not np.all(X[i] == EMPTY_PIXEL):
-                row_start = i
-                break
-
-        row_end = X.shape[0]
-        for i in range(X.shape[0] - 1, 0, -1):
-            if not np.all(X[i] == EMPTY_PIXEL):
-                row_end = i
-                break
-
-        col_start = 0
-        for i in range(X.shape[1]):
-            if not np.all(X[:,i] == EMPTY_PIXEL):
-                col_start = i
-                break
-
-        col_end = X.shape[1]
-        for i in range(X.shape[1] - 1, 0, -1):
-            if not np.all(X[:,i] == EMPTY_PIXEL):
-                col_end = i
-                break
-                
+        first_non_empty_row, last_non_empty_row, first_non_empty_col, last_non_empty_col = find_non_empty_indices(X)
         # print(row_start, row_end, col_start, col_end)
-        X_trim = X[row_start:row_end + 1, col_start:col_end + 1, :]
+        X_trim = X[first_non_empty_row:last_non_empty_row, first_non_empty_col:last_non_empty_col, :]
         # plt.imshow(X_trim)
         # plt.show()
         X_resized = cv2.resize(X_trim, dsize=size[::-1])
