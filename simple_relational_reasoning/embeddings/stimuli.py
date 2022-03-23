@@ -95,7 +95,7 @@ def build_differet_shapes_stimulus_generator(target_size=DEFAULT_TARGET_SIZE, re
 
 
 def build_split_text_stimulus_generator(target_size=DEFAULT_TARGET_SIZE, 
-    reference_box_size=8, total_reference_size=(10, 140), n_reference_patches=7,
+    reference_box_size=10, total_reference_size=(10, 140), n_reference_patches=8,
     color=DEFAULT_COLOR, reference_patch_kwargs=None, rotate_angle=None, **kwargs):
 
     if kwargs:
@@ -105,7 +105,7 @@ def build_split_text_stimulus_generator(target_size=DEFAULT_TARGET_SIZE,
         reference_patch_kwargs = {}
 
     triangle_patch = matplotlib.patches.RegularPolygon((0, 0), 3, target_size // 2, color=color)
-    reference_patches = [matplotlib.patches.Rectangle(((-reference_box_size // 2) + (reference_box_size * 2 * i), 
+    reference_patches = [matplotlib.patches.Rectangle(((-reference_box_size // 2) + (reference_box_size * 2 * i) - (reference_box_size * (n_reference_patches - 1)), 
                                                    (-reference_box_size // 2)), 
                                                   reference_box_size, reference_box_size, color=color)
                          for i in range(n_reference_patches)]
@@ -145,7 +145,7 @@ STIMULUS_GENERATORS = {
 }
 
 
-DEFAULT_MIN_ROTATE_MARGIN = 2
+DEFAULT_MIN_ROTATE_MARGIN = 5
 
 class StimulusGenerator:
     def __init__(self, target_size, reference_size, rotate_angle=None, min_rotate_margin=DEFAULT_MIN_ROTATE_MARGIN, 
@@ -230,16 +230,6 @@ class StimulusGenerator:
                     left += last_non_empty_col - canvas_shape[1] + self.min_rotate_margin
 
                 x = crop_with_fill(x_rot, top, left, *canvas_shape, fill=1.0)
-                # I don't know why the crop function sometimes returns the wrong size
-                # and I don't particularly care to debug it
-                n_recrops = 0
-                while x.shape[1:] != canvas_shape:  
-                    pre_shape = x.shape
-                    x = crop_with_fill(x, 0, 0, *canvas_shape, fill=1.0)
-                    print(pre_shape, x.shape)
-                    n_recrops += 1
-                    if n_recrops > 10:
-                        raise ValueError('Infinite recropping loop')
 
         return x
     
@@ -431,6 +421,11 @@ class PatchStimulusGenerator(StimulusGenerator):
         # plt.show()
 
         X_resized = self.trim_and_resize(X, size)
+
+        # print(X_resized.shape, X_resized.dtype, X_resized[0, 0], size)
+        # plt.imshow(X_resized)
+        # plt.show()
+
         X_rgb = cv2.cvtColor(X_resized, cv2.COLOR_RGBA2RGB)
         if self.blur_func is not None:
             X_rgb = self.blur_func(X_rgb)
