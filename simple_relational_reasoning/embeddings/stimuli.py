@@ -166,6 +166,7 @@ class StimulusGenerator:
             reference_positions = [reference_positions]
         
         x = self._canvas()
+        canvas_shape = x.shape[1:]
         
         # reference first in case of overlap
         reference_centering = np.array([center_positions * s // 2 for s in self.reference_size])
@@ -186,15 +187,15 @@ class StimulusGenerator:
         if transpose_target:
             target = np.transpose(target, (0, 2, 1))
         
-        if (target_pos < 0).any() or ((target_pos + np.array(target.shape[1:])) > DEFAULT_CANVAS_SIZE[0]).any():
-            print(f'Target out of bounds: target: {target_pos}, centering: {target_centering}, references: {reference_positions}, angle: {self.rotate_angle} ')
+        # if (target_pos < 0).any() or ((target_pos + np.array(target.shape[1:])) > canvas_shape[0]).any():
+        #     print(f'Target out of bounds: target: {target_pos}, centering: {target_centering}, references: {reference_positions}, angle: {self.rotate_angle} ')
 
         x[:, target_pos[0]:target_pos[0] + target.shape[1],
              target_pos[1]:target_pos[1] + target.shape[2]] = target
 
         if self.rotate_angle is not None:
             if stimulus_centroid is None:
-                stimulus_centroid = np.array([s // 2 for s in x.shape[1:]], dtype=np.int)
+                stimulus_centroid = np.array([s // 2 for s in canvas_shape], dtype=np.int)
 
             x_stack = torch.stack((x, torch.ones_like(x)))
             x_stack[1, :, stimulus_centroid[0] - self.centroid_patch_size:stimulus_centroid[0] + self.centroid_patch_size + 1, 
@@ -203,7 +204,7 @@ class StimulusGenerator:
             x_stack_rot = transforms.functional.rotate(x_stack, self.rotate_angle, center=tuple(stimulus_centroid),
                 expand=True, fill=[1.0, 1.0, 1.0])
 
-            if x_stack_rot.shape[2:] == x.shape[1:]:
+            if x_stack_rot.shape[2:] == canvas_shape:
                 x = x_stack_rot[0]
             
             else:  # rotation changed shape, need to recenter
@@ -222,15 +223,23 @@ class StimulusGenerator:
                 first_non_empty_row, last_non_empty_row, first_non_empty_col, last_non_empty_col = find_non_empty_indices(x_rot, empty_value=EMPTY_TENSOR_PIXEL, color_axis=0)
                 
                 top = np.clip(top, 0, first_non_empty_row - self.min_rotate_margin)
-                if top + x.shape[1] < last_non_empty_row:
-                    top += last_non_empty_row - x.shape[1] + self.min_rotate_margin
+                if top + canvas_shape[0] < last_non_empty_row:
+                    top += last_non_empty_row - canvas_shape[1] + self.min_rotate_margin
                 
                 left = np.clip(left, 0, first_non_empty_col - self.min_rotate_margin)
-                if left + x.shape[2] < last_non_empty_col:
-                    left += last_non_empty_col - x.shape[2] + self.min_rotate_margin
+                if left + canvas_shape[1] < last_non_empty_col:
+                    left += last_non_empty_col - canvas_shape[1] + self.min_rotate_margin
 
-                x = crop_with_fill(x_rot, top, left, *x.shape[1:], fill=1.0)
-        
+                x = crop_with_fill(x_rot, top, left, *canvas_shape, fill=1.0)
+                # I don't know why the crop function sometimes returns the wrong size
+                # and I don't particularly care to debug it
+                n_recrops = 0
+                while x.shape[1:] != canvas_shape:  
+                    x = crop_with_fill(x, 0, 0, *canvas_shape, fill=1.0)
+                    n_recrops += 1
+                    if n_recrops > 10:
+                        raise ValueError('Infinite recropping loop')
+
         return x
     
     def __call__(self, target_position, reference_positions, transpose_target=False, stimulus_centroid=None) -> torch.Tensor:
