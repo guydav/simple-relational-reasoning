@@ -24,11 +24,10 @@ DEFAULT_REFERENCE_SIZE = (10, 100)
 DEFAULT_COLOR = 'black'
 DEFAULT_BLUR_FUNC = lambda x: cv2.blur(x, (5, 5))
 
-
 def crop_with_fill(img, top: int, left: int, height: int, width: int, fill: float):
     functional_tensor._assert_image_tensor(img)
 
-    h, w = functional_tensor.get_image_size(img)
+    w, h = functional_tensor.get_image_size(img)
     right = left + width
     bottom = top + height
 
@@ -235,7 +234,9 @@ class StimulusGenerator:
                 # and I don't particularly care to debug it
                 n_recrops = 0
                 while x.shape[1:] != canvas_shape:  
+                    pre_shape = x.shape
                     x = crop_with_fill(x, 0, 0, *canvas_shape, fill=1.0)
+                    print(pre_shape, x.shape)
                     n_recrops += 1
                     if n_recrops > 10:
                         raise ValueError('Infinite recropping loop')
