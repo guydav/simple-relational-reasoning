@@ -3,6 +3,7 @@ import argparse
 import copy
 import cProfile
 import itertools
+import matplotlib
 import os
 import sys
 from tqdm import tqdm, trange
@@ -20,6 +21,9 @@ from simple_relational_reasoning.embeddings.models import MODELS, FLIPPING_OPTIO
 from simple_relational_reasoning.embeddings.task import run_multiple_models_multiple_generators, BATCH_SIZE
 from simple_relational_reasoning.embeddings.tables import multiple_results_to_df
 
+matplotlib.rcParams['figure.dpi'] = 100
+matplotlib.rcParams['figure.edgecolor'] = (1, 1, 1, 0)
+matplotlib.rcParams['figure.facecolor'] = (1, 1, 1, 0)
 
 parser = argparse.ArgumentParser()
 
@@ -112,10 +116,7 @@ MULTIPLE_OPTION_REWRITE_FIELDS = list(MULTIPLE_OPTION_FIELD_DEFAULTS.keys())
 SINGLE_OPTION_FIELDS_TO_DF = ['seed', 'n_examples', 'extra_diagonal_margin']
 
 
-def create_triplet_generators(args, name_func_kwargs=None):
-    if name_func_kwargs is None:
-        name_func_kwargs = {}
-    
+def create_triplet_generators(args):
     triplet_generator_class = TRIPLET_GENERATORS[args.triplet_generator]
 
     triplet_generators = []
@@ -123,8 +124,8 @@ def create_triplet_generators(args, name_func_kwargs=None):
     for stimulus_generator_name in args.stimulus_generators:
         stimulus_generator_builder = STIMULUS_GENERATORS[stimulus_generator_name]        
         stimulus_generator = stimulus_generator_builder(**args.stimulus_generator_kwargs)
-
-        triplet_generator = triplet_generator_class(stimulus_generator,args.distance_endpoints,
+        
+        triplet_generator = triplet_generator_class(stimulus_generator, args.distance_endpoints,
             relation=args.relation, two_reference_objects=args.two_reference_objects, 
             adjacent_reference_objects=args.adjacent_reference_objects,
             n_target_types=args.n_target_types, transpose=args.transpose_stimuli,

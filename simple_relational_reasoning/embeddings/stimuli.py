@@ -336,7 +336,7 @@ class NaiveStimulusGenerator(StimulusGenerator):
 
 
 
-EMPTY_PIXEL = np.array([255, 255, 255, 0], dtype=np.uint8)
+EMPTY_PIXEL = np.array([255, 255, 255], dtype=np.uint8)
 EMPTY_TENSOR_PIXEL = torch.tensor([1., 1., 1.], dtype=torch.float32).view(3, 1, 1)
 
 def find_non_empty_indices(X, empty_value=EMPTY_PIXEL, color_axis=2):
@@ -344,7 +344,7 @@ def find_non_empty_indices(X, empty_value=EMPTY_PIXEL, color_axis=2):
         if not isinstance(empty_value, np.ndarray):
             raise ValueError('Expected empty_value to be a numpy array when X is a numpy array')
 
-        empty_pixels = (X == empty_value).all(axis=color_axis)
+        empty_pixels = (X[:, :, :-1] == empty_value).all(axis=color_axis)
         non_empty_rows = ~(empty_pixels.all(axis=1))
         non_empty_cols = ~(empty_pixels.all(axis=0))
         
@@ -427,8 +427,10 @@ class PatchStimulusGenerator(StimulusGenerator):
         # plt.show()
 
         X_rgb = cv2.cvtColor(X_resized, cv2.COLOR_RGBA2RGB)
+
         if self.blur_func is not None:
             X_rgb = self.blur_func(X_rgb)
+        
         X_float_tensor = torch.tensor(X_rgb, dtype=self.dtype).permute(2, 0, 1)
         return X_float_tensor / X_float_tensor.max()
 
@@ -449,7 +451,7 @@ class PatchStimulusGenerator(StimulusGenerator):
                  canvas_size=DEFAULT_CANVAS_SIZE, rotate_angle=None,
                  background_color='white', rng=None, cmap_max_color=256, function_n_target_types=5, dtype=torch.float32):
         super(PatchStimulusGenerator, self).__init__(target_size, reference_size, dtype)
-        
+
         if target_patch_kawrgs is None:
             target_patch_kawrgs = {}
             
