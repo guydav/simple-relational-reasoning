@@ -1,0 +1,6 @@
+,model_name,condition,acc_mean,acc_std,acc_sem,relation,two_reference_objects,adjacent_reference_objects,n_target_types,transpose_stimuli,n_habituation_stimuli,rotate_angle,seed,n_examples,extra_diagonal_margin
+0,resnext-saycam(S),split_text,0.994140625,0.07632196694612503,0.002385061467066407,above_below,0,0,1,0,1,,34,1024,0
+1,resnext-saycam(S),split_text,0.9794921875,0.141729474067688,0.00442904606461525,above_below,0,0,1,0,1,30,34,1024,0
+2,resnext-saycam(S),split_text,0.97265625,0.163083016872406,0.005096344277262688,above_below,0,0,1,0,1,45,34,1024,0
+3,resnext-saycam(S),split_text,0.8759765625,0.329608291387558,0.010300259105861187,above_below,0,0,1,0,1,60,34,1024,0
+4,resnext-saycam(S),split_text,1.0,0.0,0.0,above_below,0,0,1,0,4,,34,1024,0
