@@ -4,6 +4,8 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+        
+
         {
             "name": "Python: Current File",
             "type": "python",
@@ -14,14 +16,12 @@
             "args": [
                 "--triplet-generator", "quinn", 
                 "--stimulus-generators", "different_shapes", 
-                "--stimulus-generators", "split_text", 
                 "--stimulus-generators", "random_color", 
-                "--replications", "10", 
-                "--extra-diagonal-margin", "5",
+                "--stimulus-generators", "split_text", 
                 "--model", "mobilenet", 
-                "--model", "resnext", 
-                "--untrained", 
-                "--output-file", "embedding_outputs/untrained_models.csv", 
+                "--n-examples", "100",
+                "--imagenet", 
+                "--output-file", "embedding_outputs/debug.csv", 
                 "--tqdm"
             ]
         }
