@@ -3,9 +3,9 @@ python3.7 run/run_embeddings.py \
     --stimulus-generators "different_shapes" \
     --stimulus-generators "split_text" \
     --stimulus-generators "random_color" \
-    --model "mobilenet" \
-    --saycam "S"  \
+    --model "resnext" \
+    --flipping "h" \
+    --flipping "v" \
     --batch-size 32 \
-    --output-file "embedding_outputs/saycam_nan_test.csv" \
-    --tqdm \
-    --print-setting-options
+    --output-file "embedding_outputs/flipping_h_v.csv" \
+    --tqdm
