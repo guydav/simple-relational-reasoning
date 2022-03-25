@@ -11,6 +11,8 @@ from tqdm.notebook import tqdm
 
 from .models import build_model
 
+import os
+
 
 class Metric:
     def __init__(self, name, correct_index=0):
@@ -83,10 +85,7 @@ def quinn_embedding_task_single_generator(
     model, triplet_generator, metrics=METRICS, N=1024, batch_size=BATCH_SIZE, use_tqdm=False, device=None):
     
     if device is None:
-        if torch.cuda.is_available():
-            device = torch.device('cuda:0')
-        else:
-            device = 'cpu'
+        device = next(model.parameters()).device
 
     data = triplet_generator(N)
     B = batch_size
