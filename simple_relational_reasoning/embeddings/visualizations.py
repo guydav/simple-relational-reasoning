@@ -19,8 +19,6 @@ DEFAULT_BAR_KWARGS_BY_FIELD['n_target_types'] = {1: {'hatch': ''}, 2: {'hatch': 
 
 DEFAULT_BAR_KWARGS = dict(edgecolor='black')
 
-SHADE_BAR_KWARGS = dict(alpha=0.25)
-
 DEFAULT_TEXT_KWARGS = dict(fontsize=16)
 
 DEFAULT_YLIM = (0, 1.05)
@@ -201,9 +199,11 @@ def create_bar_chart(df, filter_dict, group_by_fields,
     minor_group_length = np.product([len(values) for values in minor_group_values_list])
     x_tick_locations = np.arange(len(major_group_values)) * (bar_spacing + bar_width * minor_group_length) +\
                         bar_width * (minor_group_length / 2 - 0.5)
+    
     xtick_text_kwargs = text_kwargs.copy()
     if len(major_group_values) > 4:
         xtick_text_kwargs['fontsize'] -= 4
+        
     ax.set_xticks(x_tick_locations)
     ax.set_xticklabels([plot_prettify(val) for val in major_group_values], fontdict=xtick_text_kwargs)
     ax.tick_params(axis='both', which='major', labelsize=text_kwargs['fontsize'] - 4)
