@@ -9,7 +9,7 @@ from collections import defaultdict
 
 DEFAULT_ORDERS = {
     'model_name': ['mobilenet', 'resnext'],
-    'dataset': ['saycam', 'imagenet', 'random']
+    'training' : ['saycam(S)', 'random', 'ImageNet']
 }
 DEFAULT_COLORMAP = plt.get_cmap('Dark2')
 DEFAULT_BAR_KWARGS_BY_FIELD = defaultdict(lambda: defaultdict(dict))
@@ -27,10 +27,17 @@ DEFAULT_YLIM = (0, 1.05)
 PLOT_PRETTY_NAMES = {
     'mobilenet': 'MobileNetV2',
     'resnext': 'ResNeXt',
+    'random': 'Untrained',
     'saycam': 'SAYcam',
+    'saycam(S)': 'SAYcam',
     'imagenet': 'ImageNet',
+    'Imagenet': 'ImageNet',
     1: 'Same Target',
-    2: 'Different Targets'
+    2: 'Different Targets',
+    's': 'Neither',
+    'v': 'Vertical',
+    'h': 'Horizontal',
+    'hv': 'Both',
 }
 
 
@@ -85,7 +92,7 @@ def plot_prettify(text):
         return PLOT_PRETTY_NAMES[text]
     
     for key in PLOT_PRETTY_NAMES:
-        if str(key) in text:
+        if isinstance(key, str) and key in text:
             return PLOT_PRETTY_NAMES[key]
 
     return text.lower().replace('_', ' ').title()
@@ -104,6 +111,10 @@ def filter_and_group(df, filter_dict, group_by_fields,
                 filtered_df = filtered_df[filtered_df[filter_name].isin(filter_value)]
                 if filter_name in orders:
                     orders[filter_name] = list(filter(lambda v: v in filter_value, orders[filter_name]))
+
+            elif filter_value is None:
+                filtered_df = filtered_df[filtered_df[filter_name].isnull()]
+            
             else:
                 filtered_df = filtered_df[filtered_df[filter_name].eq(filter_value)]
             
