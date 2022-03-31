@@ -107,7 +107,7 @@ MULTIPLE_OPTION_FIELD_DEFAULTS = {
     'two_reference_objects': [0, 1],
     'adjacent_reference_objects': [0, 1],
     'n_target_types': [1, 2],
-    'n_habituation_stimuli': [1, 4,],
+    'n_habituation_stimuli': [1, 4],
     'rotate_angle': [0, 30, 45, 60, 90, 120, 135, 150],
 }
 MULTIPLE_OPTION_REWRITE_FIELDS = list(MULTIPLE_OPTION_FIELD_DEFAULTS.keys())
