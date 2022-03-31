@@ -96,8 +96,6 @@ class QuinnTripletGenerator(TripletGenerator):
         self.n_habituation_stimuli = n_habituation_stimuli
         self.multiple_habituation_radius = multiple_habituation_radius
 
-        self.centroids = []
-
         self.reference_width = self.stimulus_generator.reference_size[1]
         self.reference_height = self.stimulus_generator.reference_size[0]
         self.target_width = self.stimulus_generator.target_size[1]
@@ -234,8 +232,6 @@ class QuinnTripletGenerator(TripletGenerator):
             target_indices = self.rng.choice(np.arange(self.stimulus_generator.n_target_types),
                 size=3, replace=False)
             target_indices = [target_indices[0]] * self.n_habituation_stimuli + target_indices[1:]
-
-        self.centroids.append(stimulus_centroid_position)
 
         return self.stimulus_generator.batch_generate(target_positions, 
                                                       reference_positions, 

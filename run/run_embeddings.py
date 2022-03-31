@@ -2,6 +2,7 @@
 import argparse
 import copy
 import cProfile
+from guppy import hpy
 import itertools
 import matplotlib
 import os
@@ -100,6 +101,8 @@ parser.add_argument('-b', '--batch-size', type=int, default=BATCH_SIZE, help='Ba
 parser.add_argument('--profile', action='store_true', help='Profile')
 parser.add_argument('--profile-output', default='/home/gd1279/scratch/profile/embeddings_profile')
 
+parser.add_argument('--memory-profile', action='store_true', help='Profile memory usage')
+
 parser.add_argument('--print-setting-options', action='store_true')
 
 MULTIPLE_OPTION_FIELD_DEFAULTS = {
@@ -186,7 +189,6 @@ def handle_single_args_setting(args):
 
                 model_names.append(f'{model_name}-DINO-{dino}')
 
-
     var_args['stimulus_generator_kwargs'] = {s.split('=')[0]: s.split('=')[1] for s in args.stimulus_generator_kwargs}
 
     all_model_results = []
@@ -207,10 +209,29 @@ def handle_single_args_setting(args):
             model_names, model_kwarg_dicts, args.stimulus_generators, 
             triplet_generators, args.n_examples, args.batch_size))
 
+        del triplet_generators
+
+
     result_df = multiple_results_to_df(all_model_results, N=args.n_examples)
 
     for key in MULTIPLE_OPTION_REWRITE_FIELDS + SINGLE_OPTION_FIELDS_TO_DF:
         result_df[key] = var_args[key]
+
+    if args.memory_profile:
+        hp = heap.heap()
+        print(hp)
+        print(hp.byrcs)
+        print('By CLODO:')
+        print(hp.byrcs[0].byclodo)
+        print()
+        print('By size:')
+        print(hp.byrcs[0].bysize)
+        print()
+        print('By ID:')
+        print(hp.byrcs[0].byid)
+        print()
+        # import ipdb; ipdb.set_trace()
+        
 
     return result_df
 
@@ -219,6 +240,11 @@ if __name__ == '__main__':
     main_args = parser.parse_args()
     main_args = handle_multiple_option_defaults(main_args)
     main_var_args = vars(main_args)
+
+    heap = None
+    if main_args.memory_profile:
+        heap = hpy()
+        heap.setrelheap()
 
     if main_args.device is not None:
         main_args.device = torch.device(main_args.device)
