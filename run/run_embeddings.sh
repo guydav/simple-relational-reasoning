@@ -3,9 +3,10 @@ python3.7 run/run_embeddings.py \
     --stimulus-generators "different_shapes" \
     --stimulus-generators "split_text" \
     --stimulus-generators "random_color" \
+    --model "mobilenet" \
     --model "resnext" \
-    --flipping "h" \
-    --flipping "v" \
+    --saycam "S" \
     --batch-size 32 \
-    --output-file "embedding_outputs/flipping_h_v.csv" \
+    --output-file "embedding_outputs/baseline_saycam.csv" \
+    --memory-profile \
     --tqdm
