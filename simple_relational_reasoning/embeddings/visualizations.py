@@ -38,6 +38,7 @@ PLOT_PRETTY_NAMES = {
     'v': 'Vertical',
     'h': 'Horizontal',
     'hv': 'Both',
+    'effective_angle': 'Stimulus Angle',
 }
 
 
@@ -86,6 +87,9 @@ def plot_prettify(text):
     if isinstance(text, int) and text > 1000:
         return f'{text // 1000}k ($2^{{ {int(np.log2(text))} }}$)'
     
+    if text in PLOT_PRETTY_NAMES:
+        return PLOT_PRETTY_NAMES[text]
+
     text = str(text)
     
     if text in PLOT_PRETTY_NAMES:

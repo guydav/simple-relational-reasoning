@@ -192,7 +192,7 @@ class StimulusGenerator:
         x[:, target_pos[0]:target_pos[0] + target.shape[1],
              target_pos[1]:target_pos[1] + target.shape[2]] = target
 
-        if self.rotate_angle is not None:
+        if self.rotate_angle is not None and self.rotate_angle != 0:
             if stimulus_centroid is None:
                 stimulus_centroid = np.array([s // 2 for s in canvas_shape], dtype=np.int)
 
