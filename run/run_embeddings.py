@@ -58,8 +58,8 @@ parser.add_argument('--two-reference-objects', type=int, default=DEFAULT_TWO_REF
 DEFAULT_ADJACENT_REFERENCE_OBJECTS = None
 parser.add_argument('--adjacent-reference-objects', type=int, default=DEFAULT_ADJACENT_REFERENCE_OBJECTS)
 
-DEFAULT_TRANSPOSE = None
-parser.add_argument('--transpose-stimuli', type=int, default=DEFAULT_TRANSPOSE)
+DEFAULT_TRANSPOSE = False
+parser.add_argument('--transpose-stimuli', type=bool, default=DEFAULT_TRANSPOSE)
 
 DEFAULT_N_TARGET_TYPES = None
 VALID_N_TARGET_TYPES = list(range(1, 4))
@@ -107,9 +107,8 @@ MULTIPLE_OPTION_FIELD_DEFAULTS = {
     'two_reference_objects': [0, 1],
     'adjacent_reference_objects': [0, 1],
     'n_target_types': [1, 2],
-    'transpose_stimuli': [0, 1],
     'n_habituation_stimuli': [1, 4,],
-    'rotate_angle': [None, 30, 45, 60],
+    'rotate_angle': [0, 30, 45, 60, 90, 120, 135, 150],
 }
 MULTIPLE_OPTION_REWRITE_FIELDS = list(MULTIPLE_OPTION_FIELD_DEFAULTS.keys())
 
