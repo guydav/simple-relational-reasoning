@@ -7,6 +7,7 @@ python3.7 run/run_embeddings.py \
     --model "resnext" \
     --saycam "S" \
     --batch-size 32 \
-    --output-file "embedding_outputs/baseline_saycam.csv" \
-    --memory-profile \
+    --n-habituation-stimuli 4 \
+    --output-file "embedding_outputs/baseline_saycam_4_habituation.csv" \
+    --print-setting-options \
     --tqdm

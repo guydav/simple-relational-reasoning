@@ -149,13 +149,14 @@ DEFAULT_MIN_ROTATE_MARGIN = 5
 
 class StimulusGenerator:
     def __init__(self, target_size, reference_size, rotate_angle=None, min_rotate_margin=DEFAULT_MIN_ROTATE_MARGIN, 
-        centroid_patch_size=1, centroid_marker_value=0,  dtype=torch.float32):
+        centroid_patch_size=2, centroid_marker_value=0,  dtype=torch.float32):
         self.target_size = target_size
         self.reference_size = reference_size
         self.rotate_angle = rotate_angle
         self.min_rotate_margin = min_rotate_margin
         self.centroid_patch_size = centroid_patch_size
         self.centroid_marker_value = centroid_marker_value
+        self.centroid_marker_value_tensor = torch.tensor(self.centroid_marker_value, dtype=dtype)
         self.dtype = dtype
         self.n_target_types = 1
     
@@ -208,10 +209,15 @@ class StimulusGenerator:
             
             else:  # rotation changed shape, need to recenter
                 x_centroid = x_stack_rot[1]
-                new_centroid_mask = (x_centroid == self.centroid_marker_value).all(axis=0)
+                new_centroid_mask = torch.isclose(x_centroid, self.centroid_marker_value_tensor).all(axis=0)
                 new_centroid = new_centroid_mask.nonzero().squeeze().numpy()
                 if len(new_centroid.shape) > 1:
+                    if any([s == 0 for s in new_centroid.shape]):
+                        print(f'Empty centroid dimension: {new_centroid.shape}, {new_centroid}')
+                    
                     new_centroid = new_centroid.mean(0).astype(np.int)
+                    if any([s == 0 for s in new_centroid.shape]):
+                        print(new_centroid)
 
                 # check if this would override bounds, and if it does, min/max it
                 x_rot = x_stack_rot[0]
