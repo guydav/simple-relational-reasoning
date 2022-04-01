@@ -66,7 +66,7 @@ DEFAULT_N_TARGET_TYPES = None
 VALID_N_TARGET_TYPES = list(range(1, 4))
 parser.add_argument('--n-target-types', type=int, default=DEFAULT_N_TARGET_TYPES, choices=VALID_N_TARGET_TYPES)
 
-parser.add_argument('--n-habituation_stimuli', type=int, default=None, help='Number of habituation stimuli')
+parser.add_argument('--n-habituation-stimuli', type=int, default=None, help='Number of habituation stimuli')
 
 parser.add_argument('--multiple-habituation-radius', type=int, default=DEFAULT_MULTIPLE_HABITUATION_RADIUS, 
     help='Radius to place multiple habituation stimuli in')
@@ -221,15 +221,15 @@ def handle_single_args_setting(args):
         hp = heap.heap()
         print(hp)
         print(hp.byrcs)
-        print('By CLODO:')
-        print(hp.byrcs[0].byclodo)
-        print()
-        print('By size:')
-        print(hp.byrcs[0].bysize)
-        print()
-        print('By ID:')
-        print(hp.byrcs[0].byid)
-        print()
+        # print('By CLODO:')
+        # print(hp.byrcs[0].byclodo)
+        # print()
+        # print('By size:')
+        # print(hp.byrcs[0].bysize)
+        # print()
+        # print('By ID:')
+        # print(hp.byrcs[0].byid)
+        # print()
         # import ipdb; ipdb.set_trace()
         
 
