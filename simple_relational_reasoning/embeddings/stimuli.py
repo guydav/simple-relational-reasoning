@@ -146,10 +146,13 @@ STIMULUS_GENERATORS = {
 
 
 DEFAULT_MIN_ROTATE_MARGIN = 5
+DEFAULT_CENTROID_PATCH_SIZE = 2
+DEFAULT_ROTATE_PADDING = 100
 
 class StimulusGenerator:
     def __init__(self, target_size, reference_size, rotate_angle=None, min_rotate_margin=DEFAULT_MIN_ROTATE_MARGIN, 
-        centroid_patch_size=2, centroid_marker_value=0,  dtype=torch.float32):
+        centroid_patch_size=DEFAULT_CENTROID_PATCH_SIZE, centroid_marker_value=0, 
+        rotate_padding=DEFAULT_ROTATE_PADDING, dtype=torch.float32):
         self.target_size = target_size
         self.reference_size = reference_size
         self.rotate_angle = rotate_angle
@@ -157,6 +160,7 @@ class StimulusGenerator:
         self.centroid_patch_size = centroid_patch_size
         self.centroid_marker_value = centroid_marker_value
         self.centroid_marker_value_tensor = torch.tensor(self.centroid_marker_value, dtype=dtype)
+        self.rotate_padding = rotate_padding
         self.dtype = dtype
         self.n_target_types = 1
     
@@ -201,41 +205,77 @@ class StimulusGenerator:
             x_stack[1, :, stimulus_centroid[0] - self.centroid_patch_size:stimulus_centroid[0] + self.centroid_patch_size + 1, 
                 stimulus_centroid[1] - self.centroid_patch_size:stimulus_centroid[1] + self.centroid_patch_size + 1] = self.centroid_marker_value
 
-            x_stack_rot = transforms.functional.rotate(x_stack, self.rotate_angle, center=tuple(stimulus_centroid),
-                expand=True, fill=[1.0, 1.0, 1.0])
+            x_stack_pad = torch.ones(x_stack.shape[0], x_stack.shape[1], 
+                x_stack.shape[2] + 2 * self.rotate_padding, x_stack.shape[3] + 2 * self.rotate_padding, dtype=self.dtype)
 
-            if x_stack_rot.shape[2:] == canvas_shape:
-                x = x_stack_rot[0]
+            x_stack_pad[:, :, self.rotate_padding:-self.rotate_padding, self.rotate_padding:-self.rotate_padding] =  x_stack
+
+            x_stack_pad_rot = transforms.functional.rotate(x_stack_pad, self.rotate_angle, fill=[1.0, 1.0, 1.0])
+
+            x_centroid = x_stack_pad_rot[1]
+            new_centroid_mask = torch.isclose(x_centroid, self.centroid_marker_value_tensor).all(axis=0)
+            new_centroid = new_centroid_mask.nonzero().squeeze().numpy()
+            if len(new_centroid.shape) > 1:
+                if any([s == 0 for s in new_centroid.shape]):
+                    print(f'Empty centroid dimension: {new_centroid.shape}, {new_centroid}')
+                
+                new_centroid = new_centroid.mean(0).astype(np.int)
+                if any([s == 0 for s in new_centroid.shape]):
+                    print(new_centroid)
+
+            # check if this would override bounds, and if it does, min/max it
+            x_rot = x_stack_pad_rot[0]
+            top, left = new_centroid - stimulus_centroid 
+            # top = np.clip(top, 0, x_rot.shape[1] - x.shape[1])
+            # left = np.clip(left, 0, x_rot.shape[2] - x.shape[2])
+            # check if this would leave any filled indices outside the canvas
+            first_non_empty_row, last_non_empty_row, first_non_empty_col, last_non_empty_col = find_non_empty_indices(x_rot, empty_value=EMPTY_TENSOR_PIXEL, color_axis=0)
             
-            else:  # rotation changed shape, need to recenter
-                x_centroid = x_stack_rot[1]
-                new_centroid_mask = torch.isclose(x_centroid, self.centroid_marker_value_tensor).all(axis=0)
-                new_centroid = new_centroid_mask.nonzero().squeeze().numpy()
-                if len(new_centroid.shape) > 1:
-                    if any([s == 0 for s in new_centroid.shape]):
-                        print(f'Empty centroid dimension: {new_centroid.shape}, {new_centroid}')
+            top = np.clip(top, 0, first_non_empty_row.item() - self.min_rotate_margin)
+            if top + canvas_shape[0] < last_non_empty_row:
+                top += last_non_empty_row - canvas_shape[1] + self.min_rotate_margin
+            
+            left = np.clip(left, 0, first_non_empty_col.item() - self.min_rotate_margin)
+            if left + canvas_shape[1] < last_non_empty_col:
+                left += last_non_empty_col - canvas_shape[1] + self.min_rotate_margin
+
+            x = crop_with_fill(x_rot, top, left, *canvas_shape, fill=1.0)
+
+            # x_stack_rot = transforms.functional.rotate(x_stack, self.rotate_angle, # center=tuple(stimulus_centroid),
+            #     expand=True, fill=[1.0, 1.0, 1.0])
+
+            # if x_stack_rot.shape[2:] == canvas_shape:
+            #     x = x_stack_rot[0]
+            
+            # else:  # rotation changed shape, need to recenter
+            #     x_centroid = x_stack_rot[1]
+            #     new_centroid_mask = torch.isclose(x_centroid, self.centroid_marker_value_tensor).all(axis=0)
+            #     new_centroid = new_centroid_mask.nonzero().squeeze().numpy()
+            #     if len(new_centroid.shape) > 1:
+            #         if any([s == 0 for s in new_centroid.shape]):
+            #             print(f'Empty centroid dimension: {new_centroid.shape}, {new_centroid}')
                     
-                    new_centroid = new_centroid.mean(0).astype(np.int)
-                    if any([s == 0 for s in new_centroid.shape]):
-                        print(new_centroid)
+            #         new_centroid = new_centroid.mean(0).astype(np.int)
+            #         if any([s == 0 for s in new_centroid.shape]):
+            #             print(new_centroid)
 
-                # check if this would override bounds, and if it does, min/max it
-                x_rot = x_stack_rot[0]
-                top, left = new_centroid - stimulus_centroid
-                # top = np.clip(top, 0, x_rot.shape[1] - x.shape[1])
-                # left = np.clip(left, 0, x_rot.shape[2] - x.shape[2])
-                # check if this would leave any filled indices outside the canvas
-                first_non_empty_row, last_non_empty_row, first_non_empty_col, last_non_empty_col = find_non_empty_indices(x_rot, empty_value=EMPTY_TENSOR_PIXEL, color_axis=0)
+            #     # check if this would override bounds, and if it does, min/max it
+            #     x_rot = x_stack_rot[0]
+            #     top, left = new_centroid - stimulus_centroid
+            #     # top = np.clip(top, 0, x_rot.shape[1] - x.shape[1])
+            #     # left = np.clip(left, 0, x_rot.shape[2] - x.shape[2])
+            #     # check if this would leave any filled indices outside the canvas
+            #     first_non_empty_row, last_non_empty_row, first_non_empty_col, last_non_empty_col = find_non_empty_indices(x_rot, empty_value=EMPTY_TENSOR_PIXEL, color_axis=0)
                 
-                top = np.clip(top, 0, first_non_empty_row - self.min_rotate_margin)
-                if top + canvas_shape[0] < last_non_empty_row:
-                    top += last_non_empty_row - canvas_shape[1] + self.min_rotate_margin
+            #     top = np.clip(top, 0, first_non_empty_row - self.min_rotate_margin)
+            #     if top + canvas_shape[0] < last_non_empty_row:
+            #         top += last_non_empty_row - canvas_shape[1] + self.min_rotate_margin
                 
-                left = np.clip(left, 0, first_non_empty_col - self.min_rotate_margin)
-                if left + canvas_shape[1] < last_non_empty_col:
-                    left += last_non_empty_col - canvas_shape[1] + self.min_rotate_margin
+            #     left = np.clip(left, 0, first_non_empty_col - self.min_rotate_margin)
+            #     if left + canvas_shape[1] < last_non_empty_col:
+            #         left += last_non_empty_col - canvas_shape[1] + self.min_rotate_margin
 
-                x = crop_with_fill(x_rot, top, left, *canvas_shape, fill=1.0)
+            #     x = crop_with_fill(x_rot, top, left, *canvas_shape, fill=1.0)
 
         return x
     
