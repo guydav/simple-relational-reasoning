@@ -3,11 +3,8 @@ python3.7 run/run_embeddings.py \
     --stimulus-generators "different_shapes" \
     --stimulus-generators "split_text" \
     --stimulus-generators "random_color" \
-    --model "mobilenet" \
     --model "resnext" \
-    --saycam "S" \
-    --batch-size 32 \
-    --n-habituation-stimuli 4 \
-    --output-file "embedding_outputs/baseline_saycam_4_habituation.csv" \
-    --print-setting-options \
+    --flipping "s" \
+    --batch-size 8 \
+    --output-file "embedding_outputs/flippiing_s.csv" \
     --tqdm
