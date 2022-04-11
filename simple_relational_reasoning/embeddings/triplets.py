@@ -76,7 +76,7 @@ class QuinnTripletGenerator(TripletGenerator):
                  extra_diagonal_margin=0,
                  n_habituation_stimuli=1,
                  multiple_habituation_radius=DEFAULT_MULTIPLE_HABITUATION_RADIUS,
-                 seed=DEFAULT_RANDOM_SEED, use_tqdm=False):
+                 seed=DEFAULT_RANDOM_SEED, use_tqdm=False, track_centroids=False):
         super(QuinnTripletGenerator, self).__init__(
             stimulus_generator=stimulus_generator, relation=relation,
             two_reference_objects=two_reference_objects,
@@ -100,6 +100,10 @@ class QuinnTripletGenerator(TripletGenerator):
         self.reference_height = self.stimulus_generator.reference_size[0]
         self.target_width = self.stimulus_generator.target_size[1]
         self.target_height = self.stimulus_generator.target_size[0]
+
+        self.track_centroids = track_centroids
+        if self.track_centroids:
+            self.stimulus_centroids = []
     
     def generate_single_triplet(self, normalize=True):
         distance_endpoints = self.distance_endpoints
@@ -128,9 +132,9 @@ class QuinnTripletGenerator(TripletGenerator):
             min_vertical_margin = half_target_distance + (self.reference_height // 2) + 3
 
         # account for wonkiness in rotation stimuli and ending out of frame
-        if self.extra_diagonal_margin and self.stimulus_generator.rotate_angle is not None:
-            angle_sin = np.sin(np.deg2rad(self.stimulus_generator.rotate_angle))
-            min_vertical_margin += self.extra_diagonal_margin * angle_sin
+        # if self.extra_diagonal_margin and self.stimulus_generator.rotate_angle is not None:
+        #     angle_sin = np.sin(np.deg2rad(self.stimulus_generator.rotate_angle))
+        #     min_vertical_margin += self.extra_diagonal_margin * angle_sin
             # min_horizontal_margin = self.extra_diagonal_margin * angle_sin / 2
 
         # account for the multuiple habituation stimuli radius 
@@ -140,6 +144,7 @@ class QuinnTripletGenerator(TripletGenerator):
 
         vertical_margin = max(min_vertical_margin, self.vertical_margin)
         horizontal_margin = max(min_horizontal_margin, self.horizontal_margin)
+        vertical_margin = horizontal_margin = max(vertical_margin, horizontal_margin)
 
         stimulus_centroid_position = np.array(
             (self.rng.integers(vertical_margin, self.stimulus_generator.canvas_size[0] - vertical_margin),
@@ -232,6 +237,9 @@ class QuinnTripletGenerator(TripletGenerator):
             target_indices = self.rng.choice(np.arange(self.stimulus_generator.n_target_types),
                 size=3, replace=False)
             target_indices = [target_indices[0]] * self.n_habituation_stimuli + target_indices[1:]
+
+        if self.track_centroids:
+            self.stimulus_centroids.append(stimulus_centroid_position)
 
         return self.stimulus_generator.batch_generate(target_positions, 
                                                       reference_positions, 

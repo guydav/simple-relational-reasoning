@@ -41,6 +41,13 @@ PLOT_PRETTY_NAMES = {
     'effective_angle': 'Stimulus Angle',
 }
 
+PLOT_PRETTY_NAMES_BY_FIELD = {
+    'n_habituation_stimuli': {
+        1: 'One habituation stimulus',
+        4: 'Four habituation stimuli',
+    }
+}
+
 
 FIGURE_TEMPLATE = r'''\begin{{figure}}[!htb]
 % \vspace{{-0.225in}}
@@ -83,9 +90,13 @@ def save_plot(save_path, bbox_inches='tight', should_print=False):
         plt.savefig(save_path, bbox_inches=bbox_inches, facecolor=plt.gcf().get_facecolor(), edgecolor='none')
 
 
-def plot_prettify(text):
+def plot_prettify(text, field_name=None):
     if isinstance(text, int) and text > 1000:
         return f'{text // 1000}k ($2^{{ {int(np.log2(text))} }}$)'
+
+    if field_name is not None and field_name in PLOT_PRETTY_NAMES_BY_FIELD:
+        if text in PLOT_PRETTY_NAMES_BY_FIELD[field_name]:
+            return PLOT_PRETTY_NAMES_BY_FIELD[field_name][text]
     
     if text in PLOT_PRETTY_NAMES:
         return PLOT_PRETTY_NAMES[text]
