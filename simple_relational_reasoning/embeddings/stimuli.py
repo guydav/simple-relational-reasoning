@@ -232,12 +232,12 @@ class StimulusGenerator:
             first_non_empty_row, last_non_empty_row, first_non_empty_col, last_non_empty_col = find_non_empty_indices(x_rot, empty_value=EMPTY_TENSOR_PIXEL, color_axis=0)
             
             top = np.clip(top, 0, first_non_empty_row.item() - self.min_rotate_margin)
-            if top + canvas_shape[0] < last_non_empty_row:
-                top += last_non_empty_row - canvas_shape[1] + self.min_rotate_margin
+            if top + canvas_shape[0] < last_non_empty_row + self.min_rotate_margin:
+                top = last_non_empty_row + self.min_rotate_margin - canvas_shape[1] 
             
             left = np.clip(left, 0, first_non_empty_col.item() - self.min_rotate_margin)
-            if left + canvas_shape[1] < last_non_empty_col:
-                left += last_non_empty_col - canvas_shape[1] + self.min_rotate_margin
+            if left + canvas_shape[1] < last_non_empty_col + self.min_rotate_margin:
+                left = last_non_empty_col + self.min_rotate_margin - canvas_shape[1] 
 
             x = crop_with_fill(x_rot, top, left, *canvas_shape, fill=1.0)
 
