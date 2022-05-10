@@ -74,6 +74,7 @@ class QuinnTripletGenerator(TripletGenerator):
                  n_target_types=1, transpose=False,
                  vertical_margin=0, horizontal_margin=0,
                  extra_diagonal_margin=0,
+                 margin_buffer=2,
                  n_habituation_stimuli=1,
                  multiple_habituation_radius=DEFAULT_MULTIPLE_HABITUATION_RADIUS,
                  seed=DEFAULT_RANDOM_SEED, use_tqdm=False, track_centroids=False):
@@ -93,6 +94,7 @@ class QuinnTripletGenerator(TripletGenerator):
         self.pair_above = pair_above
         self.two_objects_left = two_objects_left
         self.extra_diagonal_margin = extra_diagonal_margin
+        self.margin_buffer = margin_buffer
         self.n_habituation_stimuli = n_habituation_stimuli
         self.multiple_habituation_radius = multiple_habituation_radius
 
@@ -120,16 +122,22 @@ class QuinnTripletGenerator(TripletGenerator):
             elif self.relation == BETWEEN_RELATION:
                 inter_reference_distance = target_distance
             else: # self.relation == ABOVE_BELOW_RELATION
-                inter_reference_distance = half_target_distance
+                max_inter_reference_distance = target_distance - (self.reference_height + self.target_height + self.margin_buffer * 4)
+                if half_target_distance >= max_inter_reference_distance:
+                    inter_reference_distance = max_inter_reference_distance
+                else:
+                    inter_reference_distance = self.rng.integers(half_target_distance, max_inter_reference_distance)
+            # else:  # Same distance in above/below and between
+            #     inter_reference_distance = target_distance
 
         # compute the margins
-        min_horizontal_margin = self.stimulus_generator.reference_size[1] // 2 + 3
+        min_horizontal_margin = self.stimulus_generator.reference_size[1] // 2 + self.margin_buffer
 
         if self.relation == BETWEEN_RELATION:
-            min_vertical_margin = target_distance + (self.reference_height // 2) + 3
+            min_vertical_margin = target_distance + (self.target_height // 2) + self.margin_buffer
             
         else:  # self.relation == ABOVE_BELOW_RELATION:
-            min_vertical_margin = half_target_distance + (self.reference_height // 2) + 3
+            min_vertical_margin = half_target_distance + (self.target_height // 2) + self.margin_buffer
 
         # account for wonkiness in rotation stimuli and ending out of frame
         # if self.extra_diagonal_margin and self.stimulus_generator.rotate_angle is not None:
@@ -141,6 +149,8 @@ class QuinnTripletGenerator(TripletGenerator):
         if self.n_habituation_stimuli > 1:
             min_vertical_margin += self.multiple_habituation_radius
             min_horizontal_margin += self.multiple_habituation_radius
+
+        # print('Margins:', min_vertical_margin, self.vertical_margin, min_horizontal_margin, self.horizontal_margin)
 
         vertical_margin = max(min_vertical_margin, self.vertical_margin)
         horizontal_margin = max(min_horizontal_margin, self.horizontal_margin)

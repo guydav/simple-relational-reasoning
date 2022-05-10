@@ -20,7 +20,7 @@ NORMALIZE = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225])
 
 DEFAULT_TARGET_SIZE = 15
-DEFAULT_REFERENCE_SIZE = (10, 100)
+DEFAULT_REFERENCE_SIZE = (10, 140)
 DEFAULT_COLOR = 'black'
 DEFAULT_BLUR_FUNC = lambda x: cv2.blur(x, (5, 5))
 
@@ -85,7 +85,10 @@ def build_differet_shapes_stimulus_generator(target_size=DEFAULT_TARGET_SIZE, re
         print('Ignoring kwargs: {}'.format(kwargs))
 
     circle_patch = matplotlib.patches.Circle((0, 0), target_size // 2, color=color)
-    square_patch = matplotlib.patches.Rectangle((-target_size // 2, -target_size // 2), target_size, target_size, color=color)
+    square_patch = matplotlib.patches.Rectangle(
+        # (-target_size // 2, -target_size // 2), 
+        (0, -target_size // (2 ** 0.5)), 
+        target_size, target_size, angle=45, color=color)
     triangle_patch = matplotlib.patches.RegularPolygon((0, 0), 3, target_size // 2, color=color)
     reference_patch = matplotlib.patches.Ellipse((0, 0), width=reference_size[1], 
                                                 height=reference_size[0], color=color)
@@ -461,6 +464,11 @@ class PatchStimulusGenerator(StimulusGenerator):
         canvas.draw()
         # grab the pixel buffer and dump it into a numpy array
         X = np.array(canvas.renderer.buffer_rgba())
+
+        # if self.blur_func is not None:
+        #     X = self.blur_func(X)
+        #     if not np.issubdtype(X.dtype, np.int):
+        #         X = (X * 255).astype(np.uint8)
         
         # print(X.shape, X.dtype, X[0, 0], size)
         # plt.imshow(X)
