@@ -39,7 +39,7 @@ def crop_with_fill(img, top: int, left: int, height: int, width: int, fill: floa
 
 def build_colored_target_black_reference_stimulus_generator(
     target_size=DEFAULT_TARGET_SIZE, reference_size=DEFAULT_REFERENCE_SIZE, target_colors=['blue', 'green', 'red'], 
-    reference_color=DEFAULT_COLOR, blur_func=DEFAULT_BLUR_FUNC, rotate_angle=None, **kwargs):
+    reference_color=DEFAULT_COLOR, blur_func=DEFAULT_BLUR_FUNC, rotate_angle=None, rng=None, **kwargs):
 
     if kwargs:
         print('Ignoring kwargs: {}'.format(kwargs))
@@ -48,12 +48,13 @@ def build_colored_target_black_reference_stimulus_generator(
     reference_patch = matplotlib.patches.Ellipse((0, 0), width=reference_size[1], 
                                                  height=reference_size[0], color=reference_color)
                                                     
-    return PatchStimulusGenerator(target_size, reference_size, target_patches, reference_patch, rotate_angle=rotate_angle, blur_func=blur_func)
+    return PatchStimulusGenerator(target_size, reference_size, target_patches, 
+        reference_patch, rotate_angle=rotate_angle, blur_func=blur_func, rng=rng)
 
 
 def build_dot_and_bar_stimulus_generator(
     target_size=DEFAULT_TARGET_SIZE, reference_size=DEFAULT_REFERENCE_SIZE, 
-    color=DEFAULT_COLOR, rotate_angle=None, **kwargs):
+    color=DEFAULT_COLOR, rotate_angle=None, rng=None, **kwargs):
 
     if kwargs:
         print('Ignoring kwargs: {}'.format(kwargs))
@@ -62,11 +63,12 @@ def build_dot_and_bar_stimulus_generator(
     rectangle_reference_patch = matplotlib.patches.Rectangle(
         (-reference_size[1] // 2, -reference_size[0] // 2), reference_size[1], reference_size[0], color=color)
                                                     
-    return PatchStimulusGenerator(target_size, reference_size, [target_patch], rectangle_reference_patch, rotate_angle=rotate_angle)
+    return PatchStimulusGenerator(target_size, reference_size, [target_patch], 
+        rectangle_reference_patch, rotate_angle=rotate_angle, rng=rng)
 
 
 def build_dot_and_ellipse_stimulus_generator(target_size=DEFAULT_TARGET_SIZE, reference_size=DEFAULT_REFERENCE_SIZE, 
-    color=DEFAULT_COLOR, blur_func=DEFAULT_BLUR_FUNC, rotate_angle=None, **kwargs):
+    color=DEFAULT_COLOR, blur_func=DEFAULT_BLUR_FUNC, rotate_angle=None, rng=None, **kwargs):
 
     if kwargs:
         print('Ignoring kwargs: {}'.format(kwargs))
@@ -76,10 +78,10 @@ def build_dot_and_ellipse_stimulus_generator(target_size=DEFAULT_TARGET_SIZE, re
                                                          height=reference_size[0], color=color)
                                                     
     return PatchStimulusGenerator(target_size, reference_size, [target_patch], 
-        ellipse_reference_patch, blur_func=blur_func, rotate_angle=rotate_angle)
+        ellipse_reference_patch, blur_func=blur_func, rotate_angle=rotate_angle, rng=rng)
 
 def build_differet_shapes_stimulus_generator(target_size=DEFAULT_TARGET_SIZE, reference_size=DEFAULT_REFERENCE_SIZE, 
-    color=DEFAULT_COLOR, blur_func=DEFAULT_BLUR_FUNC, rotate_angle=None, **kwargs):
+    color=DEFAULT_COLOR, blur_func=DEFAULT_BLUR_FUNC, rotate_angle=None, rng=None, **kwargs):
 
     if kwargs:
         print('Ignoring kwargs: {}'.format(kwargs))
@@ -94,12 +96,13 @@ def build_differet_shapes_stimulus_generator(target_size=DEFAULT_TARGET_SIZE, re
                                                 height=reference_size[0], color=color)
 
     return PatchStimulusGenerator(target_size, reference_size, 
-        [circle_patch, square_patch, triangle_patch], reference_patch, rotate_angle=rotate_angle, blur_func=blur_func)
+        [circle_patch, square_patch, triangle_patch], reference_patch, 
+        rotate_angle=rotate_angle, blur_func=blur_func, rng=rng)
 
 
 def build_split_text_stimulus_generator(target_size=DEFAULT_TARGET_SIZE, 
     reference_box_size=10, total_reference_size=(10, 140), n_reference_patches=8,
-    color=DEFAULT_COLOR, reference_patch_kwargs=None, rotate_angle=None, **kwargs):
+    color=DEFAULT_COLOR, reference_patch_kwargs=None, rotate_angle=None, rng=None, **kwargs):
 
     if kwargs:
         print('Ignoring kwargs: {}'.format(kwargs))
@@ -116,7 +119,7 @@ def build_split_text_stimulus_generator(target_size=DEFAULT_TARGET_SIZE,
     return PatchStimulusGenerator(target_size, total_reference_size, 
                                   ['E', '$+$', triangle_patch, 's', '$\\to$'], 
                                   reference_patches, rotate_angle=rotate_angle,
-                                  reference_patch_kwargs=reference_patch_kwargs)
+                                  reference_patch_kwargs=reference_patch_kwargs, rng=rng)
 
 
 def build_random_color_stimulus_generator(rng, cmap=cc.cm.glasbey,
@@ -151,11 +154,13 @@ STIMULUS_GENERATORS = {
 DEFAULT_MIN_ROTATE_MARGIN = 5
 DEFAULT_CENTROID_PATCH_SIZE = 2
 DEFAULT_ROTATE_PADDING = 100
+DEFAULT_MARGIN_BUFFER = 2
 
 class StimulusGenerator:
-    def __init__(self, target_size, reference_size, rotate_angle=None, min_rotate_margin=DEFAULT_MIN_ROTATE_MARGIN, 
+    def __init__(self, target_size, reference_size, rotate_angle=None, 
+        min_rotate_margin=DEFAULT_MIN_ROTATE_MARGIN, 
         centroid_patch_size=DEFAULT_CENTROID_PATCH_SIZE, centroid_marker_value=0, 
-        rotate_padding=DEFAULT_ROTATE_PADDING, dtype=torch.float32):
+        padding=DEFAULT_ROTATE_PADDING, margin_buffer=DEFAULT_MARGIN_BUFFER, dtype=torch.float32, rng=None):
         self.target_size = target_size
         self.reference_size = reference_size
         self.rotate_angle = rotate_angle
@@ -163,8 +168,12 @@ class StimulusGenerator:
         self.centroid_patch_size = centroid_patch_size
         self.centroid_marker_value = centroid_marker_value
         self.centroid_marker_value_tensor = torch.tensor(self.centroid_marker_value, dtype=dtype)
-        self.rotate_padding = rotate_padding
+        self.padding = padding
+        self.margin_buffer = margin_buffer
         self.dtype = dtype
+        if rng is None:
+            rng = np.random.RandomState()
+        self.rng = rng
         self.n_target_types = 1
     
     def generate(self, target_position, reference_positions, target_index=0, 
@@ -172,7 +181,10 @@ class StimulusGenerator:
         if not hasattr(reference_positions[0], '__len__'):
             reference_positions = [reference_positions]
         
-        x = self._canvas()
+        x = self._canvas(padding=self.padding)
+        target_position = [t + self.padding for t in target_position]
+        reference_positions = [[r + self.padding for r in rp] for rp in reference_positions]
+
         canvas_shape = x.shape[1:]
         
         # reference first in case of overlap
@@ -201,84 +213,7 @@ class StimulusGenerator:
              target_pos[1]:target_pos[1] + target.shape[2]] = target
 
         if self.rotate_angle is not None and self.rotate_angle != 0:
-            if stimulus_centroid is None:
-                stimulus_centroid = np.array([s // 2 for s in canvas_shape], dtype=np.int)
-
-            x_stack = torch.stack((x, torch.ones_like(x)))
-            x_stack[1, :, stimulus_centroid[0] - self.centroid_patch_size:stimulus_centroid[0] + self.centroid_patch_size + 1, 
-                stimulus_centroid[1] - self.centroid_patch_size:stimulus_centroid[1] + self.centroid_patch_size + 1] = self.centroid_marker_value
-
-            x_stack_pad = torch.ones(x_stack.shape[0], x_stack.shape[1], 
-                x_stack.shape[2] + 2 * self.rotate_padding, x_stack.shape[3] + 2 * self.rotate_padding, dtype=self.dtype)
-
-            x_stack_pad[:, :, self.rotate_padding:-self.rotate_padding, self.rotate_padding:-self.rotate_padding] =  x_stack
-
-            x_stack_pad_rot = transforms.functional.rotate(x_stack_pad, self.rotate_angle, fill=[1.0, 1.0, 1.0])
-
-            x_centroid = x_stack_pad_rot[1]
-            new_centroid_mask = torch.isclose(x_centroid, self.centroid_marker_value_tensor).all(axis=0)
-            new_centroid = new_centroid_mask.nonzero().squeeze().numpy()
-            if len(new_centroid.shape) > 1:
-                if any([s == 0 for s in new_centroid.shape]):
-                    print(f'Empty centroid dimension: {new_centroid.shape}, {new_centroid}')
-                
-                new_centroid = new_centroid.mean(0).astype(np.int)
-                if any([s == 0 for s in new_centroid.shape]):
-                    print(new_centroid)
-
-            # check if this would override bounds, and if it does, min/max it
-            x_rot = x_stack_pad_rot[0]
-            top, left = new_centroid - stimulus_centroid 
-            # top = np.clip(top, 0, x_rot.shape[1] - x.shape[1])
-            # left = np.clip(left, 0, x_rot.shape[2] - x.shape[2])
-            # check if this would leave any filled indices outside the canvas
-            first_non_empty_row, last_non_empty_row, first_non_empty_col, last_non_empty_col = find_non_empty_indices(x_rot, empty_value=EMPTY_TENSOR_PIXEL, color_axis=0)
-            
-            top = np.clip(top, 0, first_non_empty_row.item() - self.min_rotate_margin)
-            if top + canvas_shape[0] < last_non_empty_row + self.min_rotate_margin:
-                top = last_non_empty_row + self.min_rotate_margin - canvas_shape[1] 
-            
-            left = np.clip(left, 0, first_non_empty_col.item() - self.min_rotate_margin)
-            if left + canvas_shape[1] < last_non_empty_col + self.min_rotate_margin:
-                left = last_non_empty_col + self.min_rotate_margin - canvas_shape[1] 
-
-            x = crop_with_fill(x_rot, top, left, *canvas_shape, fill=1.0)
-
-            # x_stack_rot = transforms.functional.rotate(x_stack, self.rotate_angle, # center=tuple(stimulus_centroid),
-            #     expand=True, fill=[1.0, 1.0, 1.0])
-
-            # if x_stack_rot.shape[2:] == canvas_shape:
-            #     x = x_stack_rot[0]
-            
-            # else:  # rotation changed shape, need to recenter
-            #     x_centroid = x_stack_rot[1]
-            #     new_centroid_mask = torch.isclose(x_centroid, self.centroid_marker_value_tensor).all(axis=0)
-            #     new_centroid = new_centroid_mask.nonzero().squeeze().numpy()
-            #     if len(new_centroid.shape) > 1:
-            #         if any([s == 0 for s in new_centroid.shape]):
-            #             print(f'Empty centroid dimension: {new_centroid.shape}, {new_centroid}')
-                    
-            #         new_centroid = new_centroid.mean(0).astype(np.int)
-            #         if any([s == 0 for s in new_centroid.shape]):
-            #             print(new_centroid)
-
-            #     # check if this would override bounds, and if it does, min/max it
-            #     x_rot = x_stack_rot[0]
-            #     top, left = new_centroid - stimulus_centroid
-            #     # top = np.clip(top, 0, x_rot.shape[1] - x.shape[1])
-            #     # left = np.clip(left, 0, x_rot.shape[2] - x.shape[2])
-            #     # check if this would leave any filled indices outside the canvas
-            #     first_non_empty_row, last_non_empty_row, first_non_empty_col, last_non_empty_col = find_non_empty_indices(x_rot, empty_value=EMPTY_TENSOR_PIXEL, color_axis=0)
-                
-            #     top = np.clip(top, 0, first_non_empty_row - self.min_rotate_margin)
-            #     if top + canvas_shape[0] < last_non_empty_row:
-            #         top += last_non_empty_row - canvas_shape[1] + self.min_rotate_margin
-                
-            #     left = np.clip(left, 0, first_non_empty_col - self.min_rotate_margin)
-            #     if left + canvas_shape[1] < last_non_empty_col:
-            #         left += last_non_empty_col - canvas_shape[1] + self.min_rotate_margin
-
-            #     x = crop_with_fill(x_rot, top, left, *canvas_shape, fill=1.0)
+            x = transforms.functional.rotate(x, self.rotate_angle, fill=[1.0, 1.0, 1.0])
 
         return x
     
@@ -287,7 +222,7 @@ class StimulusGenerator:
             transpose_target=transpose_target, stimulus_centroid=stimulus_centroid))
         
     def batch_generate(self, target_positions, reference_positions, target_indices=None, 
-                       normalize=True, transpose_target=False, stimulus_centroid=None) -> torch.Tensor:
+                       normalize=True, transpose_target=False, stimulus_centroid=None, return_centroid=False) -> torch.Tensor:
         
         if len(reference_positions) != len(target_positions):
             if isinstance(reference_positions[0], np.ndarray):
@@ -311,9 +246,14 @@ class StimulusGenerator:
         reference_positions = tuple(reference_positions)
         if stimulus_centroid is not None:
             stimulus_centroid = tuple(stimulus_centroid)
-        return self.cached_batch_generate(target_positions, reference_positions, target_indices, 
+        stimulus, centroid =  self.cached_batch_generate(target_positions, reference_positions, target_indices, 
                                           normalize=normalize, transpose_target=transpose_target, 
                                           stimulus_centroid=stimulus_centroid)
+
+        if return_centroid:
+            return stimulus, centroid
+
+        return stimulus
                 
     @lru_cache(maxsize=CACHE_SIZE)
     def cached_batch_generate(self, target_positions, reference_positions, target_indices, 
@@ -321,12 +261,26 @@ class StimulusGenerator:
         
         self.new_stimulus()
         zip_gen = zip(target_positions, reference_positions, target_indices)
+
+        stimuli = torch.stack([self.generate(t, p, i, transpose_target=transpose_target, stimulus_centroid=stimulus_centroid) 
+                                for (t, p, i) in zip_gen])
+
+        first_non_empty_row, last_non_empty_row, first_non_empty_col, last_non_empty_col = \
+            find_non_empty_indices(stimuli, empty_value=EMPTY_TENSOR_PIXEL.view(1, 3, 1, 1), color_axis=1)
+
+        stimuli = stimuli[:, :, first_non_empty_row:last_non_empty_row, first_non_empty_col:last_non_empty_col]
+
+        n_rows, n_cols = stimuli.shape[2:]
+        top = self.rng.integers(self.margin_buffer, self.canvas_size[0] - n_rows - self.margin_buffer)
+        left = self.rng.integers(self.margin_buffer, self.canvas_size[1] - n_cols - self.margin_buffer)
+        centroid = np.array([top + (n_rows // 2), left + (n_cols // 2)], dtype=np.int)
+        new_canvas = self._canvas(n=stimuli.shape[0])
+        new_canvas[:, :, top:top + n_rows, left:left + n_cols] = stimuli
+
         if normalize:
-            return torch.stack([NORMALIZE(self.generate(t, p, i, transpose_target=transpose_target, stimulus_centroid=stimulus_centroid)) 
-                                for (t, p, i) in zip_gen])
-        else:
-            return torch.stack([self.generate(t, p, i, transpose_target=transpose_target, stimulus_centroid=stimulus_centroid) 
-                                for (t, p, i) in zip_gen])
+            return NORMALIZE(new_canvas), centroid
+        
+        return new_canvas, centroid
 
     def _to_tensor(self, t):
         return torch.tensor(t, dtype=self.dtype)
@@ -346,7 +300,7 @@ class StimulusGenerator:
         return t.view(3, 1, 1)
     
     @abstractmethod
-    def _canvas(self):
+    def _canvas(self, n=None, padding=0):
         pass
     
     @abstractmethod
@@ -374,8 +328,14 @@ class NaiveStimulusGenerator(StimulusGenerator):
         self.reference_color = self._validate_color_input(reference_color)
         self.background_color = self._validate_color_input(background_color)
         
-    def _canvas(self):
-        return torch.ones(3, *self.canvas_size, dtype=self.dtype) * self.background_color
+    def _canvas(self, n=None, padding=0):
+        canvas_size = (self.canvas_size[0] + (2 * padding), self.canvas_size[1] + (2 * padding))
+
+        if n is None:
+            return torch.ones(3, *canvas_size, dtype=self.dtype) * self.background_color
+
+        else:
+            return torch.ones(n, 3, *canvas_size, dtype=self.dtype) * self.background_color.view(1, 3, 1, 1)
     
     def _reference_object(self):
         return self.reference_color
@@ -408,6 +368,8 @@ def find_non_empty_indices(X, empty_value=EMPTY_PIXEL, color_axis=2):
             raise ValueError('Expected empty_value to be a torch tensor when X is a torch tensor')
 
         empty_pixels = (X == empty_value).all(dim=color_axis)
+        if empty_pixels.dim() == 3:
+            empty_pixels = empty_pixels.all(dim=0)
         non_empty_rows = (~(empty_pixels.all(dim=1))).double()  # torch doesn't support argmax for booleans
         non_empty_cols = (~(empty_pixels.all(dim=0))).double()
         
@@ -504,7 +466,7 @@ class PatchStimulusGenerator(StimulusGenerator):
                  blur_func=None, target_patch_kawrgs=None, reference_patch_kwargs=None,
                  canvas_size=DEFAULT_CANVAS_SIZE, rotate_angle=None,
                  background_color='white', rng=None, cmap_max_color=256, function_n_target_types=5, dtype=torch.float32):
-        super(PatchStimulusGenerator, self).__init__(target_size, reference_size, dtype)
+        super(PatchStimulusGenerator, self).__init__(target_size, reference_size, dtype=dtype, rng=rng)
 
         if target_patch_kawrgs is None:
             target_patch_kawrgs = {}
@@ -520,8 +482,7 @@ class PatchStimulusGenerator(StimulusGenerator):
 
         self.blur_func = blur_func
         self.background_color = self._validate_color_input(background_color)
-
-        self.rng = rng
+        
         self.random_max_color = cmap_max_color - function_n_target_types
         self.patch_rng_index = 0
         
@@ -552,8 +513,14 @@ class PatchStimulusGenerator(StimulusGenerator):
         if self.rng is not None:
             self.patch_rng_index = self.rng.integers(self.random_max_color, size=1)[0]
 
-    def _canvas(self):
-        return torch.ones(3, *self.canvas_size, dtype=self.dtype) * self.background_color
+    def _canvas(self, n=None, padding=0):
+        canvas_size = (self.canvas_size[0] + (2 * padding), self.canvas_size[1] + (2 * padding))
+
+        if n is None:
+            return torch.ones(3, *canvas_size, dtype=self.dtype) * self.background_color
+
+        else:
+            return torch.ones(n, 3, *canvas_size, dtype=self.dtype) * self.background_color.view(1, 3, 1, 1)
     
     def _reference_object(self):
         if self.reference_patch_func is None:
