@@ -55,7 +55,6 @@ parser.add_argument('--multiple-habituation-radius', type=int, default=DEFAULT_M
 
 parser.add_argument('--margin-buffer', type=int, default=DEFAULT_MARGIN_BUFFER, help='Buffer to add to the margin')
 
-
 parser.add_argument('--base-model-name', type=str, default='', help='Base name for the models')
 
 parser.add_argument('-m', '--model', type=str, action='append', choices=MODELS,
@@ -95,25 +94,30 @@ SINGLE_OPTION_FIELDS_TO_DF = ['seed', 'n_examples']
 def create_triplet_generators(args):
     triplet_generator_class = TRIPLET_GENERATORS[args.triplet_generator]
 
-
     triplet_generators = []
 
     for stimulus_generator_name in args.stimulus_generators:
         stimulus_generator_builder = STIMULUS_GENERATORS[stimulus_generator_name]        
         stimulus_generator = stimulus_generator_builder(**args.stimulus_generator_kwargs)
-        
-        triplet_generator = triplet_generator_class(stimulus_generator,
-            n_target_types=args.n_target_types,
+        triplet_generator_kwargs = dict(n_target_types=args.n_target_types,
             margin_buffer=args.margin_buffer,
             n_habituation_stimuli=args.n_habituation_stimuli, 
             multiple_habituation_radius=args.multiple_habituation_radius)
         
+        if 'same_horizontal_half' in vars(args):
+            triplet_generator_kwargs['same_horizontal_half'] = args.same_horizontal_half
+
+        triplet_generator = triplet_generator_class(stimulus_generator, **triplet_generator_kwargs)
         triplet_generators.append(triplet_generator)
 
     return triplet_generators
     
 
 def handle_multiple_option_defaults(args):
+    if args.triplet_generator == 'same_half':
+        MULTIPLE_OPTION_REWRITE_FIELDS.append('same_horizontal_half')
+        MULTIPLE_OPTION_FIELD_DEFAULTS['same_horizontal_half'] = [True, False]
+
     var_args = vars(args)
     for key in MULTIPLE_OPTION_FIELD_DEFAULTS:
         if key not in var_args or var_args[key] is None or (hasattr(var_args[key], '__len__') and len(var_args[key]) == 0):
