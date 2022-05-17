@@ -17,8 +17,8 @@ import pandas as pd
 import torch
 
 from simple_relational_reasoning.embeddings.stimuli import STIMULUS_GENERATORS
-from simple_relational_reasoning.embeddings.triplets import TRIPLET_GENERATORS, RELATIONS, ABOVE_BELOW_RELATION, BETWEEN_RELATION, DEFAULT_MULTIPLE_HABITUATION_RADIUS
-from simple_relational_reasoning.embeddings.models import MODELS, RESNEXT, FLIPPING_OPTIONS, DINO_OPTIONS
+from simple_relational_reasoning.embeddings.triplets import TRIPLET_GENERATORS, DEFAULT_MULTIPLE_HABITUATION_RADIUS, DEFAULT_MARGIN_BUFFER
+from simple_relational_reasoning.embeddings.models import MODELS, FLIPPING_OPTIONS, DINO_OPTIONS
 from simple_relational_reasoning.embeddings.task import run_multiple_models_multiple_generators, BATCH_SIZE
 from simple_relational_reasoning.embeddings.tables import multiple_results_to_df
 
@@ -36,43 +36,25 @@ parser.add_argument('--replications', type=int, default=1, help='Number of repli
 DEFAULT_N = 1024
 parser.add_argument('-n', '--n-examples', type=int, default=DEFAULT_N, help='Number of examples to generate')
 
+parser.add_argument('-t', '--triplet-generator', type=str, 
+    choices=list(TRIPLET_GENERATORS.keys()), help='Which triplet generator to run with')
+
 parser.add_argument('-s', '--stimulus-generators', action='append', required=True,
     choices=list(STIMULUS_GENERATORS.keys()), help='Stimulus generator to run with')
 
 parser.add_argument('--stimulus-generator-kwargs', action='append', default=list(),
     help='Specify key=value pairs to pass to the stimulus generator.')
 
-DEFAULT_DISTANCE_ENDPOINTS = (-1, -1)
-DISTANCE_ENDPOINTS_DICT = {  # two_reference_objects, adjacent_reference_objects
-    (False, False): (30, 80),
-    (True, False): (50, 80),
-    (True, True): (40, 80),  
-}
-parser.add_argument('--distance-endpoints', type=int, nargs=2, default=DEFAULT_DISTANCE_ENDPOINTS,)
-
-parser.add_argument('-r', '--relation', type=str, action='append', choices=RELATIONS,
-                    help='Which relation(s) to run (default: all)')
-
-DEFAULT_TWO_REFERENCE_OBJECTS = None
-parser.add_argument('--two-reference-objects', type=int, default=DEFAULT_TWO_REFERENCE_OBJECTS)
-
-DEFAULT_ADJACENT_REFERENCE_OBJECTS = None
-parser.add_argument('--adjacent-reference-objects', type=int, default=DEFAULT_ADJACENT_REFERENCE_OBJECTS)
-
-DEFAULT_TRANSPOSE = False
-parser.add_argument('--transpose-stimuli', type=bool, default=DEFAULT_TRANSPOSE)
-
 DEFAULT_N_TARGET_TYPES = None
 VALID_N_TARGET_TYPES = list(range(1, 4))
 parser.add_argument('--n-target-types', type=int, default=DEFAULT_N_TARGET_TYPES, choices=VALID_N_TARGET_TYPES)
 
 parser.add_argument('--n-habituation-stimuli', type=int, default=None, help='Number of habituation stimuli')
-
 parser.add_argument('--multiple-habituation-radius', type=int, default=DEFAULT_MULTIPLE_HABITUATION_RADIUS, 
     help='Radius to place multiple habituation stimuli in')
 
-parser.add_argument('-t', '--triplet-generator', type=str, 
-    choices=list(TRIPLET_GENERATORS.keys()), help='Which triplet generator to run with')
+parser.add_argument('--margin-buffer', type=int, default=DEFAULT_MARGIN_BUFFER, help='Buffer to add to the margin')
+
 
 parser.add_argument('--base-model-name', type=str, default='', help='Base name for the models')
 
@@ -89,8 +71,6 @@ parser.add_argument('--dino', action='append',
 
 parser.add_argument('-o', '--output-file', type=str, help='Output file to write to')
 
-parser.add_argument('--rotate-angle', type=int, default=None, help='Angle to rotate the stimuli by')
-
 parser.add_argument('--tqdm', action='store_true', help='Use tqdm progress bar')
 
 parser.add_argument('--device', default=None, help='Which device to use. Defaults to cuda:0 if available and cpu if not.')
@@ -104,12 +84,8 @@ parser.add_argument('--memory-profile', action='store_true', help='Profile memor
 parser.add_argument('--print-setting-options', action='store_true')
 
 MULTIPLE_OPTION_FIELD_DEFAULTS = {
-    'relation': RELATIONS,
-    'two_reference_objects': [0, 1],
-    'adjacent_reference_objects': [0, 1],
     'n_target_types': [1, 2],
     'n_habituation_stimuli': [1, 4],
-    'rotate_angle': [0, 30, 45, 60, 90, 120, 135, 150],
 }
 MULTIPLE_OPTION_REWRITE_FIELDS = list(MULTIPLE_OPTION_FIELD_DEFAULTS.keys())
 
@@ -119,16 +95,16 @@ SINGLE_OPTION_FIELDS_TO_DF = ['seed', 'n_examples']
 def create_triplet_generators(args):
     triplet_generator_class = TRIPLET_GENERATORS[args.triplet_generator]
 
+
     triplet_generators = []
 
     for stimulus_generator_name in args.stimulus_generators:
         stimulus_generator_builder = STIMULUS_GENERATORS[stimulus_generator_name]        
         stimulus_generator = stimulus_generator_builder(**args.stimulus_generator_kwargs)
         
-        triplet_generator = triplet_generator_class(stimulus_generator, args.distance_endpoints,
-            relation=args.relation, two_reference_objects=args.two_reference_objects, 
-            adjacent_reference_objects=args.adjacent_reference_objects,
-            n_target_types=args.n_target_types, transpose=args.transpose_stimuli,
+        triplet_generator = triplet_generator_class(stimulus_generator,
+            n_target_types=args.n_target_types,
+            margin_buffer=args.margin_buffer,
             n_habituation_stimuli=args.n_habituation_stimuli, 
             multiple_habituation_radius=args.multiple_habituation_radius)
         
@@ -161,7 +137,7 @@ def handle_single_args_setting(args):
     model_names = []
     for model_name in args.model:
         if args.saycam:
-            model_kwarg_dicts.append(zdict(name=model_name, device=args.device, pretrained=False, saycam=args.saycam))
+            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=False, saycam=args.saycam))
             model_names.append(f'{model_name}-saycam({args.saycam})')
         
         if args.imagenet:
@@ -172,14 +148,14 @@ def handle_single_args_setting(args):
             model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=False))
             model_names.append(f'{model_name}-random')
 
-        if model_name == RESNEXT and args.flipping and len(args.flipping) > 0:
+        if args.flipping and len(args.flipping) > 0:
             for flip_type in args.flipping:
                 model_kwarg_dicts.append(dict(name=model_name, device=args.device, 
                     pretrained=False, flip=flip_type))
 
                 model_names.append(f'{model_name}-saycam(S)-{flip_type}')
 
-        if model_name == RESNEXT and args.dino and len(args.dino) > 0:
+        if args.dino and len(args.dino) > 0:
             for dino in args.dino:
                 model_kwarg_dicts.append(dict(name=model_name, device=args.device, 
                     pretrained=False, dino=dino))
@@ -195,10 +171,6 @@ def handle_single_args_setting(args):
         var_args['seed'] = args.seed + 1
         torch.manual_seed(args.seed)
         var_args['stimulus_generator_kwargs']['rng'] = np.random.default_rng(args.seed)
-        var_args['stimulus_generator_kwargs']['rotate_angle'] = args.rotate_angle
-
-        if args.distance_endpoints == DEFAULT_DISTANCE_ENDPOINTS:
-            var_args['distance_endpoints'] = DISTANCE_ENDPOINTS_DICT[bool(args.two_reference_objects), bool(args.adjacent_reference_objects)]
 
         triplet_generators = create_triplet_generators(args)
 
@@ -213,6 +185,9 @@ def handle_single_args_setting(args):
 
     for key in MULTIPLE_OPTION_REWRITE_FIELDS + SINGLE_OPTION_FIELDS_TO_DF:
         result_df[key] = var_args[key]
+
+    result_df['relation'] = 'no_reference'
+    result_df['triplet_generator'] = args.triplet_generator
 
     if args.memory_profile:
         hp = heap.heap()
@@ -229,7 +204,6 @@ def handle_single_args_setting(args):
         # print()
         # import ipdb; ipdb.set_trace()
         
-
     return result_df
 
 
@@ -271,15 +245,6 @@ if __name__ == '__main__':
             var_args_copy = vars(args_copy)
             var_args_copy.update({key: value for key, value in zip(MULTIPLE_OPTION_REWRITE_FIELDS,
                                                                 value_combination)})
-
-            # TODO: any checks for arg combinations we shouldn't run?
-            if args_copy.relation == BETWEEN_RELATION and not args_copy.two_reference_objects:
-                print(f'Skpping because between relation and two_reference_objects={args_copy.two_reference_objects} is not set')
-                continue
-
-            if args_copy.adjacent_reference_objects and (args_copy.relation != ABOVE_BELOW_RELATION or not args_copy.two_reference_objects):
-                print(f'Skpping because adjacent_reference_objects={args_copy.adjacent_reference_objects} is set and relation={args_copy.relation} is not above/below or two_reference_objects={args_copy.two_reference_objects} is not set')
-                continue
 
             if main_args.profile:
                 print('Profiling...')

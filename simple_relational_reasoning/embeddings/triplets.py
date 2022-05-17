@@ -3,6 +3,7 @@ import torch
 import tqdm
 
 from abc import abstractmethod
+import typing
 from functools import lru_cache
 from tqdm.notebook import tqdm
 
@@ -19,30 +20,16 @@ RELATIONS = (
 )
 
 DEFAULT_MULTIPLE_HABITUATION_RADIUS = 10
-class TripletGenerator:
-    def __init__(self, stimulus_generator, relation,
-                 two_reference_objects=False, two_targets_between=True, n_target_types=1,
-                 transpose=False, vertical_margin=0, horizontal_margin=0, seed=DEFAULT_RANDOM_SEED, use_tqdm=False):
-        
-        if relation == BETWEEN_RELATION and not two_reference_objects:
-            raise ValueError('Between relation requires two reference objects')
-        
+DEFAULT_MARGIN_BUFFER = 2
+
+class AbstractTripletGenerator:
+    def __init__(self, stimulus_generator, transpose=False, seed=DEFAULT_RANDOM_SEED, use_tqdm=False):
         self.stimulus_generator = stimulus_generator
-        self.relation = relation
-        self.two_reference_objects = two_reference_objects
-        self.two_targets_between = two_targets_between
-        self.n_target_types = n_target_types
-        
-        if n_target_types > self.stimulus_generator.n_target_types:
-            raise ValueError(f'Expected n_target_types={n_target_types} <= self.stimulus_generator.n_target_types={self.stimulus_generator.n_target_types}')
-        
         self.transpose = transpose
-        self.vertical_margin = vertical_margin
-        self.horizontal_margin = horizontal_margin
         self.seed = seed
         self.rng = np.random.default_rng(self.seed)
         self.use_tqdm = use_tqdm
-        
+
     @lru_cache(maxsize=TRIPLET_CACHE_SIZE)
     def __call__(self, n=1, normalize=True, seed=None):
         if seed is None:
@@ -60,10 +47,36 @@ class TripletGenerator:
             return result_tensor.permute(0, 1, 2, 4, 3)
         
         return result_tensor
-    
+
     @abstractmethod
     def generate_single_triplet(self, normalize=True):
         pass
+
+
+class TripletGenerator(AbstractTripletGenerator):
+    def __init__(self, stimulus_generator, relation,
+                 two_reference_objects=False, two_targets_between=True, n_target_types=1,
+                 transpose=False, vertical_margin=0, horizontal_margin=0, seed=DEFAULT_RANDOM_SEED, use_tqdm=False):
+        super().__init__(stimulus_generator, transpose=transpose, seed=seed, use_tqdm=use_tqdm)
+        
+        if relation == BETWEEN_RELATION and not two_reference_objects:
+            raise ValueError('Between relation requires two reference objects')
+        
+        self.stimulus_generator = stimulus_generator
+        self.relation = relation
+        self.two_reference_objects = two_reference_objects
+        self.two_targets_between = two_targets_between
+        self.n_target_types = n_target_types
+        
+        if n_target_types > self.stimulus_generator.n_target_types:
+            raise ValueError(f'Expected n_target_types={n_target_types} <= self.stimulus_generator.n_target_types={self.stimulus_generator.n_target_types}')
+        
+        self.vertical_margin = vertical_margin
+        self.horizontal_margin = horizontal_margin
+        self.seed = seed
+        self.rng = np.random.default_rng(self.seed)
+        self.use_tqdm = use_tqdm
+    
      
 class QuinnTripletGenerator(TripletGenerator):
     def __init__(self, stimulus_generator, distance_endpoints, relation,
@@ -73,8 +86,7 @@ class QuinnTripletGenerator(TripletGenerator):
                  adjacent_reference_objects=False,
                  n_target_types=1, transpose=False,
                  vertical_margin=0, horizontal_margin=0,
-                 extra_diagonal_margin=0,
-                 margin_buffer=2,
+                 margin_buffer=DEFAULT_MARGIN_BUFFER,
                  n_habituation_stimuli=1,
                  multiple_habituation_radius=DEFAULT_MULTIPLE_HABITUATION_RADIUS,
                  seed=DEFAULT_RANDOM_SEED, use_tqdm=False, track_centroids=False):
@@ -93,7 +105,6 @@ class QuinnTripletGenerator(TripletGenerator):
         self.adjacent_reference_objects = adjacent_reference_objects
         self.pair_above = pair_above
         self.two_objects_left = two_objects_left
-        self.extra_diagonal_margin = extra_diagonal_margin
         self.margin_buffer = margin_buffer
         self.n_habituation_stimuli = n_habituation_stimuli
         self.multiple_habituation_radius = multiple_habituation_radius
@@ -225,7 +236,6 @@ class QuinnTripletGenerator(TripletGenerator):
                                                       target_indices, 
                                                       normalize=normalize,
                                                       transpose_target=self.transpose,
-                                                      stimulus_centroid=stimulus_centroid_position,
                                                       return_centroid=True)
 
         if self.track_centroids:
@@ -234,7 +244,174 @@ class QuinnTripletGenerator(TripletGenerator):
         return stimulus
 
 
+TOP_LEFT = 'top_left'
+TOP_RIGHT = 'top_right'
+BOTTOM_LEFT = 'bottom_left'
+BOTTOM_RIGHT = 'bottom_right'
+FLAGS_TO_QUADRANT_MAP = {
+    (True, True): TOP_LEFT,
+    (True, False): TOP_RIGHT,
+    (False, True): BOTTOM_LEFT,
+    (False, False): BOTTOM_RIGHT,
+}
+
+class NoReferenceEquidistantTripletGenerator(AbstractTripletGenerator):
+    def __init__(self, stimulus_generator, 
+                 n_target_types=1, 
+                 margin_buffer=DEFAULT_MARGIN_BUFFER,
+                 n_habituation_stimuli=1,
+                 multiple_habituation_radius=DEFAULT_MULTIPLE_HABITUATION_RADIUS,
+                 seed=DEFAULT_RANDOM_SEED, use_tqdm=False, track_habituation_positions=False):
+        super(NoReferenceEquidistantTripletGenerator, self).__init__(
+            stimulus_generator=stimulus_generator, transpose=False, seed=seed, use_tqdm=use_tqdm)
+            
+        self.n_target_types = n_target_types
+        self.margin_buffer = margin_buffer
+        self.n_habituation_stimuli = n_habituation_stimuli
+        self.multiple_habituation_radius = multiple_habituation_radius
+
+        self.track_habituation_positions = track_habituation_positions
+        if self.track_habituation_positions:
+            self.habituation_positions = []
+
+        self.target_width = self.stimulus_generator.target_size[1]
+        self.target_height = self.stimulus_generator.target_size[0]
+
+        self.default_margin = (self.target_height // 2 + self.margin_buffer, self.target_width // 2 + self.margin_buffer)
+        if self.n_habituation_stimuli > 1:
+            self.default_margin = (self.default_margin[0] + multiple_habituation_radius, self.default_margin[1] + multiple_habituation_radius)
+        self.canvas_size = self.stimulus_generator.canvas_size
+        self.middle_row_index = self.canvas_size[0] // 2
+        self.middle_col_index = self.canvas_size[1] // 2
+
+        self.quadrant_to_endpoints = {
+            TOP_LEFT: ((0, self.middle_row_index), (0, self.middle_col_index)),
+            TOP_RIGHT: ((0, self.middle_row_index), (self.middle_col_index, self.canvas_size[1])),
+            BOTTOM_LEFT: ((self.middle_row_index, self.canvas_size[0]), (0, self.middle_col_index)),
+            BOTTOM_RIGHT: ((self.middle_row_index, self.canvas_size[0]), (self.middle_col_index, self.canvas_size[1])),
+        }
+    
+    def _sample_point_in_quadrant(self, other_side_object_up: float, pair_left: float, 
+        margin: typing.Optional[typing.Tuple[int, int]] = None):
+        if margin is None:
+            margin = self.default_margin
+
+        quadrant = self._get_quadrant(other_side_object_up, pair_left)
+        row_margin, col_margin = margin
+        row_endpoints, col_endpoints = self.quadrant_to_endpoints[quadrant]
+        return (self._sample_point_with_margin(row_endpoints, row_margin),
+                self._sample_point_with_margin(col_endpoints, col_margin))
+
+    def _get_quadrant(self, other_side_object_up, pair_left):
+        return FLAGS_TO_QUADRANT_MAP[(other_side_object_up > 0, pair_left > 0)]
+
+    def _sample_point_with_margin(self, endpoints: typing.Tuple[int, int], margin: int = 0):
+        return self.rng.integers(endpoints[0] + margin, endpoints[1] - margin)
+
+    def generate_single_triplet(self, normalize=True):
+        other_side_object_up = np.sign(self.rng.uniform(-0.5, 0.5))
+        pair_left = np.sign(self.rng.uniform(-0.5, 0.5))
+
+        habituation_position, target_distance = self._sample_target_positions(other_side_object_up, pair_left)
+        target_positions = [np.copy(habituation_position) for _ in range(3)]
+        target_positions[2][1] += target_distance * pair_left
+        target_positions[1][0] += target_distance * other_side_object_up
+
+        if self.n_habituation_stimuli > 1:
+            angle_step = 360 // self.n_habituation_stimuli
+            habituation_angles = np.arange(0, 360, angle_step)
+            angle_offset = self.rng.integers(0, angle_step)
+            habituation_angles = (habituation_angles + angle_offset) % 360
+
+            habituation_positions = []
+            for angle in habituation_angles:
+                angle_vec = np.array([-np.sin(np.deg2rad(angle)), np.cos(np.deg2rad(angle))])
+                habituation_positions.append((habituation_position + (angle_vec * self.multiple_habituation_radius)).astype(np.int))
+
+            habituation_positions.extend(target_positions[1:])
+            target_positions = habituation_positions
+
+        if self.n_target_types == 1:
+            target_indices = [self.rng.integers(0, self.stimulus_generator.n_target_types)] * len(target_positions)
+
+        if self.n_target_types == 2:
+            # can we allocate a unique target to each stimulus?
+            if self.stimulus_generator.n_target_types > self.n_habituation_stimuli > 1:
+                target_indices = self.rng.choice(np.arange(self.stimulus_generator.n_target_types),
+                    size=self.n_habituation_stimuli + 1, replace=False)
+
+                target_indices = list(target_indices[:-1]) + [target_indices[-1]] * 2
+
+            else:  # either only one habituation stimulus or not enough target types for unique habituation targets
+                pair_color, single_color = self.rng.choice(np.arange(self.stimulus_generator.n_target_types),
+                    size=2, replace=False)
+                target_indices = [single_color] * self.n_habituation_stimuli + [pair_color] * 2
+            
+        elif self.n_target_types == 3:
+            target_indices = self.rng.choice(np.arange(self.stimulus_generator.n_target_types),
+                size=3, replace=False)
+            target_indices = [target_indices[0]] * self.n_habituation_stimuli + target_indices[1:]
+
+        if self.track_habituation_positions:
+            self.habituation_positions.append(habituation_position)
+        return self.stimulus_generator.batch_generate(target_positions, 
+                                                      [], 
+                                                      target_indices, 
+                                                      normalize=normalize,
+                                                      transpose_target=False,
+                                                      return_centroid=False,
+                                                      pad_and_crop=False)
+
+    def _sample_target_positions(self, other_side_object_up, pair_left):
+        habituation_position, target_distance = None, None
+
+        while target_distance is None:
+            habituation_position = self._sample_point_in_quadrant(other_side_object_up, pair_left)
+        
+            row_min_distance = abs(self.middle_row_index - habituation_position[0])
+            row_max_distance = row_min_distance + self.middle_col_index
+
+            col_min_distance = abs(self.middle_col_index - habituation_position[1])
+            col_max_distance = col_min_distance + self.middle_col_index
+
+            min_distance = max(row_min_distance, col_min_distance)
+            max_distance = min(row_max_distance, col_max_distance)
+            max_margin = max(self.default_margin)
+
+            if max_distance <= min_distance + (max_margin * 2):
+                continue
+
+            target_distance = self._sample_point_with_margin((min_distance, max_distance), margin=max_margin)
+
+        return habituation_position, target_distance
+
+
+
+class NoReferenceDiagonalTripletGenerator(NoReferenceEquidistantTripletGenerator):
+    def __init__(self, stimulus_generator, 
+                    n_target_types=1, 
+                    margin_buffer=DEFAULT_MARGIN_BUFFER,
+                    n_habituation_stimuli=1,
+                    multiple_habituation_radius=DEFAULT_MULTIPLE_HABITUATION_RADIUS,
+                    seed=DEFAULT_RANDOM_SEED, use_tqdm=False, track_habituation_positions=False):
+
+        super().__init__(stimulus_generator, 
+            n_target_types=n_target_types, margin_buffer=margin_buffer,
+            n_habituation_stimuli=n_habituation_stimuli, 
+            multiple_habituation_radius=multiple_habituation_radius,
+            seed=seed, use_tqdm=use_tqdm, track_habituation_positions=track_habituation_positions)
+
+    def _sample_target_positions(self, other_side_object_up, pair_left):
+        max_margin = max(self.default_margin)
+        diagonal_coord = self.rng.integers(max_margin, self.middle_row_index - max_margin)
+
+        habituation_position = (int((other_side_object_up * diagonal_coord) % self.canvas_size[0]), int((pair_left * diagonal_coord) % self.canvas_size[1]))
+        target_distance = self.canvas_size[0] - 2 * diagonal_coord
+        return habituation_position, target_distance
+    
 
 TRIPLET_GENERATORS = {
     'quinn': QuinnTripletGenerator,
+    'equidistant': NoReferenceEquidistantTripletGenerator,
+    'diagonal': NoReferenceDiagonalTripletGenerator,
 }
