@@ -161,7 +161,7 @@ def handle_single_args_setting(args):
     model_names = []
     for model_name in args.model:
         if args.saycam:
-            model_kwarg_dicts.append(zdict(name=model_name, device=args.device, pretrained=False, saycam=args.saycam))
+            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=False, saycam=args.saycam))
             model_names.append(f'{model_name}-saycam({args.saycam})')
         
         if args.imagenet:
