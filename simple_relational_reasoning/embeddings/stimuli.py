@@ -177,15 +177,14 @@ class StimulusGenerator:
         self.n_target_types = 1
     
     def generate(self, target_position, reference_positions, target_index=0, 
-                 center_positions=True, transpose_target=False, stimulus_centroid=None) -> torch.Tensor:
-        if not hasattr(reference_positions[0], '__len__'):
+                 center_positions=True, transpose_target=False, pad_and_crop=True) -> torch.Tensor:
+        if len(reference_positions) > 0 and not hasattr(reference_positions[0], '__len__'):
             reference_positions = [reference_positions]
         
-        x = self._canvas(padding=self.padding)
-        target_position = [t + self.padding for t in target_position]
-        reference_positions = [[r + self.padding for r in rp] for rp in reference_positions]
-
-        canvas_shape = x.shape[1:]
+        x = self._canvas(padding=self.padding if pad_and_crop else 0)
+        if pad_and_crop:
+            target_position = [t + self.padding for t in target_position]
+            reference_positions = [[r + self.padding for r in rp] for rp in reference_positions]
         
         # reference first in case of overlap
         reference_centering = np.array([center_positions * s // 2 for s in self.reference_size])
@@ -213,24 +212,33 @@ class StimulusGenerator:
              target_pos[1]:target_pos[1] + target.shape[2]] = target
 
         if self.rotate_angle is not None and self.rotate_angle != 0:
+            if pad_and_crop is False:
+                raise NotImplementedError('Cannot rotate without padding and cropping')
             x = transforms.functional.rotate(x, self.rotate_angle, fill=[1.0, 1.0, 1.0])
 
         return x
     
-    def __call__(self, target_position, reference_positions, transpose_target=False, stimulus_centroid=None) -> torch.Tensor:
+    def __call__(self, target_position, reference_positions, transpose_target=False) -> torch.Tensor:
         return NORMALIZE(self.generate(target_position, reference_positions, 
-            transpose_target=transpose_target, stimulus_centroid=stimulus_centroid))
+            transpose_target=transpose_target, pad_and_crop=False))
         
     def batch_generate(self, target_positions, reference_positions, target_indices=None, 
-                       normalize=True, transpose_target=False, stimulus_centroid=None, return_centroid=False) -> torch.Tensor:
+                       normalize=True, transpose_target=False, pad_and_crop=True, return_centroid=False) -> torch.Tensor:
         
-        if len(reference_positions) != len(target_positions):
-            if isinstance(reference_positions[0], np.ndarray):
-                reference_positions = [tuple([tuple(ref) for ref in reference_positions])] * len(target_positions)
-            elif hasattr(reference_positions[0], '__len__'):
-                reference_positions = [tuple(reference_positions)] * len(target_positions)
-            else:
-                reference_positions = [(tuple(reference_positions),)] * len(target_positions)
+        if reference_positions is None:
+            reference_positions = []
+        
+        if len(reference_positions) == 0:
+            reference_positions = [tuple()] * len(target_positions)
+
+        else:
+            if len(reference_positions) != len(target_positions):
+                if isinstance(reference_positions[0], np.ndarray):
+                    reference_positions = [tuple([tuple(ref) for ref in reference_positions])] * len(target_positions)
+                elif hasattr(reference_positions[0], '__len__'):
+                    reference_positions = [tuple(reference_positions)] * len(target_positions)
+                else:
+                    reference_positions = [(tuple(reference_positions),)] * len(target_positions)
             
         if target_indices is None:
             target_indices = (0,) * len(target_positions)
@@ -244,11 +252,8 @@ class StimulusGenerator:
             
         target_positions = tuple([tuple(pos) for pos in target_positions])
         reference_positions = tuple(reference_positions)
-        if stimulus_centroid is not None:
-            stimulus_centroid = tuple(stimulus_centroid)
         stimulus, centroid =  self.cached_batch_generate(target_positions, reference_positions, target_indices, 
-                                          normalize=normalize, transpose_target=transpose_target, 
-                                          stimulus_centroid=stimulus_centroid)
+                                          normalize=normalize, transpose_target=transpose_target, pad_and_crop=pad_and_crop)
 
         if return_centroid:
             return stimulus, centroid
@@ -257,30 +262,33 @@ class StimulusGenerator:
                 
     @lru_cache(maxsize=CACHE_SIZE)
     def cached_batch_generate(self, target_positions, reference_positions, target_indices, 
-                              normalize=True, transpose_target=False, stimulus_centroid=None):
+                              normalize=True, transpose_target=False, pad_and_crop=True):
         
         self.new_stimulus()
         zip_gen = zip(target_positions, reference_positions, target_indices)
 
-        stimuli = torch.stack([self.generate(t, p, i, transpose_target=transpose_target, stimulus_centroid=stimulus_centroid) 
+        stimuli = torch.stack([self.generate(t, p, i, transpose_target=transpose_target, pad_and_crop=pad_and_crop) 
                                 for (t, p, i) in zip_gen])
+        centroid = None
+        
+        if pad_and_crop:
+            first_non_empty_row, last_non_empty_row, first_non_empty_col, last_non_empty_col = \
+                find_non_empty_indices(stimuli, empty_value=EMPTY_TENSOR_PIXEL.view(1, 3, 1, 1), color_axis=1)
 
-        first_non_empty_row, last_non_empty_row, first_non_empty_col, last_non_empty_col = \
-            find_non_empty_indices(stimuli, empty_value=EMPTY_TENSOR_PIXEL.view(1, 3, 1, 1), color_axis=1)
+            stimuli = stimuli[:, :, first_non_empty_row:last_non_empty_row, first_non_empty_col:last_non_empty_col]
 
-        stimuli = stimuli[:, :, first_non_empty_row:last_non_empty_row, first_non_empty_col:last_non_empty_col]
-
-        n_rows, n_cols = stimuli.shape[2:]
-        top = self.rng.integers(self.margin_buffer, self.canvas_size[0] - n_rows - self.margin_buffer)
-        left = self.rng.integers(self.margin_buffer, self.canvas_size[1] - n_cols - self.margin_buffer)
-        centroid = np.array([top + (n_rows // 2), left + (n_cols // 2)], dtype=np.int)
-        new_canvas = self._canvas(n=stimuli.shape[0])
-        new_canvas[:, :, top:top + n_rows, left:left + n_cols] = stimuli
+            n_rows, n_cols = stimuli.shape[2:]
+            top = self.rng.integers(self.margin_buffer, self.canvas_size[0] - n_rows - self.margin_buffer)
+            left = self.rng.integers(self.margin_buffer, self.canvas_size[1] - n_cols - self.margin_buffer)
+            centroid = np.array([top + (n_rows // 2), left + (n_cols // 2)], dtype=np.int)
+            new_canvas = self._canvas(n=stimuli.shape[0])
+            new_canvas[:, :, top:top + n_rows, left:left + n_cols] = stimuli
+            stimuli = new_canvas
 
         if normalize:
-            return NORMALIZE(new_canvas), centroid
+            return NORMALIZE(stimuli), centroid
         
-        return new_canvas, centroid
+        return stimuli, centroid
 
     def _to_tensor(self, t):
         return torch.tensor(t, dtype=self.dtype)
