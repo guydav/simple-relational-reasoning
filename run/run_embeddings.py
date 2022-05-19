@@ -59,8 +59,7 @@ parser.add_argument('--two-reference-objects', type=int, default=DEFAULT_TWO_REF
 DEFAULT_ADJACENT_REFERENCE_OBJECTS = None
 parser.add_argument('--adjacent-reference-objects', type=int, default=DEFAULT_ADJACENT_REFERENCE_OBJECTS)
 
-DEFAULT_TRANSPOSE = False
-parser.add_argument('--transpose', type=bool, default=DEFAULT_TRANSPOSE)
+parser.add_argument('--transpose', action='store_true')
 
 DEFAULT_N_TARGET_TYPES = None
 VALID_N_TARGET_TYPES = list(range(1, 4))
