@@ -60,7 +60,7 @@ DEFAULT_ADJACENT_REFERENCE_OBJECTS = None
 parser.add_argument('--adjacent-reference-objects', type=int, default=DEFAULT_ADJACENT_REFERENCE_OBJECTS)
 
 DEFAULT_TRANSPOSE = False
-parser.add_argument('--transpose-stimuli', type=bool, default=DEFAULT_TRANSPOSE)
+parser.add_argument('--transpose', type=bool, default=DEFAULT_TRANSPOSE)
 
 DEFAULT_N_TARGET_TYPES = None
 VALID_N_TARGET_TYPES = list(range(1, 4))
@@ -113,7 +113,7 @@ MULTIPLE_OPTION_FIELD_DEFAULTS = {
 }
 MULTIPLE_OPTION_REWRITE_FIELDS = list(MULTIPLE_OPTION_FIELD_DEFAULTS.keys())
 
-SINGLE_OPTION_FIELDS_TO_DF = ['seed', 'n_examples']
+SINGLE_OPTION_FIELDS_TO_DF = ['seed', 'n_examples', 'transpose']
 
 
 def create_triplet_generators(args):
@@ -128,7 +128,7 @@ def create_triplet_generators(args):
         triplet_generator = triplet_generator_class(stimulus_generator, args.distance_endpoints,
             relation=args.relation, two_reference_objects=args.two_reference_objects, 
             adjacent_reference_objects=args.adjacent_reference_objects,
-            n_target_types=args.n_target_types, transpose=args.transpose_stimuli,
+            n_target_types=args.n_target_types, transpose=args.transpose,
             n_habituation_stimuli=args.n_habituation_stimuli, 
             multiple_habituation_radius=args.multiple_habituation_radius)
         
