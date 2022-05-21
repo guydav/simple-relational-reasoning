@@ -460,10 +460,50 @@ class SameHalfTripletGenerator(NoReferenceEquidistantTripletGenerator):
         return habituation_position, target_distance
 
 
+class SameQuadrantTripletGenerator(NoReferenceEquidistantTripletGenerator):
+    def __init__(self, stimulus_generator, 
+                    n_target_types=1, 
+                    margin_buffer=DEFAULT_MARGIN_BUFFER,
+                    n_habituation_stimuli=1,
+                    multiple_habituation_radius=DEFAULT_MULTIPLE_HABITUATION_RADIUS,
+                    seed=DEFAULT_RANDOM_SEED, use_tqdm=False, track_habituation_positions=False):
+
+        super().__init__(stimulus_generator, 
+            n_target_types=n_target_types, margin_buffer=margin_buffer,
+            n_habituation_stimuli=n_habituation_stimuli, 
+            multiple_habituation_radius=multiple_habituation_radius,
+            seed=seed, use_tqdm=use_tqdm, track_habituation_positions=track_habituation_positions)
+
+    def _sample_target_positions(self, other_side_object_up, pair_left):
+        habituation_position, target_distance = None, None
+
+        while target_distance is None:
+            habituation_position = self._sample_point_in_quadrant(other_side_object_up, pair_left)
+            max_margin = max(self.default_margin)
+
+            row_min_distance = 2 * max_margin
+            row_max_distance = abs(self.middle_row_index - habituation_position[0])
+
+            col_min_distance = 2 * max_margin
+            col_max_distance = abs(self.middle_col_index - habituation_position[1])
+
+            min_distance = max(row_min_distance, col_min_distance)
+            max_distance = min(row_max_distance, col_max_distance)
+            max_margin = max(self.default_margin)
+
+            if max_distance <= min_distance + (max_margin * 2):
+                continue
+
+            target_distance = self._sample_point_with_margin((min_distance, max_distance), margin=max_margin)
+
+        return habituation_position, target_distance
+
+
 
 TRIPLET_GENERATORS = {
     'quinn': QuinnTripletGenerator,
     'equidistant': NoReferenceEquidistantTripletGenerator,
     'diagonal': NoReferenceDiagonalTripletGenerator,
     'same_half': SameHalfTripletGenerator,
+    'same_quadrant': SameQuadrantTripletGenerator,
 }
