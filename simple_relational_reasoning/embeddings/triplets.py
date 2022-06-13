@@ -499,6 +499,155 @@ class SameQuadrantTripletGenerator(NoReferenceEquidistantTripletGenerator):
         return habituation_position, target_distance
 
 
+DEFAULT_TARGET_STEP = 2
+
+class TSNEStimuliSetGenerator(TripletGenerator):
+    def __init__(self, stimulus_generator, distance_endpoints, relation,
+                 target_step=DEFAULT_TARGET_STEP,
+                 two_reference_objects=False, 
+                 two_targets_between=True, 
+                 adjacent_reference_objects=False,
+                 fixed_inter_reference_distance=None,
+                 fixed_target_index=None,
+                 center_stimuli=True,
+                 transpose=False,
+                 vertical_margin=0, horizontal_margin=0,
+                 margin_buffer=DEFAULT_MARGIN_BUFFER,
+                 seed=DEFAULT_RANDOM_SEED, use_tqdm=False, track_centroids=False):
+        super(TSNEStimuliSetGenerator, self).__init__(
+            stimulus_generator=stimulus_generator, relation=relation,
+            two_reference_objects=two_reference_objects,
+            two_targets_between=two_targets_between, 
+            n_target_types=1,
+            transpose=transpose, vertical_margin=vertical_margin, 
+            horizontal_margin=horizontal_margin, seed=seed, use_tqdm=use_tqdm)
+        
+        if not hasattr(distance_endpoints, '__len__'):
+            distance_endpoints = (distance_endpoints, distance_endpoints)        
+            
+        self.distance_endpoints = distance_endpoints
+        self.target_step = target_step
+        self.adjacent_reference_objects = adjacent_reference_objects
+        self.fixed_inter_reference_distance = fixed_inter_reference_distance
+        self.fixed_target_index = fixed_target_index
+        self.center_stimuli = center_stimuli
+        self.margin_buffer = margin_buffer
+
+        self.reference_width = self.stimulus_generator.reference_size[1]
+        self.reference_height = self.stimulus_generator.reference_size[0]
+        self.target_width = self.stimulus_generator.target_size[1]
+        self.target_height = self.stimulus_generator.target_size[0]
+
+        self.track_centroids = track_centroids
+        if self.track_centroids:
+            self.stimulus_centroids = []
+    
+    def _left_right_limits(self, reference_position):
+        left = reference_position[1] - (self.reference_width // 2) + (self.target_width // 2) + self.margin_buffer
+        right = reference_position[1] + (self.reference_width // 2) - (self.target_width // 2) - self.margin_buffer
+        return left,right
+
+    def _limits_to_positions(self, top, bottom, left, right):
+        # returns a X by 2 array of positions
+                return np.mgrid[top:bottom:self.target_step, left:right:self.target_step].reshape(2, -1).T
+
+    def _tile_above(self, reference_position):
+        top = max(reference_position[0] - self.distance_endpoints[1], self.target_height // 2 + self.margin_buffer)
+        bottom = reference_position[0] - (self.reference_height // 2) - (self.target_height // 2) - self.margin_buffer
+        left, right = self._left_right_limits(reference_position)
+
+        return self._limits_to_positions(top, bottom, left, right)
+
+    def _tile_below(self, reference_position):
+        top = reference_position[0] + (self.reference_height // 2) + (self.target_height // 2) + self.margin_buffer
+        bottom = min(reference_position[0] + self.distance_endpoints[1], 
+            self.stimulus_generator.canvas_size[0] - (self.target_height // 2) - self.margin_buffer)
+        left, right = self._left_right_limits(reference_position)
+
+        return self._limits_to_positions(top, bottom, left, right)
+
+    def _tile_between(self, top_reference_position, bottom_reference_position):
+        top = top_reference_position[0] + (self.reference_height // 2) + (self.target_height // 2) + self.margin_buffer
+        bottom = bottom_reference_position[0] - (self.reference_height // 2) - (self.target_height // 2) - self.margin_buffer
+        left, right = self._left_right_limits(top_reference_position)
+
+        return self._limits_to_positions(top, bottom, left, right)
+
+    def generate_single_triplet(self, normalize=True):
+        distance_endpoints = self.distance_endpoints
+
+        target_distance = self.rng.integers(*distance_endpoints)
+        half_target_distance = target_distance // 2
+
+        inter_reference_distance = 0
+        if self.two_reference_objects:
+            if self.adjacent_reference_objects:
+                inter_reference_distance = self.reference_height * 1.5
+            
+            elif self.relation == BETWEEN_RELATION:
+                if self.fixed_inter_reference_distance is not None and distance_endpoints[0] <= self.fixed_inter_reference_distance <= distance_endpoints[1]:
+                    inter_reference_distance = self.fixed_inter_reference_distance
+                else:
+                    inter_reference_distance = target_distance
+            
+            else: # self.relation == ABOVE_BELOW_RELATION
+                max_inter_reference_distance = target_distance - (self.reference_height + self.target_height + self.margin_buffer * 4)
+                if self.fixed_inter_reference_distance is not None and self.fixed_inter_reference_distance < max_inter_reference_distance:
+                    inter_reference_distance = self.fixed_inter_reference_distance
+                if half_target_distance >= max_inter_reference_distance:
+                    inter_reference_distance = max_inter_reference_distance
+                else:
+                    inter_reference_distance = self.rng.integers(half_target_distance, max_inter_reference_distance)
+            # else:  # Same distance in above/below and between
+            #     inter_reference_distance = target_distance
+
+        stimulus_centroid_position = np.array([self.stimulus_generator.canvas_size[0] // 2,
+             self.stimulus_generator.canvas_size[1] // 2], dtype=np.int)
+
+        # compute reference positions relative to the centroid
+        reference_positions = []
+        all_target_positions = []
+
+        if self.two_reference_objects:
+            reference_positions.append(np.copy(stimulus_centroid_position))
+            reference_positions.append(np.copy(stimulus_centroid_position))
+            reference_positions[0][0] -= inter_reference_distance // 2
+            reference_positions[1][0] += inter_reference_distance // 2
+
+            all_target_positions.append(self._tile_above(reference_positions[0]))
+            if self.relation == BETWEEN_RELATION:
+                all_target_positions.append(self._tile_between(reference_positions[0], reference_positions[1]))
+            all_target_positions.append(self._tile_below(reference_positions[1]))
+            
+
+        else:  # self.relation == ABOVE_BELOW_RELATION and not self.two_reference_objects:
+            reference_positions.append(np.copy(stimulus_centroid_position))
+            all_target_positions.append(self._tile_above(reference_positions[0]))
+            all_target_positions.append(self._tile_below(reference_positions[0]))
+
+        target_positions = list(np.concatenate(all_target_positions))    
+        if self.fixed_target_index is not None and 0 <= self.fixed_target_index < self.stimulus_generator.n_target_types:
+            target_index = self.fixed_target_index
+
+        else:
+            target_index = self.rng.integers(0, self.stimulus_generator.n_target_types)
+
+        target_indices = [target_index] * len(target_positions)
+
+        stimulus, centroid =  self.stimulus_generator.batch_generate(target_positions, 
+                                                      reference_positions, 
+                                                      target_indices, 
+                                                      normalize=normalize,
+                                                      transpose_target=self.transpose,
+                                                      return_centroid=True,
+                                                      crop_to_center=self.center_stimuli)
+
+        if self.track_centroids:
+            self.stimulus_centroids.append(centroid)
+
+        return stimulus
+
+
 
 TRIPLET_GENERATORS = {
     'quinn': QuinnTripletGenerator,
@@ -506,4 +655,5 @@ TRIPLET_GENERATORS = {
     'diagonal': NoReferenceDiagonalTripletGenerator,
     'same_half': SameHalfTripletGenerator,
     'same_quadrant': SameQuadrantTripletGenerator,
+    'tsne': TSNEStimuliSetGenerator
 }

@@ -45,6 +45,15 @@ PLOT_PRETTY_NAMES_BY_FIELD = {
     'n_habituation_stimuli': {
         1: 'One habituation stimulus',
         4: 'Four habituation stimuli',
+    },
+    'triplet_generator': {
+        'equidistant': 'Equidistant',
+        'diagonal': 'Diagonal',
+        'same_half': 'Same Half',
+    },
+    'same_horizontal_half': {
+        True: 'Horizontal Half',
+        False: 'Vertical Half',
     }
 }
 
