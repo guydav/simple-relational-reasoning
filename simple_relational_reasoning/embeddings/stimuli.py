@@ -223,7 +223,7 @@ class StimulusGenerator:
             transpose_target=transpose_target, pad_and_crop=False))
         
     def batch_generate(self, target_positions, reference_positions, target_indices=None, 
-                       normalize=True, transpose_target=False, pad_and_crop=True, return_centroid=False) -> torch.Tensor:
+                       normalize=True, transpose_target=False, pad_and_crop=True, return_centroid=False, crop_to_center=False) -> torch.Tensor:
         
         if reference_positions is None:
             reference_positions = []
@@ -253,7 +253,8 @@ class StimulusGenerator:
         target_positions = tuple([tuple(pos) for pos in target_positions])
         reference_positions = tuple(reference_positions)
         stimulus, centroid =  self.cached_batch_generate(target_positions, reference_positions, target_indices, 
-                                          normalize=normalize, transpose_target=transpose_target, pad_and_crop=pad_and_crop)
+                                          normalize=normalize, transpose_target=transpose_target, 
+                                          pad_and_crop=pad_and_crop, crop_to_center=crop_to_center)
 
         if return_centroid:
             return stimulus, centroid
@@ -262,7 +263,7 @@ class StimulusGenerator:
                 
     @lru_cache(maxsize=CACHE_SIZE)
     def cached_batch_generate(self, target_positions, reference_positions, target_indices, 
-                              normalize=True, transpose_target=False, pad_and_crop=True):
+                              normalize=True, transpose_target=False, pad_and_crop=True, crop_to_center=False):
         
         self.new_stimulus()
         zip_gen = zip(target_positions, reference_positions, target_indices)
@@ -278,9 +279,16 @@ class StimulusGenerator:
             stimuli = stimuli[:, :, first_non_empty_row:last_non_empty_row, first_non_empty_col:last_non_empty_col]
 
             n_rows, n_cols = stimuli.shape[2:]
-            top = self.rng.integers(self.margin_buffer, self.canvas_size[0] - n_rows - self.margin_buffer)
-            left = self.rng.integers(self.margin_buffer, self.canvas_size[1] - n_cols - self.margin_buffer)
-            centroid = np.array([top + (n_rows // 2), left + (n_cols // 2)], dtype=np.int)
+            if crop_to_center:
+                top = self.canvas_size[0] // 2 - n_rows // 2
+                left = self.canvas_size[1] // 2 - n_cols // 2
+                centroid = np.array([self.canvas_size[0] // 2, self.canvas_size[1] // 2], dtype=np.int)
+                
+            else:
+                top = self.rng.integers(self.margin_buffer, self.canvas_size[0] - n_rows - self.margin_buffer)
+                left = self.rng.integers(self.margin_buffer, self.canvas_size[1] - n_cols - self.margin_buffer)
+                centroid = np.array([top + (n_rows // 2), left + (n_cols // 2)], dtype=np.int)
+                
             new_canvas = self._canvas(n=stimuli.shape[0])
             new_canvas[:, :, top:top + n_rows, left:left + n_cols] = stimuli
             stimuli = new_canvas
