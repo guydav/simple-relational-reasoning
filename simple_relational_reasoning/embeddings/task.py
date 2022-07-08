@@ -81,13 +81,21 @@ TaskResults = namedtuple('TaskResults', ('mean', 'std', 'n'))
 
 BATCH_SIZE = 32
 
+
 def quinn_embedding_task_single_generator(
-    model, triplet_generator, metrics=METRICS, N=1024, batch_size=BATCH_SIZE, use_tqdm=False, device=None):
+    model, triplet_generator, metrics=METRICS, N=1024, batch_size=BATCH_SIZE, use_tqdm=False, device=None, tsne_mode=False):
     
     if device is None:
         device = next(model.parameters()).device
 
+    if tsne_mode and N != 1:
+        raise ValueError(f'TSNE mode only works with N=1, received N={N}')
+
     data = triplet_generator(N)
+    if tsne_mode:
+        data = data.squeeze(0)
+        output_embeddings = []
+    
     B = batch_size
     dataloader = DataLoader(TensorDataset(data), batch_size=batch_size, shuffle=False)
     
@@ -102,49 +110,69 @@ def quinn_embedding_task_single_generator(
         data_iter = tqdm(dataloader, desc='Batches')
         
     for b in data_iter:
-        x = b[0]  # shape (B, H + 2, 3, 224, 224) where H is the number of habituation stimuli
-        H = x.shape[1] - 2
-        x = x.view(-1, *x.shape[2:])
-        x = x.to(device)
-        e = model(x).detach()
-        e = e.view(B, H + 2, -1)  # shape (B, H + 2, Z)
-        
-        if H > 1:  # if we have multiple habituation stimuli, average them
-            average_habituation_embedding = e[:, :-2, :].mean(dim=1, keepdim=True)
-            test_embeddings = e[:, -2:]
-            e = torch.cat((average_habituation_embedding, test_embeddings), dim=1)
+        if tsne_mode:
+            x = b[0]  # shape (B, 3, 224, 224) where H is the number of habituation stimuli
+            x = x.to(device)
+            e = model(x).detach().cpu().numpy()
+            output_embeddings.append(e)
 
-        embedding_pairwise_cosine = cos(e[:, :, None, :], e[:, None, :, :])  # shape (B, 3, 3)
-        triplet_cosines = embedding_pairwise_cosine[:, triangle_indices[0], triangle_indices[1]] # shape (B, 3)
+        else:
+            x = b[0]  # shape (B, H + 2, 3, 224, 224) where H is the number of habituation stimuli
+            H = x.shape[1] - 2
+            x = x.view(-1, *x.shape[2:])
+            x = x.to(device)
+            e = model(x).detach()
+            e = e.view(B, H + 2, -1)  # shape (B, H + 2, Z)
+            
+            if H > 1:  # if we have multiple habituation stimuli, average them
+                average_habituation_embedding = e[:, :-2, :].mean(dim=1, keepdim=True)
+                test_embeddings = e[:, -2:]
+                e = torch.cat((average_habituation_embedding, test_embeddings), dim=1)
 
-        # triplet_cosines
+            embedding_pairwise_cosine = cos(e[:, :, None, :], e[:, None, :, :])  # shape (B, 3, 3)
+            triplet_cosines = embedding_pairwise_cosine[:, triangle_indices[0], triangle_indices[1]] # shape (B, 3)
 
+            # triplet_cosines
+
+            for metric in metrics:
+                model_results[metric.name].append(metric(triplet_cosines).cpu())
+
+    if not tsne_mode:
         for metric in metrics:
-            model_results[metric.name].append(metric(triplet_cosines).cpu())
-
-    for metric in metrics:
-        model_results[metric.name] = metric.aggregate(model_results[metric.name])
+            model_results[metric.name] = metric.aggregate(model_results[metric.name])
 
     del dataloader
-    del data
 
+    if tsne_mode:
+        return data.cpu().numpy(), np.concatenate(output_embeddings, axis=0)
+
+    del data
+    
     return model_results
+
 
 def quinn_embedding_task_multiple_generators(
     model, condition_names, triplet_generators, 
-    metrics=METRICS, N=1024, batch_size=BATCH_SIZE):
+    metrics=METRICS, N=1024, batch_size=BATCH_SIZE, tsne_mode=False):
     
     all_results = {}
     for condition_name, triplet_gen in zip(condition_names, triplet_generators):
         results = quinn_embedding_task_single_generator(model, triplet_gen, metrics=metrics,
-                                                        N=N, batch_size=batch_size)
-        all_results[condition_name] = {metric.name: TaskResults(np.mean(results[metric.name]), 
-                                                      np.std(results[metric.name]), N) 
-                             for metric in metrics}
+                                                        N=N, batch_size=batch_size, tsne_mode=tsne_mode)
+
+        if tsne_mode:
+            data, results = results
+            all_results[condition_name] = dict(data=data, results=results)
+        else:                                                    
+            all_results[condition_name] = {metric.name: TaskResults(np.mean(results[metric.name]), 
+                                                        np.std(results[metric.name]), N) 
+                                           for metric in metrics}
     return all_results
-    
+
+
 def run_multiple_models_multiple_generators(model_names, model_kwarg_dicts, 
-                                            condition_names, condition_generators, N, batch_size=BATCH_SIZE):
+                                            condition_names, condition_generators, N, 
+                                            batch_size=BATCH_SIZE, tsne_mode=False):
     all_model_results = {}
     
     for name, model_kwargs in zip (model_names, model_kwarg_dicts):
@@ -152,7 +180,7 @@ def run_multiple_models_multiple_generators(model_names, model_kwarg_dicts,
         model = build_model(**model_kwargs)
 
         all_model_results[name] = quinn_embedding_task_multiple_generators(
-            model, condition_names, condition_generators, N=N, batch_size=batch_size)
+            model, condition_names, condition_generators, N=N, batch_size=batch_size, tsne_mode=tsne_mode)
 
         del model
 
