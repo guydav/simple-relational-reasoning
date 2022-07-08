@@ -55,7 +55,15 @@ parser.add_argument('--distance-endpoints', type=int, nargs=2, default=DEFAULT_D
 parser.add_argument('-r', '--relation', type=str, action='append', choices=RELATIONS,
                     help='Which relation(s) to run (default: all)')
 
+## t-SNE specific args
+
 parser.add_argument('--target-step', type=int, default=16, help='How much to step the target between stimuli')
+
+parser.add_argument('--fixed-inter-reference-distance', type=int, default=None)
+
+parser.add_argument('--fixed-target-index', type=int, default=None)
+
+parser.add_argument('--center-stimuli', type=bool, default=True)
 
 DEFAULT_TWO_REFERENCE_OBJECTS = None
 parser.add_argument('--two-reference-objects', type=int, default=DEFAULT_TWO_REFERENCE_OBJECTS)
@@ -129,12 +137,15 @@ def create_triplet_generators(args):
         stimulus_generator = stimulus_generator_builder(**args.stimulus_generator_kwargs)
         
         triplet_generator = triplet_generator_class(stimulus_generator, args.distance_endpoints,
-            relation=args.relation, two_reference_objects=args.two_reference_objects, 
+            relation=args.relation, target_step=args.target_step,
+            two_reference_objects=args.two_reference_objects, 
             adjacent_reference_objects=args.adjacent_reference_objects,
-            n_target_types=args.n_target_types, transpose=args.transpose,
-            n_habituation_stimuli=args.n_habituation_stimuli, 
-            multiple_habituation_radius=args.multiple_habituation_radius,
-            target_step=args.target_step)
+            fixed_inter_reference_distance=args.fixed_inter_reference_distance,
+            fixed_target_index=args.fixed_target_index,
+            center_stimuli=args.center_stimuli,
+            transpose=args.transpose,
+            )
+            
         
         triplet_generators.append(triplet_generator)
 
