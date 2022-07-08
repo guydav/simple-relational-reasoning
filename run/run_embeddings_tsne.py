@@ -169,7 +169,7 @@ def handle_single_args_setting(args):
 
     if args.print_setting_options:
         print(' ' * 26 + 'Setting Options')
-        for k in MULTIPLE_OPTION_REWRITE_FIELDS:
+        for k in MULTIPLE_OPTION_REWRITE_FIELDS + SINGLE_OPTION_FIELDS_TO_DF:
             print(' ' * 26 + k + ': ' + str(var_args[k]))
     
     model_kwarg_dicts = []
