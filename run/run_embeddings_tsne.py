@@ -57,13 +57,18 @@ parser.add_argument('-r', '--relation', type=str, action='append', choices=RELAT
 
 ## t-SNE specific args
 
-parser.add_argument('--target-step', type=int, default=16, help='How much to step the target between stimuli')
+DEFAULT_TARGET_STEP = 12
+parser.add_argument('--target-step', type=int, default=DEFAULT_TARGET_STEP, help='How much to step the target between stimuli')
 
-parser.add_argument('--fixed-inter-reference-distance', type=int, default=None)
+DEFAULT_FIXED_INTER_REFERENCE_DISTANCE = 80
+parser.add_argument('--fixed-inter-reference-distance', type=int, default=DEFAULT_FIXED_INTER_REFERENCE_DISTANCE)
 
 parser.add_argument('--fixed-target-index', type=int, default=None)
 
 parser.add_argument('--center-stimuli', type=bool, default=True)
+
+DEFAULT_MARGIN_BUFFER = 16
+parser.add_argument('--margin-buffer', type=int, default=DEFAULT_MARGIN_BUFFER)
 
 DEFAULT_TWO_REFERENCE_OBJECTS = None
 parser.add_argument('--two-reference-objects', type=int, default=DEFAULT_TWO_REFERENCE_OBJECTS)
@@ -144,6 +149,7 @@ def create_triplet_generators(args):
             fixed_target_index=args.fixed_target_index,
             center_stimuli=args.center_stimuli,
             transpose=args.transpose,
+            margin_buffer=args.margin_buffer,
             )
             
         
