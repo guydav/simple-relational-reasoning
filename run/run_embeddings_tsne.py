@@ -121,10 +121,10 @@ parser.add_argument('--print-setting-options', action='store_true')
 
 MULTIPLE_OPTION_FIELD_DEFAULTS = {
     'relation': RELATIONS,
-    'two_reference_objects': [0, 1],
-    'adjacent_reference_objects': [0, 1],
-    'n_target_types': [1, 2],
-    'n_habituation_stimuli': [1, 4],
+    # 'two_reference_objects': [0, 1],
+    # 'adjacent_reference_objects': [0, 1],
+    # 'n_target_types': [1, 2],
+    # 'n_habituation_stimuli': [1, 4],
     'rotate_angle': [0, 30, 45, 60, 90, 120, 135, 150],
 }
 MULTIPLE_OPTION_REWRITE_FIELDS = list(MULTIPLE_OPTION_FIELD_DEFAULTS.keys())
@@ -273,6 +273,10 @@ if __name__ == '__main__':
             var_args_copy = vars(args_copy)
             var_args_copy.update({key: value for key, value in zip(MULTIPLE_OPTION_REWRITE_FIELDS,
                                                                 value_combination)})
+
+            if args_copy.relation == BETWEEN_RELATION:
+                args_copy.two_reference_objects = True
+                args_copy.adjacent_reference_objects = False
 
             # TODO: any checks for arg combinations we shouldn't run?
             if args_copy.relation == BETWEEN_RELATION and not args_copy.two_reference_objects:
