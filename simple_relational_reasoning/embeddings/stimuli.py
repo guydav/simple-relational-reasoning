@@ -16,8 +16,11 @@ from scipy import ndimage as nd
 
 CACHE_SIZE = 16
 DEFAULT_CANVAS_SIZE = (224, 224)
-NORMALIZE = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                 std=[0.229, 0.224, 0.225])
+NORM_MEAN = [0.485, 0.456, 0.406]
+NORM_STD = [0.229, 0.224, 0.225]
+NORMALIZE = transforms.Normalize(mean=NORM_MEAN, std=NORM_STD)
+UNNORMALIZE = transforms.Normalize(mean=[-m / s for m, s in zip(NORM_MEAN, NORM_STD)], std=[1.0 /s for s in NORM_STD])
+
 
 DEFAULT_TARGET_SIZE = 15
 DEFAULT_REFERENCE_SIZE = (10, 140)
@@ -177,13 +180,14 @@ class StimulusGenerator:
         self.n_target_types = 1
     
     def generate(self, target_position, reference_positions, target_index=0, 
-                 center_positions=True, transpose_target=False, pad_and_crop=True) -> torch.Tensor:
+                 center_positions=True, transpose_target=False, pad_and_crop=True,
+                 multiple_target_positions=False, target_colors=None) -> torch.Tensor:
         if len(reference_positions) > 0 and not hasattr(reference_positions[0], '__len__'):
             reference_positions = [reference_positions]
         
         x = self._canvas(padding=self.padding if pad_and_crop else 0)
         if pad_and_crop:
-            target_position = [t + self.padding for t in target_position]
+            target_position = [np.array(t) + self.padding for t in target_position]
             reference_positions = [[r + self.padding for r in rp] for rp in reference_positions]
         
         # reference first in case of overlap
@@ -200,16 +204,33 @@ class StimulusGenerator:
                  rp[1]:rp[1] + ref_object.shape[2]] = ref_object
             
         target_centering = np.array([center_positions * s // 2 for s in self.target_size])
-        target_pos = np.array(target_position) - target_centering
-        target = self._target_object(target_index)
-        if transpose_target:
-            target = np.transpose(target, (0, 2, 1))
-        
-        # if (target_pos < 0).any() or ((target_pos + np.array(target.shape[1:])) > canvas_shape[0]).any():
-        #     print(f'Target out of bounds: target: {target_pos}, centering: {target_centering}, references: {reference_positions}, angle: {self.rotate_angle} ')
 
-        x[:, target_pos[0]:target_pos[0] + target.shape[1],
-             target_pos[1]:target_pos[1] + target.shape[2]] = target
+        if multiple_target_positions:
+            for i, t_pos in enumerate(target_position):
+                target_pos = np.array(t_pos) - target_centering
+                target = self._target_object(target_index)
+                if transpose_target:
+                    target = np.transpose(target, (0, 2, 1))
+                
+                if target_colors is not None:
+                    target = torch.clone(target)
+                    target[:, (target != 1).all(0)] = torch.tensor(target_colors[i], dtype=target.dtype).view(-1, 1)
+                
+                x[:, target_pos[0]:target_pos[0] + target.shape[1],
+                    target_pos[1]:target_pos[1] + target.shape[2]] = target
+
+        else:
+
+            target_pos = np.array(target_position) - target_centering
+            target = self._target_object(target_index)
+            if transpose_target:
+                target = np.transpose(target, (0, 2, 1))
+            
+            # if (target_pos < 0).any() or ((target_pos + np.array(target.shape[1:])) > canvas_shape[0]).any():
+            #     print(f'Target out of bounds: target: {target_pos}, centering: {target_centering}, references: {reference_positions}, angle: {self.rotate_angle} ')
+
+            x[:, target_pos[0]:target_pos[0] + target.shape[1],
+                target_pos[1]:target_pos[1] + target.shape[2]] = target
 
         if self.rotate_angle is not None and self.rotate_angle != 0:
             if pad_and_crop is False:
@@ -263,13 +284,21 @@ class StimulusGenerator:
                 
     @lru_cache(maxsize=CACHE_SIZE)
     def cached_batch_generate(self, target_positions, reference_positions, target_indices, 
-                              normalize=True, transpose_target=False, pad_and_crop=True, crop_to_center=False):
+                              normalize=True, transpose_target=False, pad_and_crop=True, 
+                              crop_to_center=False, multiple_target_positions=False, target_colors=None):
         
         self.new_stimulus()
         zip_gen = zip(target_positions, reference_positions, target_indices)
 
-        stimuli = torch.stack([self.generate(t, p, i, transpose_target=transpose_target, pad_and_crop=pad_and_crop) 
-                                for (t, p, i) in zip_gen])
+        stimuli = torch.stack(
+            [self.generate(t, p, i, 
+                          transpose_target=transpose_target, 
+                          pad_and_crop=pad_and_crop, 
+                          multiple_target_positions=multiple_target_positions,
+                          target_colors=target_colors) 
+             for (t, p, i) in zip_gen]
+        )
+
         centroid = None
         
         if pad_and_crop:
