@@ -509,18 +509,22 @@ class TSNEStimuliSetGenerator(TripletGenerator):
                  adjacent_reference_objects=False,
                  fixed_inter_reference_distance=None,
                  fixed_target_index=None,
+                 fixed_centroid_position=None,
                  center_stimuli=True,
                  transpose=False,
-                 vertical_margin=0, horizontal_margin=0,
+                 extra_top_margin=0,
+                 extra_bottom_margin=0,
+                 extra_reference_margin=0,
                  margin_buffer=DEFAULT_MARGIN_BUFFER,
-                 seed=DEFAULT_RANDOM_SEED, use_tqdm=False, track_centroids=False):
+                 seed=DEFAULT_RANDOM_SEED, use_tqdm=False, 
+                 track_centroids=False, track_targets=False):
         super(TSNEStimuliSetGenerator, self).__init__(
             stimulus_generator=stimulus_generator, relation=relation,
             two_reference_objects=two_reference_objects,
             two_targets_between=two_targets_between, 
             n_target_types=1,
-            transpose=transpose, vertical_margin=vertical_margin, 
-            horizontal_margin=horizontal_margin, seed=seed, use_tqdm=use_tqdm)
+            transpose=transpose, vertical_margin=0, 
+            horizontal_margin=0, seed=seed, use_tqdm=use_tqdm)
         
         if not hasattr(distance_endpoints, '__len__'):
             distance_endpoints = (distance_endpoints, distance_endpoints)        
@@ -530,8 +534,13 @@ class TSNEStimuliSetGenerator(TripletGenerator):
         self.adjacent_reference_objects = adjacent_reference_objects
         self.fixed_inter_reference_distance = fixed_inter_reference_distance
         self.fixed_target_index = fixed_target_index
+        self.fixed_centroid_position = fixed_centroid_position
         self.center_stimuli = center_stimuli
         self.margin_buffer = margin_buffer
+
+        self.extra_top_margin = extra_top_margin
+        self.extra_bottom_margin = extra_bottom_margin
+        self.extra_reference_margin = extra_reference_margin
 
         self.reference_width = self.stimulus_generator.reference_size[1]
         self.reference_height = self.stimulus_generator.reference_size[0]
@@ -541,6 +550,10 @@ class TSNEStimuliSetGenerator(TripletGenerator):
         self.track_centroids = track_centroids
         if self.track_centroids:
             self.stimulus_centroids = []
+
+        self.track_targets = track_targets
+        if self.track_targets:
+            self.target_positions = []
     
     def _left_right_limits(self, reference_position):
         left = reference_position[1] - (self.reference_width // 2) + (self.target_width // 2) + self.margin_buffer
@@ -549,26 +562,32 @@ class TSNEStimuliSetGenerator(TripletGenerator):
 
     def _limits_to_positions(self, top, bottom, left, right):
         # returns a X by 2 array of positions
-                return np.mgrid[top:bottom:self.target_step, left:right:self.target_step].reshape(2, -1).T
+        return np.mgrid[top:bottom:self.target_step, left:right:self.target_step].reshape(2, -1).T
 
     def _tile_above(self, reference_position):
         top = max(reference_position[0] - self.distance_endpoints[1], self.target_height // 2 + self.margin_buffer)
+        top += self.extra_top_margin
         bottom = reference_position[0] - (self.reference_height // 2) - (self.target_height // 2) - self.margin_buffer
+        bottom -= self.extra_reference_margin
         left, right = self._left_right_limits(reference_position)
 
         return self._limits_to_positions(top, bottom, left, right)
 
     def _tile_below(self, reference_position):
         top = reference_position[0] + (self.reference_height // 2) + (self.target_height // 2) + self.margin_buffer
+        top += self.extra_reference_margin
         bottom = min(reference_position[0] + self.distance_endpoints[1], 
             self.stimulus_generator.canvas_size[0] - (self.target_height // 2) - self.margin_buffer)
+        bottom -= self.extra_bottom_margin
         left, right = self._left_right_limits(reference_position)
 
         return self._limits_to_positions(top, bottom, left, right)
 
     def _tile_between(self, top_reference_position, bottom_reference_position):
         top = top_reference_position[0] + (self.reference_height // 2) + (self.target_height // 2) + self.margin_buffer
+        top += self.extra_reference_margin
         bottom = bottom_reference_position[0] - (self.reference_height // 2) - (self.target_height // 2) - self.margin_buffer
+        bottom -= self.extra_reference_margin
         left, right = self._left_right_limits(top_reference_position)
 
         return self._limits_to_positions(top, bottom, left, right)
@@ -601,8 +620,11 @@ class TSNEStimuliSetGenerator(TripletGenerator):
             # else:  # Same distance in above/below and between
             #     inter_reference_distance = target_distance
 
-        stimulus_centroid_position = np.array([self.stimulus_generator.canvas_size[0] // 2,
-             self.stimulus_generator.canvas_size[1] // 2], dtype=np.int)
+        if self.fixed_centroid_position is not None:
+            stimulus_centroid_position = np.array(self.fixed_centroid_position, dtype=np.int)
+        else:
+            stimulus_centroid_position = np.array([self.stimulus_generator.canvas_size[0] // 2,
+                self.stimulus_generator.canvas_size[1] // 2], dtype=np.int)
 
         # compute reference positions relative to the centroid
         reference_positions = []
@@ -626,6 +648,9 @@ class TSNEStimuliSetGenerator(TripletGenerator):
             all_target_positions.append(self._tile_below(reference_positions[0]))
 
         target_positions = list(np.concatenate(all_target_positions))    
+        if self.track_targets:
+            self.target_positions.append(target_positions)
+
         if self.fixed_target_index is not None and 0 <= self.fixed_target_index < self.stimulus_generator.n_target_types:
             target_index = self.fixed_target_index
 

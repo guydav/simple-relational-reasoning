@@ -67,6 +67,13 @@ parser.add_argument('--fixed-target-index', type=int, default=None)
 
 parser.add_argument('--center-stimuli', type=bool, default=True)
 
+parser.add_argument('--extra-top-margin', type=int, default=0)
+parser.add_argument('--extra-bottom-margin', type=int, default=0)
+parser.add_argument('--extra-reference-margin', type=int, default=0)
+
+parser.add_argument('--fixed-centroid-position', type=int, nargs=2, default=None)
+
+
 DEFAULT_MARGIN_BUFFER = 16
 parser.add_argument('--margin-buffer', type=int, default=DEFAULT_MARGIN_BUFFER)
 
@@ -150,6 +157,10 @@ def create_triplet_generators(args):
             center_stimuli=args.center_stimuli,
             transpose=args.transpose,
             margin_buffer=args.margin_buffer,
+            extra_top_margin=args.extra_top_margin,
+            extra_bottom_margin=args.extra_bottom_margin,
+            extra_reference_margin=args.extra_reference_margin,
+            fixed_centroid_position=args.fixed_centroid_position,
             )
             
         
