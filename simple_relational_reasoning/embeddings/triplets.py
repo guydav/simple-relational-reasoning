@@ -665,7 +665,7 @@ class TSNEStimuliSetGenerator(TripletGenerator):
                                                       normalize=normalize,
                                                       transpose_target=self.transpose,
                                                       return_centroid=True,
-                                                      crop_to_center=self.center_stimuli)
+                                                      crop_to_center=self.center_stimuli and self.fixed_centroid_position is None)
 
         if self.track_centroids:
             self.stimulus_centroids.append(centroid)
