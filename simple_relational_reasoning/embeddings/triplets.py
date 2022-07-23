@@ -510,6 +510,9 @@ class TSNEStimuliSetGenerator(TripletGenerator):
                  fixed_inter_reference_distance=None,
                  fixed_target_index=None,
                  fixed_centroid_position=None,
+                 no_reference_objects=False,
+                 pseudo_reference_width=None,
+                 pseudo_reference_height=None,
                  center_stimuli=True,
                  transpose=False,
                  extra_top_margin=0,
@@ -535,6 +538,8 @@ class TSNEStimuliSetGenerator(TripletGenerator):
         self.fixed_inter_reference_distance = fixed_inter_reference_distance
         self.fixed_target_index = fixed_target_index
         self.fixed_centroid_position = fixed_centroid_position
+        self.no_reference_objects = no_reference_objects
+
         self.center_stimuli = center_stimuli
         self.margin_buffer = margin_buffer
 
@@ -542,8 +547,8 @@ class TSNEStimuliSetGenerator(TripletGenerator):
         self.extra_bottom_margin = extra_bottom_margin
         self.extra_reference_margin = extra_reference_margin
 
-        self.reference_width = self.stimulus_generator.reference_size[1]
-        self.reference_height = self.stimulus_generator.reference_size[0]
+        self.reference_width = self.stimulus_generator.reference_size[1] if pseudo_reference_width is None else pseudo_reference_width
+        self.reference_height = self.stimulus_generator.reference_size[0] if pseudo_reference_height is None else pseudo_reference_height
         self.target_width = self.stimulus_generator.target_size[1]
         self.target_height = self.stimulus_generator.target_size[0]
 
@@ -658,6 +663,9 @@ class TSNEStimuliSetGenerator(TripletGenerator):
             target_index = self.rng.integers(0, self.stimulus_generator.n_target_types)
 
         target_indices = [target_index] * len(target_positions)
+
+        if self.no_reference_objects:
+            reference_positions = None
 
         stimulus, centroid =  self.stimulus_generator.batch_generate(target_positions, 
                                                       reference_positions, 

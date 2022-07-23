@@ -291,12 +291,12 @@ class StimulusGenerator:
         zip_gen = zip(target_positions, reference_positions, target_indices)
 
         stimuli = torch.stack(
-            [self.generate(t, p, i, 
+            [self.generate(tp, rp, i, 
                           transpose_target=transpose_target, 
                           pad_and_crop=pad_and_crop, 
                           multiple_target_positions=multiple_target_positions,
                           target_colors=target_colors) 
-             for (t, p, i) in zip_gen]
+             for (tp, rp, i) in zip_gen]
         )
 
         centroid = None

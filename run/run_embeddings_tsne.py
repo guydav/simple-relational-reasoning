@@ -73,6 +73,10 @@ parser.add_argument('--extra-reference-margin', type=int, default=0)
 
 parser.add_argument('--fixed-centroid-position', type=int, nargs=2, default=None)
 
+parser.add_argument('--no-reference-objects', action='store_true')
+parser.add_argument('--pseudo-reference-width', type=int, default=None)
+parser.add_argument('--pseudo-reference-height', type=int, default=None)
+
 
 DEFAULT_MARGIN_BUFFER = 16
 parser.add_argument('--margin-buffer', type=int, default=DEFAULT_MARGIN_BUFFER)
@@ -161,6 +165,9 @@ def create_triplet_generators(args):
             extra_bottom_margin=args.extra_bottom_margin,
             extra_reference_margin=args.extra_reference_margin,
             fixed_centroid_position=args.fixed_centroid_position,
+            no_reference_objects=args.no_reference_objects,
+            pseudo_reference_width=args.pseudo_reference_width,
+            pseudo_reference_height=args.pseudo_reference_height,
             )
             
         
