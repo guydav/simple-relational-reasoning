@@ -74,8 +74,7 @@ parser.add_argument('--extra-reference-margin', type=int, default=0)
 parser.add_argument('--fixed-centroid-position', type=int, nargs=2, default=None)
 
 parser.add_argument('--no-reference-objects', action='store_true')
-parser.add_argument('--pseudo-reference-width', type=int, default=None)
-parser.add_argument('--pseudo-reference-height', type=int, default=None)
+parser.add_argument('--tile-targets-uniformly', action='store_true')
 
 
 DEFAULT_MARGIN_BUFFER = 16
@@ -166,8 +165,7 @@ def create_triplet_generators(args):
             extra_reference_margin=args.extra_reference_margin,
             fixed_centroid_position=args.fixed_centroid_position,
             no_reference_objects=args.no_reference_objects,
-            pseudo_reference_width=args.pseudo_reference_width,
-            pseudo_reference_height=args.pseudo_reference_height,
+            tile_targets_uniformly=args.tile_targets_uniformly,
             )
             
         
