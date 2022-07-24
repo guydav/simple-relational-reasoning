@@ -511,8 +511,7 @@ class TSNEStimuliSetGenerator(TripletGenerator):
                  fixed_target_index=None,
                  fixed_centroid_position=None,
                  no_reference_objects=False,
-                 pseudo_reference_width=None,
-                 pseudo_reference_height=None,
+                 tile_targets_uniformly=False,
                  center_stimuli=True,
                  transpose=False,
                  extra_top_margin=0,
@@ -539,6 +538,7 @@ class TSNEStimuliSetGenerator(TripletGenerator):
         self.fixed_target_index = fixed_target_index
         self.fixed_centroid_position = fixed_centroid_position
         self.no_reference_objects = no_reference_objects
+        self.tile_targets_uniformly = tile_targets_uniformly
 
         self.center_stimuli = center_stimuli
         self.margin_buffer = margin_buffer
@@ -547,8 +547,8 @@ class TSNEStimuliSetGenerator(TripletGenerator):
         self.extra_bottom_margin = extra_bottom_margin
         self.extra_reference_margin = extra_reference_margin
 
-        self.reference_width = self.stimulus_generator.reference_size[1] if pseudo_reference_width is None else pseudo_reference_width
-        self.reference_height = self.stimulus_generator.reference_size[0] if pseudo_reference_height is None else pseudo_reference_height
+        self.reference_width = self.stimulus_generator.reference_size[1] 
+        self.reference_height = self.stimulus_generator.reference_size[0]
         self.target_width = self.stimulus_generator.target_size[1]
         self.target_height = self.stimulus_generator.target_size[0]
 
@@ -594,6 +594,14 @@ class TSNEStimuliSetGenerator(TripletGenerator):
         bottom = bottom_reference_position[0] - (self.reference_height // 2) - (self.target_height // 2) - self.margin_buffer
         bottom -= self.extra_reference_margin
         left, right = self._left_right_limits(top_reference_position)
+
+        return self._limits_to_positions(top, bottom, left, right)
+
+    def _tile_uniformly(self):
+        top = self.target_height // 2 + self.margin_buffer
+        bottom = self.stimulus_generator.canvas_size[0] - (self.target_height // 2) - self.margin_buffer
+        left = self.target_width // 2 + self.margin_buffer
+        right = self.stimulus_generator.canvas_size[1] - (self.target_width // 2) - self.margin_buffer
 
         return self._limits_to_positions(top, bottom, left, right)
 
@@ -648,9 +656,13 @@ class TSNEStimuliSetGenerator(TripletGenerator):
             
 
         else:  # self.relation == ABOVE_BELOW_RELATION and not self.two_reference_objects:
-            reference_positions.append(np.copy(stimulus_centroid_position))
-            all_target_positions.append(self._tile_above(reference_positions[0]))
-            all_target_positions.append(self._tile_below(reference_positions[0]))
+            if self.tile_targets_uniformly:
+                all_target_positions.append(self._tile_uniformly())
+
+            else:
+                reference_positions.append(np.copy(stimulus_centroid_position))
+                all_target_positions.append(self._tile_above(reference_positions[0]))
+                all_target_positions.append(self._tile_below(reference_positions[0]))
 
         target_positions = list(np.concatenate(all_target_positions))    
         if self.track_targets:
