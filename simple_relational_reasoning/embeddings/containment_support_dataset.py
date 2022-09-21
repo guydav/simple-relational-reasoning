@@ -15,6 +15,8 @@ BEHIND = 'behind'
 SUPPORT = 'support'
 SCENE_TYPES = (CONTAINMENT, HIGH_CONTAINMENT, BEHIND, SUPPORT)
 
+BOWL_COLORS = ['blue', 'teal', 'purple', 'green']
+
 DEFAULT_TRANSFORM = transforms.Compose([
     transforms.Resize(DEFAULT_CANVAS_SIZE),
     transforms.ToTensor(),

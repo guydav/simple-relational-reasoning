@@ -3,6 +3,7 @@ import torch
 from torch import nn
 from torch.utils.data import TensorDataset, DataLoader
 import tabulate
+import typing
 
 from abc import abstractmethod
 from collections import defaultdict, namedtuple
@@ -15,49 +16,58 @@ import os
 
 
 class Metric:
-    def __init__(self, name, correct_index=0):
+    name: str
+    correct_index : int
+    def __init__(self, name: str, correct_index: int = 0):
         self.name = name
         self.correct_index = correct_index
         
     @abstractmethod
-    def __call__(self, pairwise_cosines):
-        pass
+    def __call__(self, pairwise_cosines: typing.Union[torch.Tensor, np.ndarray]) -> typing.Union[torch.Tensor, np.ndarray]:
+        raise NotImplementedError()
     
-    def aggregate(self, result_list):
+    def aggregate(self, result_list) -> typing.Union[torch.Tensor, np.ndarray]:
         if isinstance(result_list[0], torch.Tensor):
             return torch.cat(result_list).detach().cpu().numpy()
         
         if isinstance(result_list[0], np.ndarray):
-            return np.concatenate(result_list)
+            return np.concatenate(result_list)  # type: ignore
         
         raise ValueError(f'Can only combine lists of torch.Tensor or np.ndarray, received {type(result_list[0])}')
 
         
 class AccuracyMetric(Metric):
-    def __init__(self, name, correct_index=0, pair_only=False, pair_comparison_index=1):
+    pair_only: bool
+    pair_comparison_index: int
+    def __init__(self, name: str, correct_index: int = 0, pair_only: bool = False, pair_comparison_index: int = 1):
         super(AccuracyMetric, self).__init__(name, correct_index)
         self.pair_only = pair_only
         self.pair_comparison_index = pair_comparison_index
         
-    def __call__(self, pairwise_cosines):
+    def __call__(self, pairwise_cosines) -> typing.Union[torch.Tensor, np.ndarray]:
         if self.pair_only:
             comp = pairwise_cosines[:, self.correct_index] > pairwise_cosines[:, self.pair_comparison_index]
         else:
-            comp = pairwise_cosines.argmax(dim=1) == self.correct_index
+            comp = pairwise_cosines.argmax(dim=1) == self.correct_index  # type: ignore
 
         return comp.to(torch.float)
         
         
 class DifferenceMetric(Metric):
-    def __init__(self, name, correct_index=0, combine_func=torch.mean,
-                 combine_func_kwargs=dict(dim=1)):
+    combine_func: typing.Callable
+    n_stimuli: int
+
+    def __init__(self, name: str, correct_index: int = 0, combine_func: typing.Callable = torch.mean,
+                 combine_func_kwargs: typing.Dict[str, typing.Any] = dict(dim=1), n_stimuli: int = 3):
         super(DifferenceMetric, self).__init__(name, correct_index)
         self.combine_func = combine_func
-        self.incorrect_indices = list(range(3))
-        self.incorrect_indices.remove(correct_index)
         self.combine_func_kwargs = combine_func_kwargs
+        self.n_stimuli = n_stimuli
+
+        self.incorrect_indices = list(range(self.n_stimuli))
+        self.incorrect_indices.remove(correct_index)
         
-    def __call__(self, pairwise_cosines):
+    def __call__(self, pairwise_cosines) -> typing.Union[torch.Tensor, np.ndarray]:
         return pairwise_cosines[:, self.correct_index] - self.combine_func(pairwise_cosines[:, self.incorrect_indices], **self.combine_func_kwargs)
     
     
@@ -66,7 +76,7 @@ class PairDifferenceMetric(Metric):
         super(PairDifferenceMetric, self).__init__(name, correct_index)
         self.pair_comparison_index = pair_comparison_index
         
-    def __call__(self, pairwise_cosines):
+    def __call__(self, pairwise_cosines) -> typing.Union[torch.Tensor, np.ndarray]:
         return pairwise_cosines[:, self.correct_index] - pairwise_cosines[:, self.pair_comparison_index]
     
     
