@@ -2,7 +2,6 @@
 import argparse
 import copy
 import cProfile
-from guppy import hpy
 import itertools
 import matplotlib
 import os
