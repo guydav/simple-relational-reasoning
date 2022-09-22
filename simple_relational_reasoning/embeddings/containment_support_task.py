@@ -85,7 +85,7 @@ def containment_support_task_single_model(
     #     return data.cpu().numpy(), np.concatenate(output_embeddings, axis=0)
     # del data
     
-    if aggregate_results:
+    if not aggregate_results:
         return np.concatenate(all_results, axis=0)
 
     return model_results
