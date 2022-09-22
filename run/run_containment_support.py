@@ -32,7 +32,8 @@ parser = argparse.ArgumentParser()
 DEFAULT_SEED = 33
 parser.add_argument('--seed', type=int, default=DEFAULT_SEED, help='Random seed to run with')
 
-parser.add_argument('-d', '--dataset-path', type=str, default=None, help='Path to dataset')
+DEFAULT_DATASET_PATH = '/home/gd1279/scratch/containment_support/containtment_colors_v2'
+parser.add_argument('-d', '--dataset-path', type=str, default=DEFAULT_DATASET_PATH, help='Path to dataset')
 
 parser.add_argument('--aggregate-results', action='store_true', help='Aggregate results')
 
