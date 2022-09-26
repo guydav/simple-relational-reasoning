@@ -116,7 +116,7 @@ def plot_prettify(text, field_name=None):
         return PLOT_PRETTY_NAMES[text]
     
     for key in PLOT_PRETTY_NAMES:
-        if isinstance(key, str) and key in text:
+        if isinstance(key, str) and len(key) > 2 and key in text:
             return PLOT_PRETTY_NAMES[key]
 
     return text.lower().replace('_', ' ').title()
