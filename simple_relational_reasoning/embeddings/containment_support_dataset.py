@@ -4,6 +4,7 @@ import pathlib
 import torch
 from torchvision import transforms
 from torchvision.datasets import folder
+from tqdm import tqdm
 
 from .stimuli import NORMALIZE, DEFAULT_CANVAS_SIZE
 
@@ -32,13 +33,15 @@ class ContainmentSupportDataset:
     n_configurations: int
     target_objects: list
     transform: typing.Callable
+    tqdm: bool
     scene_types: typing.Sequence[str]
 
-    def __init__(self, image_dir: str, transform: typing.Callable = DEFAULT_TRANSFORM, extension: str = DEFAULT_IMAGE_EXTENSION, scene_types: typing.Sequence[str] = SCENE_TYPES):
+    def __init__(self, image_dir: str, transform: typing.Callable = DEFAULT_TRANSFORM, extension: str = DEFAULT_IMAGE_EXTENSION, scene_types: typing.Sequence[str] = SCENE_TYPES, tqdm: bool = True):
         self.image_dir_path = pathlib.Path(image_dir)
         self.transform = transform
         self.extension = extension
         self.scene_types = scene_types
+        self.tqdm = tqdm
 
         self._create_dataset()
 
@@ -59,7 +62,7 @@ class ContainmentSupportDataset:
         ]
 
         dataset_tensors = []
-        for prefix in ordered_prefixes:
+        for prefix in tqdm(ordered_prefixes):
             prefix_paths = [f'{prefix}_{scene_type}{self.extension}' for scene_type in self.scene_types]
             dataset_tensors.append(torch.stack([self.transform(folder.default_loader((self.image_dir_path / path).as_posix())) for path in prefix_paths]))
 
