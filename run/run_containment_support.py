@@ -118,9 +118,13 @@ def containment_support_results_to_df(all_model_results: typing.Dict[str, np.nda
     df_rows = []
     for model_name, model_results in all_model_results.items():
         for example_index in range(model_results.shape[0]):
-            df_rows.append([model_name, example_index, BOWL_COLORS[example_index % len(BOWL_COLORS)], *model_results[example_index]])
+            df_rows.append([model_name, example_index, 
+                dataset.dataset_configuration_indices[example_index], 
+                dataset.dataset_bowl_colors[example_index],
+                dataset.dataset_target_objects[example_index],
+                *model_results[example_index]])
 
-    headers = ['model', 'index', 'bowl_color'] + [f'{t1}_{t2}_cos' for t1, t2 in itertools.combinations(dataset.scene_types, 2)]
+    headers = ['model', 'example_index', 'configuration_index', 'bowl_color', 'target_color'] + [f'{t1}_{t2}_cos' for t1, t2 in itertools.combinations(dataset.scene_types, 2)]
     return pd.DataFrame(df_rows, columns=headers)
 
 

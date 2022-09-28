@@ -27,11 +27,14 @@ DEFAULT_TRANSFORM = transforms.Compose([
 
 class ContainmentSupportDataset:
     dataset: torch.Tensor
+    dataset_bowl_colors: typing.List[str]
+    dataset_configuration_indices: typing.List[int]
+    dataset_target_objects: typing.List[str]
     image_dir_path: pathlib.Path
     index_zfill: int
     extension: str
     n_configurations: int
-    target_objects: list
+    target_objects: typing.List[str]
     transform: typing.Callable
     tqdm: bool
     scene_types: typing.Sequence[str]
@@ -42,6 +45,10 @@ class ContainmentSupportDataset:
         self.extension = extension
         self.scene_types = scene_types
         self.tqdm = tqdm
+
+        self.dataset_bowl_colors = []
+        self.dataset_configuration_indices = []
+        self.dataset_target_objects = []
 
         self._create_dataset()
 
@@ -56,15 +63,19 @@ class ContainmentSupportDataset:
         
         assert all([path_split[2] in self.scene_types for path_split in path_splits])
 
-        ordered_prefixes = [f'{target_object}_{str(index).zfill(self.index_zfill)}'
-            for index in range(self.n_configurations)
-            for target_object in self.target_objects
-        ]
 
         dataset_tensors = []
-        for prefix in tqdm(ordered_prefixes):
-            prefix_paths = [f'{prefix}_{scene_type}{self.extension}' for scene_type in self.scene_types]
-            dataset_tensors.append(torch.stack([self.transform(folder.default_loader((self.image_dir_path / path).as_posix())) for path in prefix_paths]))
+
+        with tqdm(total=self.n_configurations * len(self.target_objects)) as pbar:
+            for index in range(self.n_configurations):
+                for target_object in self.target_objects:
+                    prefix = f'{target_object}_{str(index).zfill(self.index_zfill)}'
+                    prefix_paths = [f'{prefix}_{scene_type}{self.extension}' for scene_type in self.scene_types]
+                    dataset_tensors.append(torch.stack([self.transform(folder.default_loader((self.image_dir_path / path).as_posix())) for path in prefix_paths]))
+                    
+                    self.dataset_bowl_colors.append(BOWL_COLORS[index % len(BOWL_COLORS)])
+                    self.dataset_configuration_indices.append(index)
+                    self.dataset_target_objects.append(target_object)
 
         self.dataset = torch.stack(dataset_tensors)
 
