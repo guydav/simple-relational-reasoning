@@ -1,4 +1,4 @@
-,model,example_index,configuration_index,bowl_color,target_color,containment_high_containment_cos,containment_behind_cos,containment_support_cos,high_containment_behind_cos,high_containment_support_cos,behind_support_cos
+,model,example_index,configuration_index,bowl_color,target_object,containment_high_containment_cos,containment_behind_cos,containment_support_cos,high_containment_behind_cos,high_containment_support_cos,behind_support_cos
 0,resnext-DINO-S,0,0,brown,BeachBall,0.6409178376197815,0.6349206566810608,0.6381850242614746,0.971529483795166,0.948801577091217,0.9690635204315186
 1,resnext-DINO-S,1,0,brown,Knight,0.8185278177261353,0.8258917331695557,0.817837119102478,0.9753764271736145,0.9407289028167725,0.9666252136230469
 2,resnext-DINO-S,2,0,brown,Lego,0.8209993243217468,0.8088479042053223,0.7980980277061462,0.9652655124664307,0.9394711852073669,0.9644548296928406

@@ -1,4 +1,4 @@
-,model,example_index,configuration_index,bowl_color,target_color,containment_high_containment_cos,containment_behind_cos,containment_support_cos,high_containment_behind_cos,high_containment_support_cos,behind_support_cos
+,model,example_index,configuration_index,bowl_color,target_object,containment_high_containment_cos,containment_behind_cos,containment_support_cos,high_containment_behind_cos,high_containment_support_cos,behind_support_cos
 0,resnext-saycam(S)-s,0,0,brown,BeachBall,0.8214030861854553,0.8274951577186584,0.8468092083930969,0.9284991025924683,0.9095215201377869,0.9741161465644836
 1,resnext-saycam(S)-s,1,0,brown,Knight,0.8560405969619751,0.829619288444519,0.8414518237113953,0.9448291659355164,0.9123272895812988,0.954147219657898
 2,resnext-saycam(S)-s,2,0,brown,Lego,0.8385629653930664,0.8380340933799744,0.8146325945854187,0.9524568319320679,0.8996450304985046,0.9398373961448669
