@@ -1,4 +1,4 @@
-,model,example_index,configuration_index,bowl_color,target_color,containment_high_containment_cos,containment_behind_cos,containment_support_cos,high_containment_behind_cos,high_containment_support_cos,behind_support_cos
+,model,example_index,configuration_index,bowl_color,target_object,containment_high_containment_cos,containment_behind_cos,containment_support_cos,high_containment_behind_cos,high_containment_support_cos,behind_support_cos
 0,mobilenet-saycam(S),0,0,brown,BeachBall,0.836228609085083,0.794823169708252,0.8104630708694458,0.8897882103919983,0.853038489818573,0.9382930994033813
 1,mobilenet-saycam(S),1,0,brown,Knight,0.8347470760345459,0.8479293584823608,0.8050228953361511,0.9305675625801086,0.8271404504776001,0.9224337935447693
 2,mobilenet-saycam(S),2,0,brown,Lego,0.8345382809638977,0.810516893863678,0.8189257979393005,0.932630181312561,0.876943826675415,0.9295720458030701
