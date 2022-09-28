@@ -72,10 +72,12 @@ class ContainmentSupportDataset:
                     prefix = f'{target_object}_{str(index).zfill(self.index_zfill)}'
                     prefix_paths = [f'{prefix}_{scene_type}{self.extension}' for scene_type in self.scene_types]
                     dataset_tensors.append(torch.stack([self.transform(folder.default_loader((self.image_dir_path / path).as_posix())) for path in prefix_paths]))
-                    
+
                     self.dataset_bowl_colors.append(BOWL_COLORS[index % len(BOWL_COLORS)])
                     self.dataset_configuration_indices.append(index)
                     self.dataset_target_objects.append(target_object)
+
+                    pbar.update(1)
 
         self.dataset = torch.stack(dataset_tensors)
 
