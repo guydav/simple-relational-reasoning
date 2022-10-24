@@ -16,8 +16,6 @@ BEHIND = 'behind'
 SUPPORT = 'support'
 SCENE_TYPES = (CONTAINMENT, HIGH_CONTAINMENT, BEHIND, SUPPORT)
 
-BOWL_COLORS = ['brown', 'blue', 'purple', 'green']
-
 DEFAULT_TRANSFORM = transforms.Compose([
     transforms.Resize(DEFAULT_CANVAS_SIZE),
     transforms.ToTensor(),
@@ -27,13 +25,14 @@ DEFAULT_TRANSFORM = transforms.Compose([
 
 class ContainmentSupportDataset:
     dataset: torch.Tensor
-    dataset_bowl_colors: typing.List[str]
     dataset_configuration_indices: typing.List[int]
+    dataset_reference_objects: typing.List[str]
     dataset_target_objects: typing.List[str]
     image_dir_path: pathlib.Path
     index_zfill: int
     extension: str
     n_configurations: int
+    reference_objects: typing.List[str]
     target_objects: typing.List[str]
     transform: typing.Callable
     tqdm: bool
@@ -53,36 +52,40 @@ class ContainmentSupportDataset:
         self._create_dataset()
 
     def _create_dataset(self):
-        path_splits = [path.name.replace(self.extension, '').split('_', 2) for path in self.image_dir_path.glob(f'*{self.extension}')]
+        path_splits = [path.name.replace(self.extension, '').split('_', 3) for path in self.image_dir_path.glob(f'*{self.extension}')]
         
-        self.target_objects = list(sorted(set([path_split[0] for path_split in path_splits])))
+        self.reference_objects = list(sorted(set([path_split[0] for path_split in path_splits])))
+        self.target_objects = list(sorted(set([path_split[1] for path_split in path_splits])))
         
-        self.index_zfill = len(path_splits[0][1])
-        assert all([len(path_split[1]) == self.index_zfill for path_split in path_splits])
-        self.n_configurations = max([int(path_split[1]) for path_split in path_splits]) + 1
+        self.index_zfill = len(path_splits[0][2])
+        assert all([len(path_split[2]) == self.index_zfill for path_split in path_splits])
+        self.n_configurations = max([int(path_split[2]) for path_split in path_splits]) + 1
         
-        assert all([path_split[2] in self.scene_types for path_split in path_splits])
-
+        assert all([path_split[3] in self.scene_types for path_split in path_splits])
 
         dataset_tensors = []
 
-        with tqdm(total=self.n_configurations * len(self.target_objects)) as pbar:
+        with tqdm(total=self.n_configurations * len(self.target_objects) * len(self.reference_objects)) as pbar:
             for index in range(self.n_configurations):
-                for target_object in self.target_objects:
-                    prefix = f'{target_object}_{str(index).zfill(self.index_zfill)}'
-                    prefix_paths = [f'{prefix}_{scene_type}{self.extension}' for scene_type in self.scene_types]
-                    dataset_tensors.append(torch.stack([self.transform(folder.default_loader((self.image_dir_path / path).as_posix())) for path in prefix_paths]))
+                for reference_object in self.reference_objects:
+                    for target_object in self.target_objects:
+                        prefix = f'{reference_object}_{target_object}_{str(index).zfill(self.index_zfill)}'
+                        prefix_paths = [f'{prefix}_{scene_type}{self.extension}' for scene_type in self.scene_types]
+                        dataset_tensors.append(torch.stack([self.transform(folder.default_loader((self.image_dir_path / path).as_posix())) for path in prefix_paths]))
 
-                    self.dataset_bowl_colors.append(BOWL_COLORS[index % len(BOWL_COLORS)])
-                    self.dataset_configuration_indices.append(index)
-                    self.dataset_target_objects.append(target_object)
+                        self.dataset_configuration_indices.append(index)
+                        self.dataset_reference_objects.append(reference_object)
+                        self.dataset_target_objects.append(target_object)
 
-                    pbar.update(1)
+                        pbar.update(1)
 
         self.dataset = torch.stack(dataset_tensors)
 
     def __getitem__(self, index):
         return self.dataset[index]
+    
+    def __len__(self):
+        return len(self.dataset)
 
 
         

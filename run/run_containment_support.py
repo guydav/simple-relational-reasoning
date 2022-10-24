@@ -9,7 +9,7 @@ import sys
 from tqdm import tqdm, trange
 import typing
 
-from simple_relational_reasoning.embeddings.containment_support_dataset import ContainmentSupportDataset, BOWL_COLORS
+from simple_relational_reasoning.embeddings.containment_support_dataset import ContainmentSupportDataset
 
 sys.path.append(os.path.abspath('.'))
 sys.path.append(os.path.abspath('..'))
@@ -31,7 +31,7 @@ parser = argparse.ArgumentParser()
 DEFAULT_SEED = 33
 parser.add_argument('--seed', type=int, default=DEFAULT_SEED, help='Random seed to run with')
 
-DEFAULT_DATASET_PATH = '/home/gd1279/scratch/containment_support/containtment_fixed_variability'
+DEFAULT_DATASET_PATH = '/home/gd1279/scratch/containment_support/containment_both_new_baskets'
 parser.add_argument('-d', '--dataset-path', type=str, default=DEFAULT_DATASET_PATH, help='Path to dataset')
 
 parser.add_argument('--aggregate-results', action='store_true', help='Aggregate results')
@@ -120,11 +120,11 @@ def containment_support_results_to_df(all_model_results: typing.Dict[str, np.nda
         for example_index in range(model_results.shape[0]):
             df_rows.append([model_name, example_index, 
                 dataset.dataset_configuration_indices[example_index], 
-                dataset.dataset_bowl_colors[example_index],
+                dataset.dataset_reference_objects[example_index],
                 dataset.dataset_target_objects[example_index],
                 *model_results[example_index]])
 
-    headers = ['model', 'example_index', 'configuration_index', 'bowl_color', 'target_object'] + [f'{t1}_{t2}_cos' for t1, t2 in itertools.combinations(dataset.scene_types, 2)]
+    headers = ['model', 'example_index', 'configuration_index', 'reference_object', 'target_object'] + [f'{t1}_{t2}_cos' for t1, t2 in itertools.combinations(dataset.scene_types, 2)]
     return pd.DataFrame(df_rows, columns=headers)
 
 
