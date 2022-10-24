@@ -45,8 +45,8 @@ class ContainmentSupportDataset:
         self.scene_types = scene_types
         self.tqdm = tqdm
 
-        self.dataset_bowl_colors = []
         self.dataset_configuration_indices = []
+        self.dataset_reference_objects = []
         self.dataset_target_objects = []
 
         self._create_dataset()
