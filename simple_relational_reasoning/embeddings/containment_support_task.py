@@ -37,7 +37,7 @@ def containment_support_task_single_model(
     
     model_results = defaultdict(list)
     cos = nn.CosineSimilarity(dim=-1)
-    triangle_indices = np.triu_indices(4, 1)
+    triangle_indices = np.triu_indices(len(dataset.scene_types), 1)
     
     model.eval()
     
