@@ -247,7 +247,7 @@ class QuinnTripletGenerator(TripletGenerator):
         if self.n_target_types == 1:
             target_indices = [self.rng.integers(0, self.stimulus_generator.n_target_types)] * len(target_positions)
 
-        if self.n_target_types == 2:
+        elif self.n_target_types == 2:
             # can we allocate a unique target to each stimulus?
             if self.stimulus_generator.n_target_types > self.n_habituation_stimuli > 1:
                 target_indices = self.rng.choice(np.arange(self.stimulus_generator.n_target_types),
