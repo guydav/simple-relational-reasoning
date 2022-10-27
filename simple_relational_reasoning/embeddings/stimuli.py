@@ -4,12 +4,15 @@ from functools import lru_cache
 import colorcet as cc
 import cv2
 import matplotlib
+import matplotlib.axes
+import matplotlib.patches
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
-from matplotlib.backends.backend_agg import FigureCanvas
+from matplotlib.backends.backend_agg import FigureCanvas  # type: ignore
 import numpy as np
 import torch
 import torchvision.transforms as transforms
+import typing
 from torchvision.transforms import functional_tensor
 from scipy import ndimage as nd
 
@@ -27,7 +30,7 @@ DEFAULT_REFERENCE_SIZE = (10, 140)
 DEFAULT_COLOR = 'black'
 DEFAULT_BLUR_FUNC = lambda x: cv2.blur(x, (5, 5))
 
-def crop_with_fill(img, top: int, left: int, height: int, width: int, fill: float):
+def crop_with_fill(img, top: int, left: int, height: int, width: int, fill: int):
     functional_tensor._assert_image_tensor(img)
 
     w, h = functional_tensor.get_image_size(img)
@@ -160,12 +163,18 @@ DEFAULT_ROTATE_PADDING = 100
 DEFAULT_MARGIN_BUFFER = 2
 
 class StimulusGenerator:
-    def __init__(self, target_size, reference_size, rotate_angle=None, 
+    target_size: typing.Tuple[int, int]
+    reference_size: typing.Tuple[int, int]
+    canvas_size: typing.Tuple[int, int]
+
+    def __init__(self, target_size, reference_size, canvas_size, rotate_angle=None, 
         min_rotate_margin=DEFAULT_MIN_ROTATE_MARGIN, 
         centroid_patch_size=DEFAULT_CENTROID_PATCH_SIZE, centroid_marker_value=0, 
         padding=DEFAULT_ROTATE_PADDING, margin_buffer=DEFAULT_MARGIN_BUFFER, dtype=torch.float32, rng=None):
+
         self.target_size = target_size
         self.reference_size = reference_size
+        self.canvas_size = canvas_size
         self.rotate_angle = rotate_angle
         self.min_rotate_margin = min_rotate_margin
         self.centroid_patch_size = centroid_patch_size
@@ -235,7 +244,7 @@ class StimulusGenerator:
         if self.rotate_angle is not None and self.rotate_angle != 0:
             if pad_and_crop is False:
                 raise NotImplementedError('Cannot rotate without padding and cropping')
-            x = transforms.functional.rotate(x, self.rotate_angle, fill=[1.0, 1.0, 1.0])
+            x = transforms.functional.rotate(x, self.rotate_angle, fill=[1.0, 1.0, 1.0])  # type: ignore
 
         return x
     
@@ -244,7 +253,7 @@ class StimulusGenerator:
             transpose_target=transpose_target, pad_and_crop=False))
         
     def batch_generate(self, target_positions, reference_positions, target_indices=None, 
-                       normalize=True, transpose_target=False, pad_and_crop=True, return_centroid=False, crop_to_center=False) -> torch.Tensor:
+                       normalize=True, transpose_target=False, pad_and_crop=True, return_centroid=False, crop_to_center=False) -> typing.Union[torch.Tensor, typing.Tuple[torch.Tensor, np.ndarray]]:
         
         if reference_positions is None:
             reference_positions = []
@@ -273,7 +282,7 @@ class StimulusGenerator:
             
         target_positions = tuple([tuple(pos) for pos in target_positions])
         reference_positions = tuple(reference_positions)
-        stimulus, centroid =  self.cached_batch_generate(target_positions, reference_positions, target_indices, 
+        stimulus, centroid = self.cached_batch_generate(target_positions, reference_positions, target_indices, 
                                           normalize=normalize, transpose_target=transpose_target, 
                                           pad_and_crop=pad_and_crop, crop_to_center=crop_to_center)
 
@@ -285,7 +294,7 @@ class StimulusGenerator:
     @lru_cache(maxsize=CACHE_SIZE)
     def cached_batch_generate(self, target_positions, reference_positions, target_indices, 
                               normalize=True, transpose_target=False, pad_and_crop=True, 
-                              crop_to_center=False, multiple_target_positions=False, target_colors=None):
+                              crop_to_center=False, multiple_target_positions=False, target_colors=None) -> typing.Tuple[torch.Tensor, np.ndarray]:
         
         self.new_stimulus()
         zip_gen = zip(target_positions, reference_positions, target_indices)
@@ -323,9 +332,9 @@ class StimulusGenerator:
             stimuli = new_canvas
 
         if normalize:
-            return NORMALIZE(stimuli), centroid
+            return NORMALIZE(stimuli), centroid  # type: ignore
         
-        return stimuli, centroid
+        return stimuli, centroid  # type: ignore
 
     def _to_tensor(self, t):
         return torch.tensor(t, dtype=self.dtype)
@@ -340,30 +349,30 @@ class StimulusGenerator:
         if isinstance(c, str):
             t = self._to_tensor(matplotlib.colors.to_rgb(c))
         else:
-            t = self.to_tensor(self._validate_input_to_tuple(c, 3))
+            t = self._to_tensor(self._validate_input_to_tuple(c, 3))
         
         return t.view(3, 1, 1)
     
     @abstractmethod
-    def _canvas(self, n=None, padding=0):
+    def _canvas(self, n=None, padding=0) -> torch.Tensor:
         pass
     
     @abstractmethod
-    def _reference_object(self):
+    def _reference_object(self) -> torch.Tensor:
         pass
     
     @abstractmethod
-    def _target_object(self, index=0):
+    def _target_object(self, index=0) -> torch.Tensor:
         pass
     
-    def new_stimulus(self):
+    def new_stimulus(self) -> None:
         pass
 
 class NaiveStimulusGenerator(StimulusGenerator):
     def __init__(self, target_size, reference_size, canvas_size=DEFAULT_CANVAS_SIZE,
                  target_color='black', reference_color='blue', background_color='white',
                  rotate_angle=None, dtype=torch.float32):
-        super(NaiveStimulusGenerator, self).__init__(target_size, reference_size, rotate_angle=rotate_angle, dtype=dtype)
+        super(NaiveStimulusGenerator, self).__init__(target_size, reference_size, canvas_size, rotate_angle=rotate_angle, dtype=dtype)
         
         self.target_size = self._validate_input_to_tuple(target_size)
         self.reference_size = self._validate_input_to_tuple(reference_size)
@@ -373,7 +382,7 @@ class NaiveStimulusGenerator(StimulusGenerator):
         self.reference_color = self._validate_color_input(reference_color)
         self.background_color = self._validate_color_input(background_color)
         
-    def _canvas(self, n=None, padding=0):
+    def _canvas(self, n=None, padding=0) -> torch.Tensor:
         canvas_size = (self.canvas_size[0] + (2 * padding), self.canvas_size[1] + (2 * padding))
 
         if n is None:
@@ -382,10 +391,10 @@ class NaiveStimulusGenerator(StimulusGenerator):
         else:
             return torch.ones(n, 3, *canvas_size, dtype=self.dtype) * self.background_color.view(1, 3, 1, 1)
     
-    def _reference_object(self):
+    def _reference_object(self) -> torch.Tensor:
         return self.reference_color
     
-    def _target_object(self, index=0):
+    def _target_object(self, index=0) -> torch.Tensor:
         return self.target_color
 
 
@@ -437,7 +446,7 @@ class PatchStimulusGenerator(StimulusGenerator):
         # attach a non-interactive Agg canvas to the figure
         # (as a side-effect of the ``__init__``)
         canvas = FigureCanvas(fig)
-        ax = fig.subplots()
+        ax = typing.cast(matplotlib.axes.Axes, fig.subplots())
         max_size = max(size)
 
         if xlim is None:
@@ -511,7 +520,7 @@ class PatchStimulusGenerator(StimulusGenerator):
                  blur_func=None, target_patch_kawrgs=None, reference_patch_kwargs=None,
                  canvas_size=DEFAULT_CANVAS_SIZE, rotate_angle=None,
                  background_color='white', rng=None, cmap_max_color=256, function_n_target_types=5, dtype=torch.float32):
-        super(PatchStimulusGenerator, self).__init__(target_size, reference_size, dtype=dtype, rng=rng)
+        super(PatchStimulusGenerator, self).__init__(target_size, reference_size, canvas_size, dtype=dtype, rng=rng)
 
         if target_patch_kawrgs is None:
             target_patch_kawrgs = {}
@@ -575,7 +584,7 @@ class PatchStimulusGenerator(StimulusGenerator):
 
     @lru_cache(maxsize=256)
     def _cached_reference_object(self, index):
-        reference_patch = self.reference_patch_func(index)
+        reference_patch = self.reference_patch_func(index)  # type: ignore
         return self._patch_to_array(reference_patch, self.reference_size, **self.reference_patch_kwargs)
         
     def _target_object(self, index=0):
@@ -586,5 +595,5 @@ class PatchStimulusGenerator(StimulusGenerator):
 
     @lru_cache(maxsize=256)
     def _cached_target_object(self, index):
-        target_patch = self.target_patch_func(index)
+        target_patch = self.target_patch_func(index)  # type: ignore
         return self._patch_to_array(target_patch, self.target_size, **self.target_patch_kawrgs)
