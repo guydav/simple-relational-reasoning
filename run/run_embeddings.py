@@ -70,7 +70,7 @@ parser.add_argument('--n-habituation-stimuli', type=int, default=None, help='Num
 parser.add_argument('--multiple-habituation-radius', type=int, default=DEFAULT_MULTIPLE_HABITUATION_RADIUS, 
     help='Radius to place multiple habituation stimuli in')
 
-parser.add_argument('--same_relation_target_distance_ratio', type=float, default=None,
+parser.add_argument('--same-relation-target-distance-ratio', type=float, default=None,
     help='Ratio of target distance in same relation to target distance in different relation')
 
 parser.add_argument('-t', '--triplet-generator', type=str, 
