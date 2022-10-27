@@ -70,6 +70,9 @@ parser.add_argument('--n-habituation-stimuli', type=int, default=None, help='Num
 parser.add_argument('--multiple-habituation-radius', type=int, default=DEFAULT_MULTIPLE_HABITUATION_RADIUS, 
     help='Radius to place multiple habituation stimuli in')
 
+parser.add_argument('--same_relation_target_distance_ratio', type=float, default=None,
+    help='Ratio of target distance in same relation to target distance in different relation')
+
 parser.add_argument('-t', '--triplet-generator', type=str, 
     choices=list(TRIPLET_GENERATORS.keys()), help='Which triplet generator to run with')
 
@@ -112,7 +115,7 @@ MULTIPLE_OPTION_FIELD_DEFAULTS = {
 }
 MULTIPLE_OPTION_REWRITE_FIELDS = list(MULTIPLE_OPTION_FIELD_DEFAULTS.keys())
 
-SINGLE_OPTION_FIELDS_TO_DF = ['seed', 'n_examples', 'transpose']
+SINGLE_OPTION_FIELDS_TO_DF = ['seed', 'n_examples', 'transpose', 'same_relation_target_distance_ratio']
 
 
 def create_triplet_generators(args):
@@ -129,7 +132,8 @@ def create_triplet_generators(args):
             adjacent_reference_objects=args.adjacent_reference_objects,
             n_target_types=args.n_target_types, transpose=args.transpose,
             n_habituation_stimuli=args.n_habituation_stimuli, 
-            multiple_habituation_radius=args.multiple_habituation_radius)
+            multiple_habituation_radius=args.multiple_habituation_radius,
+            same_relation_target_distance_ratio=args.same_relation_target_distance_ratio,)
         
         triplet_generators.append(triplet_generator)
 
@@ -193,11 +197,11 @@ def handle_single_args_setting(args):
     for r in rep_iter:
         var_args['seed'] = args.seed + 1
         torch.manual_seed(args.seed)
-        var_args['stimulus_generator_kwargs']['rng'] = np.random.default_rng(args.seed)
+        var_args['stimulus_generator_kwargs']['rng'] = np.random.default_rng(args.seed)  # type: ignore
         var_args['stimulus_generator_kwargs']['rotate_angle'] = args.rotate_angle
 
         if args.distance_endpoints == DEFAULT_DISTANCE_ENDPOINTS:
-            var_args['distance_endpoints'] = DISTANCE_ENDPOINTS_DICT[bool(args.two_reference_objects), bool(args.adjacent_reference_objects)]
+            var_args['distance_endpoints'] = DISTANCE_ENDPOINTS_DICT[bool(args.two_reference_objects), bool(args.adjacent_reference_objects)]  # type: ignore
 
         triplet_generators = create_triplet_generators(args)
 
@@ -213,10 +217,10 @@ def handle_single_args_setting(args):
     for key in MULTIPLE_OPTION_REWRITE_FIELDS + SINGLE_OPTION_FIELDS_TO_DF:
         result_df[key] = var_args[key]
 
-    if args.memory_profile:
-        hp = heap.heap()
-        print(hp)
-        print(hp.byrcs)
+    # if args.memory_profile:
+    #     hp = heap.heap()
+    #     print(hp)
+    #     print(hp.byrcs)
         # print('By CLODO:')
         # print(hp.byrcs[0].byclodo)
         # print()

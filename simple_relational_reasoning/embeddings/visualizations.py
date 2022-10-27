@@ -54,6 +54,11 @@ PLOT_PRETTY_NAMES_BY_FIELD = {
     'same_horizontal_half': {
         True: 'Horizontal Half',
         False: 'Vertical Half',
+    },
+    'reference_object': {
+        'basket': 'Wicker Basket',
+        'cardboardbox': 'Cardboard Box',
+        'woodenbasket': 'Wooden Basket',
     }
 }
 

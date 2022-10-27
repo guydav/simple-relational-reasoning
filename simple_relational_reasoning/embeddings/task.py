@@ -78,11 +78,21 @@ class PairDifferenceMetric(Metric):
         
     def __call__(self, pairwise_cosines) -> typing.Union[torch.Tensor, np.ndarray]:
         return pairwise_cosines[:, self.correct_index] - pairwise_cosines[:, self.pair_comparison_index]
+
+
+class PairRatioMetric(Metric):
+    def __init__(self, name, correct_index=0, pair_comparison_index=1):
+        super(PairRatioMetric, self).__init__(name, correct_index)
+        self.pair_comparison_index = pair_comparison_index
+        
+    def __call__(self, pairwise_cosines) -> typing.Union[torch.Tensor, np.ndarray]:
+        return pairwise_cosines[:, self.correct_index] / pairwise_cosines[:, self.pair_comparison_index]
     
     
 METRICS = (AccuracyMetric('Accuracy', pair_only=True), 
 #            AccuracyMetric('Accuracy(Triplet)'),
            PairDifferenceMetric('Difference'),
+           PairRatioMetric('Ratio'),
 #            DifferenceMetric('MeanDiff'),
 #            DifferenceMetric('MaxDiff', combine_func=lambda x: torch.max(x, dim=1).values, combine_func_kwargs={})
           )
