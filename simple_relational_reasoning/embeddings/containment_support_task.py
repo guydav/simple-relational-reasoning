@@ -30,7 +30,6 @@ def containment_support_task_single_model(
 
     if tsne_mode:
         raise NotImplementedError('TSNE mode not implemented yet for containment support task')
-   
 
     B = batch_size
     dataloader = DataLoader(TensorDataset(dataset.dataset), batch_size=batch_size, shuffle=False)
