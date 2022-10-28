@@ -2,7 +2,6 @@
 import argparse
 import copy
 import cProfile
-from guppy import hpy
 import itertools
 import matplotlib
 import os
@@ -240,11 +239,6 @@ if __name__ == '__main__':
     main_args = parser.parse_args()
     main_args = handle_multiple_option_defaults(main_args)
     main_var_args = vars(main_args)
-
-    heap = None
-    if main_args.memory_profile:
-        heap = hpy()
-        heap.setrelheap()
 
     if main_args.device is not None:
         main_args.device = torch.device(main_args.device)
