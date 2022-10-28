@@ -1,11 +1,11 @@
 import numpy as np
 import torch
 from torch import nn
-from torch.utils.data import TensorDataset, DataLoader
+from torch.utils.data import TensorDataset, DataLoader, WeightedRandomSampler
 import typing
 
 import copy
-from collections import defaultdict, namedtuple
+from collections import Counter
 from IPython.display import display, Markdown
 from tqdm.notebook import tqdm
 
@@ -36,6 +36,12 @@ class LinearClassifier(nn.Module):
         return self.linear(x)
 
 
+def _weigted_random_sampler(labels: torch.Tensor) -> WeightedRandomSampler:
+    class_counts = Counter(labels.numpy())
+    total = len(labels)
+    return WeightedRandomSampler([total / class_counts[y] for y in labels], total)
+
+
 def containment_support_linear_decoding_single_model_single_feature(
     model: nn.Module, datasets: DecodingDatasets, 
     n_epochs: int, lr: float,
@@ -48,9 +54,9 @@ def containment_support_linear_decoding_single_model_single_feature(
 
     B = batch_size
 
-    train_dataloader = DataLoader(datasets.train, batch_size=B, shuffle=True)
-    val_dataloader = DataLoader(datasets.val, batch_size=B, shuffle=False)
-    test_dataloader = DataLoader(datasets.test, batch_size=B, shuffle=False)
+    train_dataloader = DataLoader(datasets.train, batch_size=B, shuffle=True, num_workers=4, sampler=_weigted_random_sampler(datasets.train.tensors[1]))
+    val_dataloader = DataLoader(datasets.val, batch_size=B, num_workers=1, shuffle=False)
+    test_dataloader = DataLoader(datasets.test, batch_size=B, num_workers=1, shuffle=False)
 
     decoder = LinearClassifier(model.embedding_dim, datasets.n_classes).to(device)
     optimizer = torch.optim.Adam(decoder.parameters(), lr=lr)
