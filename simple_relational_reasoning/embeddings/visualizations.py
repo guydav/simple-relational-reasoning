@@ -11,11 +11,11 @@ DEFAULT_ORDERS = {
     'model_name': ['mobilenet', 'resnext'],
     'training' : ['saycam(S)', 'random', 'ImageNet']
 }
-DEFAULT_COLORMAP = plt.get_cmap('Dark2')
+DEFAULT_COLORMAP = plt.get_cmap('Dark2')  # type: ignore
 DEFAULT_BAR_KWARGS_BY_FIELD = defaultdict(lambda: defaultdict(dict))
-DEFAULT_BAR_KWARGS_BY_FIELD['model_name'] = {name: dict(facecolor=DEFAULT_COLORMAP(i))
+DEFAULT_BAR_KWARGS_BY_FIELD['model_name'] = {name: dict(facecolor=DEFAULT_COLORMAP(i))  # type: ignore
                                              for i, name in enumerate(DEFAULT_ORDERS['model_name'])}
-DEFAULT_BAR_KWARGS_BY_FIELD['n_target_types'] = {1: {'hatch': ''}, 2: {'hatch': '/'}}
+DEFAULT_BAR_KWARGS_BY_FIELD['n_target_types'] = {1: {'hatch': ''}, 2: {'hatch': '/'}}  # type: ignore
 
 DEFAULT_BAR_KWARGS = dict(edgecolor='black')
 
@@ -56,9 +56,10 @@ PLOT_PRETTY_NAMES_BY_FIELD = {
         False: 'Vertical Half',
     },
     'reference_object': {
-        'basket': 'Wicker Basket',
-        'cardboardbox': 'Cardboard Box',
-        'woodenbasket': 'Wooden Basket',
+        'Basket': 'Wicker Basket',
+        'CardboardBox': 'Cardboard Box',
+        'ShortBox': 'Short Box',
+        'WoodenBasket': 'Wooden Basket',
     }
 }
 
