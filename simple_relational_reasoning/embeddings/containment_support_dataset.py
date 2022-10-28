@@ -1,9 +1,11 @@
 import typing
 import pathlib
 
+import numpy as np
 import torch
 from torchvision import transforms
 from torchvision.datasets import folder
+from torch.utils.data import TensorDataset
 from tqdm import tqdm
 
 from .stimuli import NORMALIZE, DEFAULT_CANVAS_SIZE
@@ -22,6 +24,16 @@ DEFAULT_TRANSFORM = transforms.Compose([
     transforms.ToTensor(),
     NORMALIZE,
 ])
+
+DEFAULT_VALIDATION_PROPORTION = 0.1
+DEFAULT_RANDOM_SEED = 33
+
+
+class DecodingDatasets(typing.NamedTuple):
+    train: TensorDataset
+    val: TensorDataset
+    test: TensorDataset
+    n_classes: int
 
 
 class ContainmentSupportDataset:
@@ -88,5 +100,38 @@ class ContainmentSupportDataset:
     def __len__(self):
         return len(self.dataset)
 
+    def _indices_to_X_y(self, indices: typing.List[int]):
+        d = self.dataset[indices]
+        X = d.view(-1, *d.shape[2:])
+        y = torch.tensor([0, 0, 1, 1, 2]).repeat(len(indices)) # containment, behind, support
+        return X, y
 
-        
+    def generate_decoding_datasets(self, test_target_object: typing.Optional[str] = None, test_reference_object: typing.Optional[str] = None,
+        validation_proportion: float = DEFAULT_VALIDATION_PROPORTION, random_seed: int = DEFAULT_RANDOM_SEED):
+
+        if test_target_object is None and test_reference_object is None:
+            raise ValueError('test_reference_object and test_target_object cannot both be None')
+
+        if test_target_object is not None and test_reference_object is not None:
+            raise ValueError('test_reference_object and test_target_object cannot both be not None')
+
+        if test_target_object is not None:
+            train_indices = np.array([i for i in range(len(self)) if self.dataset_target_objects[i] != test_target_object])
+            test_indices = np.array([i for i in range(len(self)) if self.dataset_target_objects[i] == test_target_object])
+
+        else:
+            train_indices = np.array([i for i in range(len(self)) if self.dataset_reference_objects[i] != test_reference_object])
+            test_indices = np.array([i for i in range(len(self)) if self.dataset_reference_objects[i] == test_reference_object])
+
+        rng = np.random.default_rng(random_seed)  # type: ignore
+        train_val_permutation = rng.permutation(len(train_indices))  
+        max_val_index = int(len(train_indices) * validation_proportion)
+        validation_indices = train_indices[train_val_permutation[:max_val_index]]  
+        train_indices = train_indices[train_val_permutation[max_val_index:]]
+
+        return DecodingDatasets(
+            TensorDataset(*self._indices_to_X_y(train_indices)), 
+            TensorDataset(*self._indices_to_X_y(validation_indices)), 
+            TensorDataset(*self._indices_to_X_y(test_indices)),
+            3
+        )
