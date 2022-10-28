@@ -33,7 +33,8 @@ def build_model(name, device, pretrained=True, saycam=None, flip=None, dino=None
         model = models.resnext50_32x4d(pretrained=False)
         model = load_dino_model(model, checkpoint_path, False)   
         model = model.to(device)
-        model.fc = nn.Sequential()
+        model.embedding_dim = model.fc.in_features  # type: ignore
+        model.fc = nn.Sequential()  # type: ignore
 
     elif flip:
         assert(flip in FLIPPING_OPTIONS)
@@ -42,11 +43,12 @@ def build_model(name, device, pretrained=True, saycam=None, flip=None, dino=None
         checkpoint = torch.load(os.path.join(CHECKPOINT_FOLDER, f'TC-S-{flip}.tar'))
 
         model = models.resnext50_32x4d(pretrained=False)
-        model = nn.DataParallel(model) 
+        model = nn.DataParallel(model)   # type: ignore
         model = model.to(device)
         model.module.fc = nn.Linear(2048, FLIPPING_n_out)
         # TODO: if this fails, model might have been saved from cpu, should mmove to device later
         model.load_state_dict(checkpoint['model_state_dict'])
+        model.embedding_dim = model.fc.in_features  # type: ignore
         model.module.fc = nn.Sequential()
 
     elif saycam:
@@ -62,18 +64,20 @@ def build_model(name, device, pretrained=True, saycam=None, flip=None, dino=None
         
         if name == MOBILENET:
             model = models.mobilenet_v2(pretrained=False)
-            model = nn.DataParallel(model)
+            model = nn.DataParallel(model)  # type: ignore
             model = model.to(device)
             model.module.classifier = nn.Linear(1280, SAYCAM_n_out[saycam])
             model.load_state_dict(checkpoint['model_state_dict'])
+            model.embedding_dim = model.module.classifier.in_features  # type: ignore
             model.module.classifier = nn.Sequential()
         
         elif name == RESNEXT:
             model = models.resnext50_32x4d(pretrained=False)
-            model = nn.DataParallel(model)
+            model = nn.DataParallel(model)  # type: ignore
             model = model.to(device)
             model.module.fc = nn.Linear(2048, SAYCAM_n_out[saycam])
             model.load_state_dict(checkpoint['model_state_dict'])
+            model.embedding_dim = model.module.fc.in_features  # type: ignore
             model.module.fc = nn.Sequential()
     
     else:
@@ -81,30 +85,34 @@ def build_model(name, device, pretrained=True, saycam=None, flip=None, dino=None
         if name == RESNET:
             model = models.resnet18(pretrained=pretrained)
             model.fc_backup = model.fc
-            model.fc = nn.Sequential()
+            model.embedding_dim = model.fc.in_features  # type: ignore
+            model.fc = nn.Sequential()  # type: ignore
             model = model.to(device)
 
         elif name == VGG:
             model = models.vgg16(pretrained=pretrained)
             model.fc_backup = model.classifier[6]
+            model.embedding_dim = model.classifier[6].in_features  # type: ignore
             model.classifier[6] = nn.Sequential()
             model = model.to(device)
 
         elif name == MOBILENET:
             model = models.mobilenet_v2(pretrained=pretrained)
             model.fc_backup = model.classifier[1]
+            model.embedding_dim = model.classifier[1].in_features  # type: ignore
             model.classifier[1] = nn.Sequential()
             model = model.to(device)
 
         elif name == RESNEXT:
             model = models.resnext50_32x4d(pretrained=pretrained)
             model.fc_backup = model.fc
-            model.fc = nn.Sequential()
+            model.embedding_dim = model.fc.in_features  # type: ignore
+            model.fc = nn.Sequential()      # type: ignore
             model = model.to(device)
         
     if model is None:
         raise ValueError(f'Failed to build model for name={name}, pretrained={pretrained}, saycam={saycam}')
-       
+
 #     print(name, pretrained, saycam, type(model))
         
     return model
