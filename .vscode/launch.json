@@ -11,5 +11,19 @@
             "program": "${file}",
             "console": "integratedTerminal",
         },
+        {
+            "name": "Python: Linear Decoding with args",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                "--dataset-path", "/Users/guydavidson/projects/BlockWorld/outputs/containment_v3_small",
+                "--by-target-object",
+                "--model", "mobilenet",
+                "--untrained",
+                "--output-file", "/Users/guydavidson/Downloads/linear_decoding_results.csv"
+            ]
+        },
     ]
 }
