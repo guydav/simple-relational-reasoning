@@ -127,15 +127,16 @@ def containment_support_linear_decoding_single_model_single_feature(
         val_losses.append(epoch_val_loss)
         val_accuracies.append(epoch_val_acc)
 
-        print(f'After epoch {epoch}: train loss {epoch_train_loss:.4f}, train acc {epoch_train_acc:.4f}, val loss {epoch_val_loss:.4f}, val acc {epoch_val_acc:.4f}')
-
         if epoch_val_loss < min_val_loss:
-            print(f'New best val loss {epoch_val_loss:.4f} < {min_val_loss:.4f}, copying decoder')
+            print(f'After epoch {epoch}: train acc {epoch_train_acc:.4f}, train loss {epoch_train_loss:.4f}, val acc {epoch_val_acc:.4f}, val loss {epoch_val_loss:.4f} < {min_val_loss:.4f}, copying decoder')
             min_val_loss = epoch_val_loss
             min_val_epoch = epoch
             best_decoder = copy.deepcopy(decoder).cpu()
 
-        elif epoch - min_val_epoch > patience_epochs:
+        else:
+            print(f'After epoch {epoch}: train acc {epoch_train_acc:.4f}, train loss {epoch_train_loss:.4f}, val acc {epoch_val_acc:.4f}, val loss {epoch_val_loss:.4f}')
+
+        if epoch - min_val_epoch > patience_epochs:
             print(f'No improvement in val loss for {patience_epochs} epochs, stopping')
             break
 
