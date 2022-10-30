@@ -19,7 +19,7 @@ import pandas as pd
 import torch
 
 from simple_relational_reasoning.embeddings.models import MODELS, RESNEXT, FLIPPING_OPTIONS, DINO_OPTIONS
-from simple_relational_reasoning.embeddings.containment_support_dataset import DEFAULT_VALIDATION_PROPORTION
+from simple_relational_reasoning.embeddings.containment_support_dataset import DEFAULT_VALIDATION_PROPORTION, DEFAULT_PATIENCE_EPOCHS
 from simple_relational_reasoning.embeddings.containment_support_linear_decoding import run_containment_support_linear_decoding_multiple_models, BATCH_SIZE
 from simple_relational_reasoning.embeddings.tables import multiple_results_to_df
 
@@ -38,7 +38,7 @@ parser.add_argument('-d', '--dataset-path', type=str, default=DEFAULT_DATASET_PA
 parser.add_argument('-n', '--n-epochs', type=int, default=50, help='Number of epochs to train for')
 parser.add_argument('--lr', type=float, default=1e-3, help='Learning rate')
 parser.add_argument('--validation-proportion', type=float, default=DEFAULT_VALIDATION_PROPORTION, help='Proportion of dataset to use for validation')
-parser.add_argument('--patience-epochs', type=int, default=DEFAULT_VALIDATION_PROPORTION, help='Proportion of dataset to use for validation')
+parser.add_argument('--patience-epochs', type=int, default=DEFAULT_PATIENCE_EPOCHS, help='Proportion of dataset to use for validation')
 
 group = parser.add_mutually_exclusive_group(required=True)
 group.add_argument('--by-target-object', action='store_true', help='Whether to test by target object')
