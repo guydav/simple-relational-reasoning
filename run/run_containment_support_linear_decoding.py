@@ -19,8 +19,8 @@ import pandas as pd
 import torch
 
 from simple_relational_reasoning.embeddings.models import MODELS, RESNEXT, FLIPPING_OPTIONS, DINO_OPTIONS
-from simple_relational_reasoning.embeddings.containment_support_dataset import DEFAULT_VALIDATION_PROPORTION, DEFAULT_PATIENCE_EPOCHS
-from simple_relational_reasoning.embeddings.containment_support_linear_decoding import run_containment_support_linear_decoding_multiple_models, BATCH_SIZE
+from simple_relational_reasoning.embeddings.containment_support_dataset import DEFAULT_VALIDATION_PROPORTION
+from simple_relational_reasoning.embeddings.containment_support_linear_decoding import run_containment_support_linear_decoding_multiple_models, BATCH_SIZE, DEFAULT_PATIENCE_EPOCHS
 from simple_relational_reasoning.embeddings.tables import multiple_results_to_df
 
 matplotlib.rcParams['figure.dpi'] = 100
