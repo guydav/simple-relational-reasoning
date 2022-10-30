@@ -37,7 +37,8 @@ parser.add_argument('-d', '--dataset-path', type=str, default=DEFAULT_DATASET_PA
 
 parser.add_argument('-n', '--n-epochs', type=int, default=50, help='Number of epochs to train for')
 parser.add_argument('--lr', type=float, default=1e-3, help='Learning rate')
-parser.add_argument('--validation-proporiton', type=float, default=DEFAULT_VALIDATION_PROPORTION, help='Proportion of dataset to use for validation')
+parser.add_argument('--validation-proportion', type=float, default=DEFAULT_VALIDATION_PROPORTION, help='Proportion of dataset to use for validation')
+parser.add_argument('--patience-epochs', type=int, default=DEFAULT_VALIDATION_PROPORTION, help='Proportion of dataset to use for validation')
 
 group = parser.add_mutually_exclusive_group(required=True)
 group.add_argument('--by-target-object', action='store_true', help='Whether to test by target object')
@@ -111,7 +112,7 @@ def handle_single_args_setting(args):
     all_model_results = run_containment_support_linear_decoding_multiple_models(
         model_names, model_kwarg_dicts, dataset, 
         args.n_epochs, args.lr, args.by_target_object, args.by_reference_object,
-        args.batch_size, args.validation_proporiton, args.seed)
+        args.batch_size, args.validation_proportion, args.patience_epochs, args.seed)
 
     return pd.DataFrame.from_records(all_model_results)
 
