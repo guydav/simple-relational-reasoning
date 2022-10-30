@@ -18,6 +18,7 @@ from .task import METRICS, Metric, TaskResults
 
 BATCH_SIZE = 32
 DEFAULT_PATIENCE_EPOCHS = 5
+DEFAULT_PATIENCE_MARGIN = 1e-3
 
 
 class LinearClassifier(nn.Module):
@@ -47,7 +48,7 @@ def _weigted_random_sampler(labels: torch.Tensor) -> WeightedRandomSampler:
 def containment_support_linear_decoding_single_model_single_feature(
     model: nn.Module, datasets: DecodingDatasets, 
     n_epochs: int, lr: float,
-    patience_epochs: int = DEFAULT_PATIENCE_EPOCHS,
+    patience_epochs: int = DEFAULT_PATIENCE_EPOCHS, patience_margin: float = DEFAULT_PATIENCE_MARGIN,
     batch_size: int = BATCH_SIZE, 
     device: typing.Optional[torch.device] = None, 
     ):
@@ -127,7 +128,7 @@ def containment_support_linear_decoding_single_model_single_feature(
         val_losses.append(epoch_val_loss)
         val_accuracies.append(epoch_val_acc)
 
-        if epoch_val_loss < min_val_loss:
+        if epoch_val_loss < min_val_loss - patience_margin:
             print(f'After epoch {epoch}: train acc {epoch_train_acc:.4f}, train loss {epoch_train_loss:.4f}, val acc {epoch_val_acc:.4f}, val loss {epoch_val_loss:.4f} < {min_val_loss:.4f}, copying decoder')
             min_val_loss = epoch_val_loss
             min_val_epoch = epoch
@@ -176,7 +177,8 @@ def run_containment_support_linear_decoding_single_model_multiple_features(
     model: nn.Module, dataset: ContainmentSupportDataset, 
     n_epochs: int, lr: float, by_target_object: bool, by_reference_object: bool,
     batch_size: int = BATCH_SIZE, validation_proportion: float = DEFAULT_VALIDATION_PROPORTION,
-    patience_epochs: int = DEFAULT_PATIENCE_EPOCHS, random_seed: int = DEFAULT_RANDOM_SEED, ):
+    patience_epochs: int = DEFAULT_PATIENCE_EPOCHS, patience_margin: float = DEFAULT_PATIENCE_MARGIN,
+    random_seed: int = DEFAULT_RANDOM_SEED, ):
 
     if by_target_object == by_reference_object:
         raise ValueError('Exactly one of by_target_object and by_reference_object must be True')
@@ -186,7 +188,7 @@ def run_containment_support_linear_decoding_single_model_multiple_features(
     if by_target_object:
         for target_object in dataset.target_objects:
             decoding_datasets = dataset.generate_decoding_datasets(test_target_object=target_object, validation_proportion=validation_proportion, random_seed=random_seed)
-            feature_results = containment_support_linear_decoding_single_model_single_feature(model, decoding_datasets, n_epochs, lr, patience_epochs, batch_size)
+            feature_results = containment_support_linear_decoding_single_model_single_feature(model, decoding_datasets, n_epochs, lr, patience_epochs, patience_margin, batch_size)
             feature_results['test_target_object'] = target_object
             feature_results['test_type'] = 'target_object'
             model_results.append(feature_results)
@@ -194,7 +196,7 @@ def run_containment_support_linear_decoding_single_model_multiple_features(
     else:
         for reference_object in dataset.reference_objects:
             decoding_datasets = dataset.generate_decoding_datasets(test_reference_object=reference_object, validation_proportion=validation_proportion, random_seed=random_seed)
-            feature_results = containment_support_linear_decoding_single_model_single_feature(model, decoding_datasets, n_epochs, lr, patience_epochs, batch_size)
+            feature_results = containment_support_linear_decoding_single_model_single_feature(model, decoding_datasets, n_epochs, lr, patience_epochs, patience_margin, batch_size)
             feature_results['test_reference_object'] = reference_object
             feature_results['test_type'] = 'reference_object'
             model_results.append(feature_results)
@@ -208,7 +210,8 @@ def run_containment_support_linear_decoding_multiple_models(
     dataset: ContainmentSupportDataset, 
     n_epochs: int, lr: float, by_target_object: bool, by_reference_object: bool,
     batch_size: int = BATCH_SIZE, validation_proportion: float = DEFAULT_VALIDATION_PROPORTION,
-    patience_epochs: int = DEFAULT_PATIENCE_EPOCHS, random_seed: int = DEFAULT_RANDOM_SEED, ):
+    patience_epochs: int = DEFAULT_PATIENCE_EPOCHS, patience_margin: float = DEFAULT_PATIENCE_MARGIN,
+    random_seed: int = DEFAULT_RANDOM_SEED, ):
 
     all_model_results = []
 
@@ -220,7 +223,8 @@ def run_containment_support_linear_decoding_multiple_models(
         model = build_model(**model_kwargs)
 
         model_results = run_containment_support_linear_decoding_single_model_multiple_features(
-            model, dataset, n_epochs, lr, by_target_object, by_reference_object, batch_size, validation_proportion, patience_epochs, random_seed)
+            model, dataset, n_epochs, lr, by_target_object, by_reference_object, batch_size, 
+                validation_proportion, patience_epochs, patience_margin, random_seed)
 
         for feature_result in model_results:
             feature_result['model'] = name

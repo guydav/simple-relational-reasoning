@@ -20,7 +20,7 @@ import torch
 
 from simple_relational_reasoning.embeddings.models import MODELS, RESNEXT, FLIPPING_OPTIONS, DINO_OPTIONS
 from simple_relational_reasoning.embeddings.containment_support_dataset import DEFAULT_VALIDATION_PROPORTION
-from simple_relational_reasoning.embeddings.containment_support_linear_decoding import run_containment_support_linear_decoding_multiple_models, BATCH_SIZE, DEFAULT_PATIENCE_EPOCHS
+from simple_relational_reasoning.embeddings.containment_support_linear_decoding import run_containment_support_linear_decoding_multiple_models, BATCH_SIZE, DEFAULT_PATIENCE_EPOCHS, DEFAULT_PATIENCE_MARGIN
 from simple_relational_reasoning.embeddings.tables import multiple_results_to_df
 
 matplotlib.rcParams['figure.dpi'] = 100
@@ -35,10 +35,11 @@ parser.add_argument('--seed', type=int, default=DEFAULT_SEED, help='Random seed 
 DEFAULT_DATASET_PATH = '/home/gd1279/scratch/containment_support/containment_both_new_baskets'
 parser.add_argument('-d', '--dataset-path', type=str, default=DEFAULT_DATASET_PATH, help='Path to dataset')
 
-parser.add_argument('-n', '--n-epochs', type=int, default=50, help='Number of epochs to train for')
+parser.add_argument('-n', '--n-epochs', type=int, default=100, help='Number of epochs to train for')
 parser.add_argument('--lr', type=float, default=1e-3, help='Learning rate')
 parser.add_argument('--validation-proportion', type=float, default=DEFAULT_VALIDATION_PROPORTION, help='Proportion of dataset to use for validation')
-parser.add_argument('--patience-epochs', type=int, default=DEFAULT_PATIENCE_EPOCHS, help='Proportion of dataset to use for validation')
+parser.add_argument('--patience-epochs', type=int, default=DEFAULT_PATIENCE_EPOCHS, help='# Epochs to use for patience')
+parser.add_argument('--patience-margin', type=float, default=DEFAULT_PATIENCE_MARGIN, help='Improvement margin to use for patience')
 
 group = parser.add_mutually_exclusive_group(required=True)
 group.add_argument('--by-target-object', action='store_true', help='Whether to test by target object')
@@ -112,7 +113,7 @@ def handle_single_args_setting(args):
     all_model_results = run_containment_support_linear_decoding_multiple_models(
         model_names, model_kwarg_dicts, dataset, 
         args.n_epochs, args.lr, args.by_target_object, args.by_reference_object,
-        args.batch_size, args.validation_proportion, args.patience_epochs, args.seed)
+        args.batch_size, args.validation_proportion, args.patience_epochs, args.patience_margin, args.seed)
 
     return pd.DataFrame.from_records(all_model_results)
 
