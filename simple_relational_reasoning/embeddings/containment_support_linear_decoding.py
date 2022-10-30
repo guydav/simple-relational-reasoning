@@ -37,9 +37,10 @@ class LinearClassifier(nn.Module):
 
 
 def _weigted_random_sampler(labels: torch.Tensor) -> WeightedRandomSampler:
-    class_counts = Counter(labels.numpy())
-    total = len(labels)
-    return WeightedRandomSampler([total / class_counts[y] for y in labels], total)
+    numpy_labels = labels.numpy()
+    class_counts = Counter(numpy_labels)
+    total = len(numpy_labels)
+    return WeightedRandomSampler([total / class_counts[y] for y in numpy_labels], total)
 
 
 def containment_support_linear_decoding_single_model_single_feature(
@@ -54,7 +55,7 @@ def containment_support_linear_decoding_single_model_single_feature(
 
     B = batch_size
 
-    train_dataloader = DataLoader(datasets.train, batch_size=B, shuffle=True, num_workers=4, sampler=_weigted_random_sampler(datasets.train.tensors[1]))
+    train_dataloader = DataLoader(datasets.train, batch_size=B, num_workers=4, sampler=_weigted_random_sampler(datasets.train.tensors[1]))
     val_dataloader = DataLoader(datasets.val, batch_size=B, num_workers=1, shuffle=False)
     test_dataloader = DataLoader(datasets.test, batch_size=B, num_workers=1, shuffle=False)
 

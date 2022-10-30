@@ -9,10 +9,10 @@ import sys
 from tqdm import tqdm, trange
 import typing
 
-from simple_relational_reasoning.embeddings.containment_support_dataset import ContainmentSupportDataset
-
 sys.path.append(os.path.abspath('.'))
 sys.path.append(os.path.abspath('..'))
+
+from simple_relational_reasoning.embeddings.containment_support_dataset import ContainmentSupportDataset
 
 import numpy as np
 import pandas as pd
