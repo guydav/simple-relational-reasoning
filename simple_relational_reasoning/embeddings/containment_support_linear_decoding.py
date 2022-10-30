@@ -93,7 +93,7 @@ def containment_support_linear_decoding_single_model_single_feature(
             logits = decoder(embeddings)
             loss = criterion(logits, y)
             epoch_train_losses.append(loss.item())
-            epoch_train_accs.append((logits.argmax(dim=1) == y).float().mean())
+            epoch_train_accs.append((logits.argmax(dim=1) == y).float().mean().item())
 
             loss.backward()
             optimizer.step()
@@ -117,7 +117,7 @@ def containment_support_linear_decoding_single_model_single_feature(
                 logits = decoder(embeddings)
                 loss = criterion(logits, y)
                 epoch_val_losses.append(loss.item())
-                epoch_val_accs.append((logits.argmax(dim=1) == y).float().mean())
+                epoch_val_accs.append((logits.argmax(dim=1) == y).float().mean().item())
 
         epoch_val_loss = np.mean(epoch_val_losses)
         epoch_val_acc = np.mean(epoch_val_accs)
