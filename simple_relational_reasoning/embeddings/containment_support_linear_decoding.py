@@ -77,7 +77,8 @@ def containment_support_linear_decoding_single_model_single_feature(
 
     best_decoder = None
     min_val_loss = np.inf
-    min_val_epoch = np.inf
+    patience_val_loss = np.inf
+    patience_val_epoch = np.inf
 
     for epoch in range(n_epochs):
         epoch_train_losses = []
@@ -128,17 +129,20 @@ def containment_support_linear_decoding_single_model_single_feature(
         val_losses.append(epoch_val_loss)
         val_accuracies.append(epoch_val_acc)
 
-        if epoch_val_loss < min_val_loss - patience_margin:
+        if epoch_val_loss < min_val_loss:
             print(f'After epoch {epoch}: train acc {epoch_train_acc:.4f}, train loss {epoch_train_loss:.4f}, val acc {epoch_val_acc:.4f}, val loss {epoch_val_loss:.4f} < {min_val_loss:.4f}, copying decoder')
             min_val_loss = epoch_val_loss
-            min_val_epoch = epoch
             best_decoder = copy.deepcopy(decoder).cpu()
 
         else:
             print(f'After epoch {epoch}: train acc {epoch_train_acc:.4f}, train loss {epoch_train_loss:.4f}, val acc {epoch_val_acc:.4f}, val loss {epoch_val_loss:.4f}')
 
-        if epoch - min_val_epoch > patience_epochs:
-            print(f'No improvement in val loss for {patience_epochs} epochs, stopping')
+        if epoch_val_loss < patience_val_loss - patience_margin:
+            patience_val_loss = epoch_val_loss
+            patience_val_epoch = epoch
+
+        if epoch - patience_val_epoch >= patience_epochs:
+            print(f'Insufficient improvement in val loss for {patience_epochs} epochs, stopping')
             break
 
     best_decoder = typing.cast(nn.Module, best_decoder).to(device).eval()
@@ -187,6 +191,7 @@ def run_containment_support_linear_decoding_single_model_multiple_features(
 
     if by_target_object:
         for target_object in dataset.target_objects:
+            print(f'Starting target object {target_object}')
             decoding_datasets = dataset.generate_decoding_datasets(test_target_object=target_object, validation_proportion=validation_proportion, random_seed=random_seed)
             feature_results = containment_support_linear_decoding_single_model_single_feature(model, decoding_datasets, n_epochs, lr, patience_epochs, patience_margin, batch_size)
             feature_results['test_target_object'] = target_object
@@ -195,6 +200,7 @@ def run_containment_support_linear_decoding_single_model_multiple_features(
 
     else:
         for reference_object in dataset.reference_objects:
+            print(f'Starting reference object {reference_object}')
             decoding_datasets = dataset.generate_decoding_datasets(test_reference_object=reference_object, validation_proportion=validation_proportion, random_seed=random_seed)
             feature_results = containment_support_linear_decoding_single_model_single_feature(model, decoding_datasets, n_epochs, lr, patience_epochs, patience_margin, batch_size)
             feature_results['test_reference_object'] = reference_object
