@@ -106,7 +106,7 @@ def build_model(name, device, pretrained=True, saycam=None, flip=None, dino=None
         elif name == RESNEXT:
             model = models.resnext50_32x4d(pretrained=pretrained)
             model.fc_backup = model.fc
-            model.embedding_dim = model.classifier[1].in_features  # type: ignore
+            model.embedding_dim = model.fc.in_features  # type: ignore
             model.fc = nn.Sequential()      # type: ignore
             model = model.to(device)
         
