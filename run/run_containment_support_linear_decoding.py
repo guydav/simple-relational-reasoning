@@ -44,6 +44,7 @@ parser.add_argument('--patience-margin', type=float, default=DEFAULT_PATIENCE_MA
 group = parser.add_mutually_exclusive_group(required=True)
 group.add_argument('--by-target-object', action='store_true', help='Whether to test by target object')
 group.add_argument('--by-reference-object', action='store_true', help='Whether to test by reference object')
+group.add_argument('--test-proportion', type=float, default=None, help='Proportion of dataset to use for testing')
 
 parser.add_argument('--base-model-name', type=str, default='', help='Base name for the models')
 
@@ -112,7 +113,7 @@ def handle_single_args_setting(args):
 
     all_model_results = run_containment_support_linear_decoding_multiple_models(
         model_names, model_kwarg_dicts, dataset, 
-        args.n_epochs, args.lr, args.by_target_object, args.by_reference_object,
+        args.n_epochs, args.lr, args.by_target_object, args.by_reference_object, args.test_proportion,
         args.batch_size, args.validation_proportion, args.patience_epochs, args.patience_margin, args.seed)
 
     return pd.DataFrame.from_records(all_model_results)
