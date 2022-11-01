@@ -215,6 +215,7 @@ def run_containment_support_linear_decoding_single_model_multiple_features(
     else:
         for increment in range(n_test_proportion_random_seeds):
             seed = random_seed + increment
+            print(f'Starting test proportion {test_proportion} with random seed {seed}')
             decoding_datasets = dataset.generate_decoding_datasets(test_proportion=test_proportion, validation_proportion=validation_proportion, random_seed=seed)
             feature_results = containment_support_linear_decoding_single_model_single_feature(model, decoding_datasets, n_epochs, lr, patience_epochs, patience_margin, batch_size)
             feature_results['test_seed'] = seed
