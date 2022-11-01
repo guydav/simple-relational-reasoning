@@ -227,8 +227,12 @@ def run_containment_support_linear_decoding_multiple_models(
 
     all_model_results = []
 
-    if by_reference_object == by_target_object:
-        raise ValueError('Must set exactly one of by_reference_object and by_target_object to True')
+    if by_target_object is None and by_reference_object is None and test_proportion is None:
+            raise ValueError('test_reference_object, test_target_object, and test_proportion cannot all be None')
+
+    if int(by_target_object is not None) + int(by_reference_object is not None) + int(test_proportion is not None) > 1:
+        raise ValueError('Only one of test_reference_object, test_target_object, and test_proportion can be specified')
+
     
     for name, model_kwargs in zip (model_names, model_kwarg_dicts):
         print(f'Starting model {name}')
