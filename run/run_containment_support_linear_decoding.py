@@ -20,7 +20,8 @@ import torch
 
 from simple_relational_reasoning.embeddings.models import MODELS, RESNEXT, FLIPPING_OPTIONS, DINO_OPTIONS
 from simple_relational_reasoning.embeddings.containment_support_dataset import DEFAULT_VALIDATION_PROPORTION
-from simple_relational_reasoning.embeddings.containment_support_linear_decoding import run_containment_support_linear_decoding_multiple_models, BATCH_SIZE, DEFAULT_PATIENCE_EPOCHS, DEFAULT_PATIENCE_MARGIN
+from simple_relational_reasoning.embeddings.containment_support_linear_decoding import run_containment_support_linear_decoding_multiple_models, \
+    BATCH_SIZE, DEFAULT_PATIENCE_EPOCHS, DEFAULT_PATIENCE_MARGIN, DEFAULT_N_TEST_PROPORTION_RANDOM_SEEDS
 from simple_relational_reasoning.embeddings.tables import multiple_results_to_df
 
 matplotlib.rcParams['figure.dpi'] = 100
@@ -46,6 +47,7 @@ group.add_argument('--by-target-object', action='store_true', help='Whether to t
 group.add_argument('--by-reference-object', action='store_true', help='Whether to test by reference object')
 group.add_argument('--test-proportion', type=float, default=None, help='Proportion of dataset to use for testing')
 
+parser.add_argument('--n-test-proportion-ranom-seeds', type=int, default=DEFAULT_N_TEST_PROPORTION_RANDOM_SEEDS, help='Number of processes to use')
 parser.add_argument('--base-model-name', type=str, default='', help='Base name for the models')
 
 parser.add_argument('-m', '--model', type=str, action='append', choices=MODELS,
@@ -113,7 +115,7 @@ def handle_single_args_setting(args):
 
     all_model_results = run_containment_support_linear_decoding_multiple_models(
         model_names, model_kwarg_dicts, dataset, 
-        args.n_epochs, args.lr, args.by_target_object, args.by_reference_object, args.test_proportion,
+        args.n_epochs, args.lr, args.by_target_object, args.by_reference_object, args.test_proportion, args.n_test_proportion_random_seeds,
         args.batch_size, args.validation_proportion, args.patience_epochs, args.patience_margin, args.seed)
 
     return pd.DataFrame.from_records(all_model_results)
