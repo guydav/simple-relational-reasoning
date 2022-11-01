@@ -47,7 +47,7 @@ group.add_argument('--by-target-object', action='store_true', help='Whether to t
 group.add_argument('--by-reference-object', action='store_true', help='Whether to test by reference object')
 group.add_argument('--test-proportion', type=float, default=None, help='Proportion of dataset to use for testing')
 
-parser.add_argument('--n-test-proportion-ranom-seeds', type=int, default=DEFAULT_N_TEST_PROPORTION_RANDOM_SEEDS, help='Number of processes to use')
+parser.add_argument('--n-test-proportion-random-seeds', type=int, default=DEFAULT_N_TEST_PROPORTION_RANDOM_SEEDS, help='Number of processes to use')
 parser.add_argument('--base-model-name', type=str, default='', help='Base name for the models')
 
 parser.add_argument('-m', '--model', type=str, action='append', choices=MODELS,
