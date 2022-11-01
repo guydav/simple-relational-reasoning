@@ -106,29 +106,39 @@ class ContainmentSupportDataset:
         y = torch.tensor([0, 0, 1, 1, 2]).repeat(len(indices)) # containment, behind, support
         return X, y
 
+    def _split_indices(self, rng: np.random.RandomState, indices: np.ndarray, proportion: float):
+        index_permutation = rng.permutation(len(indices))  
+        max_split_index = int(len(indices) * proportion)
+        return indices[index_permutation[max_split_index:]], indices[index_permutation[:max_split_index]]  
+
     def generate_decoding_datasets(self, test_target_object: typing.Optional[str] = None, test_reference_object: typing.Optional[str] = None,
-        validation_proportion: float = DEFAULT_VALIDATION_PROPORTION, random_seed: int = DEFAULT_RANDOM_SEED):
+        test_proportion: typing.Optional[float] = None, validation_proportion: float = DEFAULT_VALIDATION_PROPORTION, random_seed: int = DEFAULT_RANDOM_SEED):
 
-        if test_target_object is None and test_reference_object is None:
-            raise ValueError('test_reference_object and test_target_object cannot both be None')
+        rng = np.random.default_rng(random_seed)  # type: ignore
 
-        if test_target_object is not None and test_reference_object is not None:
-            raise ValueError('test_reference_object and test_target_object cannot both be not None')
+        if test_target_object is None and test_reference_object is None and test_proportion is None:
+            raise ValueError('test_reference_object, test_target_object, and test_proportion cannot all be None')
+
+        if int(test_target_object is not None) + int(test_reference_object is not None) + int(test_proportion is not None) > 1:
+            raise ValueError('Only one of test_reference_object, test_target_object, and test_proportion can be specified')
 
         if test_target_object is not None:
             train_indices = np.array([i for i in range(len(self)) if self.dataset_target_objects[i] != test_target_object])
             test_indices = np.array([i for i in range(len(self)) if self.dataset_target_objects[i] == test_target_object])
 
-        else:
+        elif test_reference_object is not None:
             train_indices = np.array([i for i in range(len(self)) if self.dataset_reference_objects[i] != test_reference_object])
             test_indices = np.array([i for i in range(len(self)) if self.dataset_reference_objects[i] == test_reference_object])
+        
+        else:  # test_proportion is not None
+            test_proportion = typing.cast(float, test_proportion)  
+            unique_configurations = np.array(list(set(self.dataset_configuration_indices)))  
+            train_configurations, test_configurations = self._split_indices(rng, unique_configurations, test_proportion)
+            train_indices = np.array([i for i in range(len(self)) if self.dataset_configuration_indices[i] in train_configurations])
+            test_indices = np.array([i for i in range(len(self)) if self.dataset_configuration_indices[i] in test_configurations])
 
-        rng = np.random.default_rng(random_seed)  # type: ignore
-        train_val_permutation = rng.permutation(len(train_indices))  
-        max_val_index = int(len(train_indices) * validation_proportion)
-        validation_indices = train_indices[train_val_permutation[:max_val_index]]  
-        train_indices = train_indices[train_val_permutation[max_val_index:]]
-
+        train_indices, validation_indices = self._split_indices(rng, train_indices, validation_proportion)
+        
         return DecodingDatasets(
             TensorDataset(*self._indices_to_X_y(train_indices)), 
             TensorDataset(*self._indices_to_X_y(validation_indices)), 
