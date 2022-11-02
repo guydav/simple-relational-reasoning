@@ -98,6 +98,7 @@ class QuinnTripletGenerator(TripletGenerator):
     margin_buffer: int
     n_habituation_stimuli: int
     multiple_habituation_radius: int
+    same_relation_at_reference_ends: bool
     same_relation_target_distance_ratio: typing.Optional[float]
     reference_width: int
     reference_height: int
@@ -111,8 +112,8 @@ class QuinnTripletGenerator(TripletGenerator):
                  adjacent_reference_objects: bool = False, n_target_types: int = 1, transpose: bool = False,
                  vertical_margin: int = 0, horizontal_margin: int = 0, margin_buffer: int = DEFAULT_MARGIN_BUFFER,
                  n_habituation_stimuli: int = 1, multiple_habituation_radius: int = DEFAULT_MULTIPLE_HABITUATION_RADIUS,
-                 same_relation_target_distance_ratio: typing.Optional[float] = None, track_centroids: bool = False,
-                 seed: int = DEFAULT_RANDOM_SEED, use_tqdm: bool = False,):
+                 same_relation_target_distance_ratio: typing.Optional[float] = None, same_relation_at_reference_ends: bool = False,
+                 track_centroids: bool = False, seed: int = DEFAULT_RANDOM_SEED, use_tqdm: bool = False,):
         super(QuinnTripletGenerator, self).__init__(
             stimulus_generator=stimulus_generator, relation=relation,
             two_reference_objects=two_reference_objects,
@@ -131,7 +132,12 @@ class QuinnTripletGenerator(TripletGenerator):
         self.margin_buffer = margin_buffer
         self.n_habituation_stimuli = n_habituation_stimuli
         self.multiple_habituation_radius = multiple_habituation_radius
+
+        if same_relation_target_distance_ratio is not None and same_relation_at_reference_ends:
+            raise ValueError('Cannot have same_relation_target_distance_ratio and same_relation_at_reference_end')
+
         self.same_relation_target_distance_ratio = same_relation_target_distance_ratio
+        self.same_relation_at_reference_ends = same_relation_at_reference_ends
 
         self.reference_width = self.stimulus_generator.reference_size[1]
         self.reference_height = self.stimulus_generator.reference_size[0]
@@ -195,12 +201,18 @@ class QuinnTripletGenerator(TripletGenerator):
         target_positions = []
 
         horizontal_target_distance = target_distance
-        if self.same_relation_target_distance_ratio is not None:
-            horizontal_target_distance = int(target_distance * self.same_relation_target_distance_ratio)
-        
         target_horizontal_margin = (self.reference_width - self.target_width) // 2
-        left_target_horizontal_offset = self.rng.integers(-target_horizontal_margin, target_horizontal_margin - horizontal_target_distance)
-        right_target_horizontal_offset = left_target_horizontal_offset + horizontal_target_distance
+
+        if self.same_relation_at_reference_ends:
+            left_target_horizontal_offset = -target_horizontal_margin
+            right_target_horizontal_offset = target_horizontal_margin
+
+        else:
+            if self.same_relation_target_distance_ratio is not None:
+                horizontal_target_distance = int(target_distance * self.same_relation_target_distance_ratio)
+            
+            left_target_horizontal_offset = self.rng.integers(-target_horizontal_margin, target_horizontal_margin - horizontal_target_distance)
+            right_target_horizontal_offset = left_target_horizontal_offset + horizontal_target_distance
         
         two_objects_left = self.two_objects_left
         if two_objects_left is None:
