@@ -71,6 +71,8 @@ parser.add_argument('--multiple-habituation-radius', type=int, default=DEFAULT_M
 
 parser.add_argument('--same-relation-target-distance-ratio', type=float, default=None,
     help='Ratio of target distance in same relation to target distance in different relation')
+parser.add_argument('--same-relation-at-reference-ends', action='store_true',
+    help='Whether to place the same-relation target objects at the two ends fo the reference')
 
 parser.add_argument('-t', '--triplet-generator', type=str, 
     choices=list(TRIPLET_GENERATORS.keys()), help='Which triplet generator to run with')
@@ -132,7 +134,8 @@ def create_triplet_generators(args):
             n_target_types=args.n_target_types, transpose=args.transpose,
             n_habituation_stimuli=args.n_habituation_stimuli, 
             multiple_habituation_radius=args.multiple_habituation_radius,
-            same_relation_target_distance_ratio=args.same_relation_target_distance_ratio,)
+            same_relation_target_distance_ratio=args.same_relation_target_distance_ratio,
+            same_relation_at_reference_ends=args.same_relation_at_reference_ends,)
         
         triplet_generators.append(triplet_generator)
 
@@ -212,6 +215,9 @@ def handle_single_args_setting(args):
 
 
     result_df = multiple_results_to_df(all_model_results, N=args.n_examples)
+
+    if args.same_relation_at_reference_ends:
+        var_args['same_relation_target_distance_ratio'] = 'ends'
 
     for key in MULTIPLE_OPTION_REWRITE_FIELDS + SINGLE_OPTION_FIELDS_TO_DF:
         result_df[key] = var_args[key]
