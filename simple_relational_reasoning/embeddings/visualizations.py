@@ -58,7 +58,9 @@ PLOT_PRETTY_NAMES_BY_FIELD = {
     'reference_object': {
         'Basket': 'Wicker Basket',
         'CardboardBox': 'Cardboard Box',
+        'CardboardBoxNoFlaps': 'Flapless Box',
         'ShortBox': 'Short Box',
+        'ShortBoxNoFlaps': 'Flapless Short Box',
         'WoodenBasket': 'Wooden Basket',
     }
 }
