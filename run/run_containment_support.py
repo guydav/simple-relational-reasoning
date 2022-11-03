@@ -9,18 +9,19 @@ import sys
 from tqdm import tqdm, trange
 import typing
 
-from simple_relational_reasoning.embeddings.containment_support_dataset import ContainmentSupportDataset
-
-sys.path.append(os.path.abspath('.'))
-sys.path.append(os.path.abspath('..'))
-
 import numpy as np
 import pandas as pd
 import torch
 
+
+sys.path.append(os.path.abspath('.'))
+sys.path.append(os.path.abspath('..'))
+
 from simple_relational_reasoning.embeddings.models import MODELS, RESNEXT, FLIPPING_OPTIONS, DINO_OPTIONS
 from simple_relational_reasoning.embeddings.containment_support_task import run_containment_support_task_multiple_models, BATCH_SIZE
 from simple_relational_reasoning.embeddings.tables import multiple_results_to_df
+from simple_relational_reasoning.embeddings.containment_support_dataset import QUINN_SCENE_TYPES, SCENE_TYPES, ContainmentSupportDataset
+
 
 matplotlib.rcParams['figure.dpi'] = 100
 matplotlib.rcParams['figure.edgecolor'] = (1, 1, 1, 0)
@@ -33,6 +34,8 @@ parser.add_argument('--seed', type=int, default=DEFAULT_SEED, help='Random seed 
 
 DEFAULT_DATASET_PATH = '/home/gd1279/scratch/containment_support/containment_both_new_baskets'
 parser.add_argument('-d', '--dataset-path', type=str, default=DEFAULT_DATASET_PATH, help='Path to dataset')
+
+parser.add_argument('--quinn-stimuli', action='store_true', help='Run using Quinn stimuli')
 
 parser.add_argument('--aggregate-results', action='store_true', help='Aggregate results')
 
@@ -101,7 +104,7 @@ def handle_single_args_setting(args):
 
                 model_names.append(f'{model_name}-DINO-{dino}')
 
-    dataset = ContainmentSupportDataset(args.dataset_path)
+    dataset = ContainmentSupportDataset(args.dataset_path, scene_types=QUINN_SCENE_TYPES if args.quinn_stimuli else SCENE_TYPES)
 
     all_model_results = run_containment_support_task_multiple_models(
         model_names, model_kwarg_dicts, dataset, batch_size=args.batch_size, aggregate_results=args.aggregate_results)
