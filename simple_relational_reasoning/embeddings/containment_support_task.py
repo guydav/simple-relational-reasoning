@@ -21,8 +21,8 @@ BATCH_SIZE = 32
 
 def containment_support_task_single_model(
     model: nn.Module, dataset: ContainmentSupportDataset, metrics: typing.Sequence[Metric]=METRICS, 
-    batch_size: int = BATCH_SIZE, n_stimuli_per_batch: int = len(SCENE_TYPES),
-    use_tqdm: bool = False, device: typing.Optional[torch.device] = None, tsne_mode: bool = False, aggregate_results: bool = False
+    batch_size: int = BATCH_SIZE, use_tqdm: bool = False, 
+    device: typing.Optional[torch.device] = None, tsne_mode: bool = False, aggregate_results: bool = False
     ):
     
     if device is None:
@@ -36,7 +36,8 @@ def containment_support_task_single_model(
     
     model_results = defaultdict(list)
     cos = nn.CosineSimilarity(dim=-1)
-    triangle_indices = np.triu_indices(len(dataset.scene_types), 1)
+    n_stimuli_per_batch = len(dataset.scene_types),
+    triangle_indices = np.triu_indices(n_stimuli_per_batch, 1)
     
     model.eval()
     
