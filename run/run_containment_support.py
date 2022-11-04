@@ -1,13 +1,14 @@
 
 import argparse
 import copy
-import cProfile
+import gzip
 import itertools
 import matplotlib
 import os
 import sys
 from tqdm import tqdm, trange
 import typing
+import pickle
 
 import numpy as np
 import pandas as pd
@@ -36,6 +37,7 @@ DEFAULT_DATASET_PATH = '/home/gd1279/scratch/containment_support/containment_bot
 parser.add_argument('-d', '--dataset-path', type=str, default=DEFAULT_DATASET_PATH, help='Path to dataset')
 
 parser.add_argument('--quinn-stimuli', action='store_true', help='Run using Quinn stimuli')
+parser.add_argument('--tsne', action='store_true', help='Run t-SNE on embeddings')
 
 parser.add_argument('--aggregate-results', action='store_true', help='Aggregate results')
 
@@ -107,14 +109,21 @@ def handle_single_args_setting(args):
     dataset = ContainmentSupportDataset(args.dataset_path, scene_types=QUINN_SCENE_TYPES if args.quinn_stimuli else SCENE_TYPES)
 
     all_model_results = run_containment_support_task_multiple_models(
-        model_names, model_kwarg_dicts, dataset, batch_size=args.batch_size, aggregate_results=args.aggregate_results)
+        model_names, model_kwarg_dicts, dataset, batch_size=args.batch_size, 
+        tsne_mode=args.tsne, aggregate_results=args.aggregate_results)
 
-    if not args.aggregate_results:
+    output_file = validate_output_path(args)
+
+    if args.tsne:
+        with gzip.open(output_file, 'wb') as f:
+            pickle.dump(all_model_results, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    elif not args.aggregate_results:
         result_df = containment_support_results_to_df(all_model_results, dataset)
+        result_df.to_csv(output_file)
+
     else:
         raise NotImplementedError('Aggregate results not implemented yet')
-
-    return result_df
 
 
 def containment_support_results_to_df(all_model_results: typing.Dict[str, np.ndarray], dataset: ContainmentSupportDataset):
@@ -129,6 +138,17 @@ def containment_support_results_to_df(all_model_results: typing.Dict[str, np.nda
 
     headers = ['model', 'example_index', 'configuration_index', 'reference_object', 'target_object'] + [f'{t1}_{t2}_cos' for t1, t2 in itertools.combinations(dataset.scene_types, 2)]
     return pd.DataFrame(df_rows, columns=headers)
+
+
+def validate_output_path(args):
+    output_file = args.output_file
+
+    output_folder, _ = os.path.split(output_file)
+    os.makedirs(output_folder, exist_ok=True)
+
+    while os.path.exists(output_file):
+        output_file += '_1'
+    return output_file
 
 
 if __name__ == '__main__':
@@ -148,14 +168,9 @@ if __name__ == '__main__':
     for k, v in main_var_args.items():
         print(' ' * 26 + k + ': ' + str(v))
 
-    out_df = handle_single_args_setting(main_args)
+    handle_single_args_setting(main_args)
     # out_df = pd.concat(dataframes)
     # out_df.reset_index(drop=True, inplace=True)
-    output_file = main_args.output_file
+    
 
-    output_folder, _ = os.path.split(output_file)
-    os.makedirs(output_folder, exist_ok=True)
 
-    while os.path.exists(output_file):
-        output_file += '_1'
-    out_df.to_csv(output_file)
