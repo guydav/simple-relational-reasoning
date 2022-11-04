@@ -51,7 +51,7 @@ def containment_support_task_single_model(
             B, K = x.shape[:2]
             x = x.view(-1, *x.shape[2:])
             x = x.to(device)
-            e = model(x).detach().view(B, K, x.shape[1:]).cpu().numpy()
+            e = model(x).detach().view(B, K, *x.shape[1:]).cpu().numpy()
             output_embeddings.append(e)
 
         else:
