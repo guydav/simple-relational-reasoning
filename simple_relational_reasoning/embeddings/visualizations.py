@@ -108,6 +108,9 @@ def save_plot(save_path, bbox_inches='tight', should_print=False):
 
 
 def plot_prettify(text, field_name=None):
+    if isinstance(text, (list, tuple)):
+        return [plot_prettify(t) for t in text]
+
     if isinstance(text, int) and text > 1000:
         return f'{text // 1000}k ($2^{{ {int(np.log2(text))} }}$)'
 
