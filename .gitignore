@@ -21,3 +21,5 @@ tsne_outputs/*.pkl.gz
 **/.DS_Store
 .DS_Store
 .DS_Store?
+containment_support_outputs/v3_flapless_stimuli_tsne.pkl.gz
+
