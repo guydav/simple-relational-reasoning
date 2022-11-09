@@ -44,6 +44,7 @@ class DecodingDatasets(typing.NamedTuple):
 class ContainmentSupportDataset:
     dataset: torch.Tensor
     dataset_configuration_indices: typing.List[int]
+    dataset_habituation_target_objects: typing.List[str]
     dataset_reference_objects: typing.List[str]
     dataset_target_objects: typing.List[str]
     image_dir_path: pathlib.Path
@@ -55,9 +56,15 @@ class ContainmentSupportDataset:
     transform: typing.Callable
     tqdm: bool
     scene_types: typing.Sequence[str]
+    shuffle_habituation_stimuli: bool
 
-    def __init__(self, image_dir: str, transform: typing.Callable = DEFAULT_TRANSFORM, extension: str = DEFAULT_IMAGE_EXTENSION, scene_types: typing.Sequence[str] = SCENE_TYPES, tqdm: bool = True):
+    def __init__(self, image_dir: str, shuffle_habituation_stimuli: bool = False, 
+        transform: typing.Callable = DEFAULT_TRANSFORM, 
+        extension: str = DEFAULT_IMAGE_EXTENSION, 
+        scene_types: typing.Sequence[str] = SCENE_TYPES, tqdm: bool = True, random_seed: int = DEFAULT_RANDOM_SEED):
+
         self.image_dir_path = pathlib.Path(image_dir)
+        self.shuffle_habituation_stimuli = shuffle_habituation_stimuli
         self.transform = transform
         self.extension = extension
         self.scene_types = scene_types
@@ -66,6 +73,9 @@ class ContainmentSupportDataset:
         self.dataset_configuration_indices = []
         self.dataset_reference_objects = []
         self.dataset_target_objects = []
+        self.dataset_habituation_target_objects = []
+
+        self.rng = np.random.default_rng(random_seed)  # type: ignore
 
         self._create_dataset()
 
@@ -86,10 +96,11 @@ class ContainmentSupportDataset:
         with tqdm(total=self.n_configurations * len(self.target_objects) * len(self.reference_objects)) as pbar:
             for index in range(self.n_configurations):
                 for reference_object in self.reference_objects:
+                    current_reference_stimuli = []
                     for target_object in self.target_objects:
                         prefix = f'{reference_object}_{target_object}_{str(index).zfill(self.index_zfill)}'
                         prefix_paths = [f'{prefix}_{scene_type}{self.extension}' for scene_type in self.scene_types]
-                        dataset_tensors.append(torch.stack([self.transform(folder.default_loader((self.image_dir_path / path).as_posix())) for path in prefix_paths]))
+                        current_reference_stimuli.append(torch.stack([self.transform(folder.default_loader((self.image_dir_path / path).as_posix())) for path in prefix_paths]))
 
                         self.dataset_configuration_indices.append(index)
                         self.dataset_reference_objects.append(reference_object)
@@ -97,7 +108,19 @@ class ContainmentSupportDataset:
 
                         pbar.update(1)
 
-        self.dataset = torch.stack(dataset_tensors)
+                    current_reference_tensor = torch.stack(current_reference_stimuli)
+
+                    if self.shuffle_habituation_stimuli:
+                        perm = self.rng.permutation(len(self.target_objects))
+                        current_reference_tensor[:, 0] = current_reference_tensor[perm, 0]
+                        self.dataset_habituation_target_objects.extend([self.target_objects[i] for i in perm])
+
+                    else:
+                        self.dataset_habituation_target_objects.extend(self.target_objects)
+
+                    dataset_tensors.append(current_reference_tensor) 
+
+        self.dataset = torch.concat(dataset_tensors)
 
     def __getitem__(self, index):
         return self.dataset[index]
@@ -111,15 +134,13 @@ class ContainmentSupportDataset:
         y = torch.tensor([0, 0, 1, 1, 2]).repeat(len(indices)) # containment, behind, support
         return X, y
 
-    def _split_indices(self, rng: np.random.RandomState, indices: np.ndarray, proportion: float):
-        index_permutation = rng.permutation(len(indices))  
+    def _split_indices(self, indices: np.ndarray, proportion: float):
+        index_permutation = self.rng.permutation(len(indices))  
         max_split_index = int(len(indices) * proportion)
         return indices[index_permutation[max_split_index:]], indices[index_permutation[:max_split_index]]  
 
     def generate_decoding_datasets(self, test_target_object: typing.Optional[str] = None, test_reference_object: typing.Optional[str] = None,
-        test_proportion: typing.Optional[float] = None, validation_proportion: float = DEFAULT_VALIDATION_PROPORTION, random_seed: int = DEFAULT_RANDOM_SEED):
-
-        rng = np.random.default_rng(random_seed)  # type: ignore
+        test_proportion: typing.Optional[float] = None, validation_proportion: float = DEFAULT_VALIDATION_PROPORTION):
 
         if test_target_object is None and test_reference_object is None and test_proportion is None:
             raise ValueError('test_reference_object, test_target_object, and test_proportion cannot all be None')
@@ -138,11 +159,11 @@ class ContainmentSupportDataset:
         else:  # test_proportion is not None
             test_proportion = typing.cast(float, test_proportion)  
             unique_configurations = np.array(list(set(self.dataset_configuration_indices)))  
-            train_configurations, test_configurations = self._split_indices(rng, unique_configurations, test_proportion)
+            train_configurations, test_configurations = self._split_indices(unique_configurations, test_proportion)
             train_indices = np.array([i for i in range(len(self)) if self.dataset_configuration_indices[i] in train_configurations])
             test_indices = np.array([i for i in range(len(self)) if self.dataset_configuration_indices[i] in test_configurations])
 
-        train_indices, validation_indices = self._split_indices(rng, train_indices, validation_proportion)
+        train_indices, validation_indices = self._split_indices(train_indices, validation_proportion)
         
         return DecodingDatasets(
             TensorDataset(*self._indices_to_X_y(train_indices)), 

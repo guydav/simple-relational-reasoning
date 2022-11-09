@@ -106,7 +106,8 @@ def handle_single_args_setting(args):
 
                 model_names.append(f'{model_name}-DINO-{dino}')
 
-    dataset = ContainmentSupportDataset(args.dataset_path, scene_types=QUINN_SCENE_TYPES if args.quinn_stimuli else SCENE_TYPES)
+    dataset = ContainmentSupportDataset(args.dataset_path, scene_types=QUINN_SCENE_TYPES if args.quinn_stimuli else SCENE_TYPES,
+        random_seed=args.seed)
 
     all_model_results = run_containment_support_task_multiple_models(
         model_names, model_kwarg_dicts, dataset, batch_size=args.batch_size, 
@@ -134,6 +135,7 @@ def containment_support_results_to_df(all_model_results: typing.Dict[str, np.nda
                 dataset.dataset_configuration_indices[example_index], 
                 dataset.dataset_reference_objects[example_index],
                 dataset.dataset_target_objects[example_index],
+                dataset.dataset_habituation_target_objects[example_index],
                 *model_results[example_index]])
 
     headers = ['model', 'example_index', 'configuration_index', 'reference_object', 'target_object'] + [f'{t1}_{t2}_cos' for t1, t2 in itertools.combinations(dataset.scene_types, 2)]

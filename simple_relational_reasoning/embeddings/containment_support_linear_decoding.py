@@ -197,7 +197,7 @@ def run_containment_support_linear_decoding_single_model_multiple_features(
     if by_target_object:
         for target_object in dataset.target_objects:
             print(f'Starting target object {target_object}')
-            decoding_datasets = dataset.generate_decoding_datasets(test_target_object=target_object, validation_proportion=validation_proportion, random_seed=random_seed)
+            decoding_datasets = dataset.generate_decoding_datasets(test_target_object=target_object, validation_proportion=validation_proportion)
             feature_results = containment_support_linear_decoding_single_model_single_feature(model, decoding_datasets, n_epochs, lr, patience_epochs, patience_margin, batch_size)
             feature_results['test_target_object'] = target_object
             feature_results['test_type'] = 'target_object'
@@ -206,7 +206,7 @@ def run_containment_support_linear_decoding_single_model_multiple_features(
     elif by_reference_object:
         for reference_object in dataset.reference_objects:
             print(f'Starting reference object {reference_object}')
-            decoding_datasets = dataset.generate_decoding_datasets(test_reference_object=reference_object, validation_proportion=validation_proportion, random_seed=random_seed)
+            decoding_datasets = dataset.generate_decoding_datasets(test_reference_object=reference_object, validation_proportion=validation_proportion)
             feature_results = containment_support_linear_decoding_single_model_single_feature(model, decoding_datasets, n_epochs, lr, patience_epochs, patience_margin, batch_size)
             feature_results['test_reference_object'] = reference_object
             feature_results['test_type'] = 'reference_object'
@@ -216,7 +216,7 @@ def run_containment_support_linear_decoding_single_model_multiple_features(
         for increment in range(n_test_proportion_random_seeds):
             seed = random_seed + increment
             print(f'Starting test proportion {test_proportion} with random seed {seed}')
-            decoding_datasets = dataset.generate_decoding_datasets(test_proportion=test_proportion, validation_proportion=validation_proportion, random_seed=seed)
+            decoding_datasets = dataset.generate_decoding_datasets(test_proportion=test_proportion, validation_proportion=validation_proportion)
             feature_results = containment_support_linear_decoding_single_model_single_feature(model, decoding_datasets, n_epochs, lr, patience_epochs, patience_margin, batch_size)
             feature_results['test_seed'] = seed
             feature_results['test_type'] = 'configuration'
