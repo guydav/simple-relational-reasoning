@@ -36,6 +36,7 @@ parser.add_argument('--seed', type=int, default=DEFAULT_SEED, help='Random seed 
 DEFAULT_DATASET_PATH = '/home/gd1279/scratch/containment_support/containment_both_new_baskets'
 parser.add_argument('-d', '--dataset-path', type=str, default=DEFAULT_DATASET_PATH, help='Path to dataset')
 
+parser.add_argument('--shuffle-habituation-stimuli', action='store_true', help='Shuffle habituation stimuli')
 parser.add_argument('--quinn-stimuli', action='store_true', help='Run using Quinn stimuli')
 parser.add_argument('--tsne', action='store_true', help='Run t-SNE on embeddings')
 
@@ -106,8 +107,8 @@ def handle_single_args_setting(args):
 
                 model_names.append(f'{model_name}-DINO-{dino}')
 
-    dataset = ContainmentSupportDataset(args.dataset_path, scene_types=QUINN_SCENE_TYPES if args.quinn_stimuli else SCENE_TYPES,
-        random_seed=args.seed)
+    dataset = ContainmentSupportDataset(args.dataset_path, shuffle_habituation_stimuli=args.shuffle_habituation_stimuli,
+        scene_types=QUINN_SCENE_TYPES if args.quinn_stimuli else SCENE_TYPES, random_seed=args.seed)
 
     all_model_results = run_containment_support_task_multiple_models(
         model_names, model_kwarg_dicts, dataset, batch_size=args.batch_size, 
