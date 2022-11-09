@@ -139,7 +139,7 @@ def containment_support_results_to_df(all_model_results: typing.Dict[str, np.nda
                 dataset.dataset_habituation_target_objects[example_index],
                 *model_results[example_index]])
 
-    headers = ['model', 'example_index', 'configuration_index', 'reference_object', 'target_object'] + [f'{t1}_{t2}_cos' for t1, t2 in itertools.combinations(dataset.scene_types, 2)]
+    headers = ['model', 'example_index', 'configuration_index', 'reference_object', 'target_object', 'habituation_target_object'] + [f'{t1}_{t2}_cos' for t1, t2 in itertools.combinations(dataset.scene_types, 2)]
     return pd.DataFrame(df_rows, columns=headers)
 
 
