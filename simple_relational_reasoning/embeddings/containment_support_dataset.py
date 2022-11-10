@@ -93,6 +93,8 @@ class ContainmentSupportDataset:
 
         dataset_tensors = []
 
+        default_target_indices = np.arange(len(self.target_objects))
+
         with tqdm(total=self.n_configurations * len(self.target_objects) * len(self.reference_objects)) as pbar:
             for index in range(self.n_configurations):
                 for reference_object in self.reference_objects:
@@ -112,6 +114,9 @@ class ContainmentSupportDataset:
 
                     if self.shuffle_habituation_stimuli:
                         perm = self.rng.permutation(len(self.target_objects))
+                        while (perm == default_target_indices).any():
+                            perm = self.rng.permutation(len(self.target_objects))
+                        
                         current_reference_tensor[:, 0] = current_reference_tensor[perm, 0]
                         self.dataset_habituation_target_objects.extend([self.target_objects[i] for i in perm])
 
