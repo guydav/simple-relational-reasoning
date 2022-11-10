@@ -16,6 +16,7 @@ results_cache.pickle.backup
 temp
 temp/*
 tsne_outputs/*.pkl.gz
+containment_support_outputs/*.pkl.gz
 
 */.DS_Store
 **/.DS_Store
