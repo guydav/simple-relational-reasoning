@@ -1,10 +1,15 @@
 from collections import OrderedDict
 import os
+import sys
+import typing
+
 import torch
 from torch import nn
 import torchvision.models as models
-import typing
 
+sys.path.append(os.path.abspath('./silicon-menagerie'))
+sys.path.append(os.path.abspath('../silicon-menagerie'))
+from utils import load_model as emin_load_model
 
 CHECKPOINT_FOLDER = r'/home/gd1279/scratch/SAYcam-models'
 
@@ -12,7 +17,8 @@ RESNET = 'resnet'
 VGG = 'vgg'
 MOBILENET = 'mobilenet'
 RESNEXT = 'resnext'
-MODELS = (RESNET, VGG, MOBILENET, RESNEXT)
+VIT = 'vitb14'
+MODELS = (RESNET, VGG, MOBILENET, RESNEXT, VIT)
 
 SAYCAM_models = (MOBILENET, RESNEXT)
 SAYCAM_n_out = {'S': 2765, 'SAY':6269}
@@ -27,6 +33,8 @@ MODEL_EMBEDDING_DIMENSIONS = {
     (MOBILENET, False): 1280,
     (RESNEXT, True): 100352,
     (RESNEXT, False): 2048,
+    (VIT, True): 768,
+    (VIT, False): 768,
 }
 
 
@@ -43,28 +51,54 @@ class MobileNetV2UnpooledWrapper(nn.Module):
             return self.mobilenet_model.features(x)  # type: ignore
 
 
-def build_model(name: str, device: str, pretrained: bool = True, saycam: typing.Union[None, bool, str] = None, flip: typing.Optional[str] = None, 
+class VitWrapper(nn.Module):
+    def __init__(self, vit_model: nn.Module, penultimate_output: bool = False):
+        super(VitWrapper, self).__init__()
+        self.vit_model = vit_model
+        self.penultimate_output = penultimate_output
+        self.embedding_dim = MODEL_EMBEDDING_DIMENSIONS[(VIT, penultimate_output)]  # type: ignore
+
+    def forward(self, x):
+        intermediate_output = self.vit_model.get_intermediate_layers(x, 2)  # type: ignore
+        # the penultimate output is in position 0, the final output is in position 1
+        return intermediate_output[1 - int(self.penultimate_output)][:, 0]
+
+
+def build_model(model_name: str, device: str, pretrained: bool = True, saycam: typing.Union[None, bool, str] = None, flip: typing.Optional[str] = None, 
     dino: typing.Optional[str] = None, unpooled_output: bool = False):
-    name = name.lower()
-    assert(name in MODELS)
+    model_name = model_name.lower()
+    assert(model_name in MODELS)
     model = None
     
     if dino:
         assert(dino in DINO_OPTIONS)
-        assert(name == RESNEXT)
 
-        checkpoint_path = os.path.join(CHECKPOINT_FOLDER, f'DINO-{dino}.pth')
-        model = models.resnext50_32x4d(weights=None)
-        model = load_dino_model(model, checkpoint_path, False)   
-        model = model.to(device)
-        model.embedding_dim = MODEL_EMBEDDING_DIMENSIONS[(name, unpooled_output)]  # type: ignore
-        model.fc = nn.Identity()  # type: ignore
-        if unpooled_output:
-            model.avgpool = nn.Identity()  # type: ignore
+        if model_name == VIT:
+            if dino == 'ImageNet':
+                dino = 'imagenet100'
+            else:
+                dino = dino.lower()
+
+            model = emin_load_model(f'dino_{dino}_{model_name}')
+            model = model.to(device)
+            model = VitWrapper(model, penultimate_output=unpooled_output)
+
+        elif model_name == RESNEXT:
+            checkpoint_path = os.path.join(CHECKPOINT_FOLDER, f'DINO-{dino}.pth')
+            model = models.resnext50_32x4d(weights=None)
+            model = load_dino_model(model, checkpoint_path, False)   
+            model = model.to(device)
+            model.embedding_dim = MODEL_EMBEDDING_DIMENSIONS[(model_name, unpooled_output)]  # type: ignore
+            model.fc = nn.Identity()  # type: ignore
+            if unpooled_output:
+                model.avgpool = nn.Identity()  # type: ignore
+
+        else:
+            raise ValueError(f'DINO is not implemented for {model_name}')
 
     elif flip:
         assert(flip in FLIPPING_OPTIONS)
-        assert(name == RESNEXT)
+        assert(model_name == RESNEXT)
 
         checkpoint = torch.load(os.path.join(CHECKPOINT_FOLDER, f'TC-S-{flip}.tar'))
 
@@ -74,7 +108,7 @@ def build_model(name: str, device: str, pretrained: bool = True, saycam: typing.
         model.module.fc = nn.Linear(2048, FLIPPING_n_out)
         # TODO: if this fails, model might have been saved from cpu, should mmove to device later
         model.load_state_dict(checkpoint['model_state_dict'])
-        model.embedding_dim = MODEL_EMBEDDING_DIMENSIONS[(name, unpooled_output)]  # type: ignore
+        model.embedding_dim = MODEL_EMBEDDING_DIMENSIONS[(model_name, unpooled_output)]  # type: ignore
         model.module.fc = nn.Identity()  # type: ignore
         if unpooled_output:
             model.module.avgpool = nn.Identity()  # type: ignore
@@ -86,30 +120,30 @@ def build_model(name: str, device: str, pretrained: bool = True, saycam: typing.
         saycam = saycam.upper()
         
         assert(saycam in SAYCAM_n_out)
-        assert(name in SAYCAM_models)
+        assert(model_name in SAYCAM_models)
         
-        checkpoint = torch.load(os.path.join(CHECKPOINT_FOLDER, f'TC-{saycam}-{name}.tar'))
+        checkpoint = torch.load(os.path.join(CHECKPOINT_FOLDER, f'TC-{saycam}-{model_name}.tar'))
         
-        if name == MOBILENET:
+        if model_name == MOBILENET:
             model = models.mobilenet_v2(weights=None)
             model = nn.DataParallel(model)  # type: ignore
             model = model.to(device)
             model.module.classifier = nn.Linear(1280, SAYCAM_n_out[saycam])
             model.load_state_dict(checkpoint['model_state_dict'])
-            model.embedding_dim = MODEL_EMBEDDING_DIMENSIONS[(name, unpooled_output)]  # type: ignore
+            model.embedding_dim = MODEL_EMBEDDING_DIMENSIONS[(model_name, unpooled_output)]  # type: ignore
             model.module.classifier = nn.Identity()  # type: ignore
             if unpooled_output:
                 model = MobileNetV2UnpooledWrapper(model)
 
         
-        elif name == RESNEXT:
+        elif model_name == RESNEXT:
             model = models.resnext50_32x4d(weights=None)
             model = nn.DataParallel(model)  # type: ignore
             model = model.to(device)
             model.module.fc = nn.Linear(2048, SAYCAM_n_out[saycam])
             model.load_state_dict(checkpoint['model_state_dict'])
             model.embedding_dim = model.module.fc.in_features  # type: ignore
-            model.embedding_dim = MODEL_EMBEDDING_DIMENSIONS[(name, unpooled_output)]  # type: ignore
+            model.embedding_dim = MODEL_EMBEDDING_DIMENSIONS[(model_name, unpooled_output)]  # type: ignore
             model.module.fc = nn.Identity()  # type: ignore
             if unpooled_output:
                 model.module.avgpool = nn.Identity()  # type: ignore
@@ -130,28 +164,28 @@ def build_model(name: str, device: str, pretrained: bool = True, saycam: typing.
         #     model.classifier[6] = nn.Identity()
         #     model = model.to(device)
         # elif name == MOBILENET:
-        if name == MOBILENET:
+        if model_name == MOBILENET:
             weights = models.MobileNet_V2_Weights.IMAGENET1K_V1 if pretrained else None
             model = models.mobilenet_v2(weights=weights)
             model.fc_backup = model.classifier[1]
-            model.embedding_dim = MODEL_EMBEDDING_DIMENSIONS[(name, unpooled_output)]  # type: ignore
+            model.embedding_dim = MODEL_EMBEDDING_DIMENSIONS[(model_name, unpooled_output)]  # type: ignore
             model.classifier = nn.Identity()  # type: ignore
             model = model.to(device)
             if unpooled_output:
                 model = MobileNetV2UnpooledWrapper(model)
 
-        elif name == RESNEXT:
+        elif model_name == RESNEXT:
             weights = models.ResNeXt50_32X4D_Weights.IMAGENET1K_V1 if pretrained else None
             model = models.resnext50_32x4d(weights=weights)
             model.fc_backup = model.fc
-            model.embedding_dim = MODEL_EMBEDDING_DIMENSIONS[(name, unpooled_output)]  # type: ignore
+            model.embedding_dim = MODEL_EMBEDDING_DIMENSIONS[(model_name, unpooled_output)]  # type: ignore
             model.module.fc = nn.Identity()  # type: ignore
             if unpooled_output:
                 model.module.avgpool = nn.Identity()  # type: ignore
             model = model.to(device)
         
     if model is None:
-        raise ValueError(f'Failed to build model for name={name}, pretrained={pretrained}, saycam={saycam}')
+        raise ValueError(f'Failed to build model for name={model_name}, pretrained={pretrained}, saycam={saycam}')
         
     return model
 
