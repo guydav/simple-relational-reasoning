@@ -2,7 +2,6 @@
 import argparse
 import copy
 import cProfile
-from guppy import hpy
 import itertools
 import matplotlib
 import os
@@ -18,7 +17,7 @@ import torch
 
 from simple_relational_reasoning.embeddings.stimuli import STIMULUS_GENERATORS
 from simple_relational_reasoning.embeddings.triplets import TRIPLET_GENERATORS, DEFAULT_MULTIPLE_HABITUATION_RADIUS, DEFAULT_MARGIN_BUFFER
-from simple_relational_reasoning.embeddings.models import MODELS, FLIPPING_OPTIONS, DINO_OPTIONS
+from simple_relational_reasoning.embeddings.models import MODELS, FLIPPING_OPTIONS, DINO_OPTIONS, RESNEXT
 from simple_relational_reasoning.embeddings.task import run_multiple_models_multiple_generators, BATCH_SIZE
 from simple_relational_reasoning.embeddings.tables import multiple_results_to_df
 
@@ -67,6 +66,7 @@ parser.add_argument('--flipping', action='append',
     choices=FLIPPING_OPTIONS, help='Use one of the flipping models Emin created')
 parser.add_argument('--dino', action='append',
     choices=DINO_OPTIONS, help='Use one of the DINO models Emin created')
+parser.add_argument('--unpooled-output', action='store_true', help='Use unpooled model outputs')
 
 parser.add_argument('-o', '--output-file', type=str, help='Output file to write to')
 
@@ -88,7 +88,7 @@ MULTIPLE_OPTION_FIELD_DEFAULTS = {
 }
 MULTIPLE_OPTION_REWRITE_FIELDS = list(MULTIPLE_OPTION_FIELD_DEFAULTS.keys())
 
-SINGLE_OPTION_FIELDS_TO_DF = ['seed', 'n_examples']
+SINGLE_OPTION_FIELDS_TO_DF = ['seed', 'n_examples', 'unpooled_output']
 
 
 def create_triplet_generators(args):
@@ -141,28 +141,28 @@ def handle_single_args_setting(args):
     model_names = []
     for model_name in args.model:
         if args.saycam:
-            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=False, saycam=args.saycam))
+            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=False, saycam=args.saycam, unpooled_output=args.unpooled_output))
             model_names.append(f'{model_name}-saycam({args.saycam})')
         
         if args.imagenet:
-            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=True))
+            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=True, unpooled_output=args.unpooled_output))
             model_names.append(f'{model_name}-imagenet')
 
         if args.untrained:
-            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=False))
+            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=False, unpooled_output=args.unpooled_output))
             model_names.append(f'{model_name}-random')
 
-        if args.flipping and len(args.flipping) > 0:
+        if model_name == RESNEXT and args.flipping and len(args.flipping) > 0:
             for flip_type in args.flipping:
                 model_kwarg_dicts.append(dict(name=model_name, device=args.device, 
-                    pretrained=False, flip=flip_type))
+                    pretrained=False, flip=flip_type, unpooled_output=args.unpooled_output))
 
                 model_names.append(f'{model_name}-saycam(S)-{flip_type}')
 
-        if args.dino and len(args.dino) > 0:
+        if model_name == RESNEXT and args.dino and len(args.dino) > 0:
             for dino in args.dino:
                 model_kwarg_dicts.append(dict(name=model_name, device=args.device, 
-                    pretrained=False, dino=dino))
+                    pretrained=False, dino=dino, unpooled_output=args.unpooled_output))
 
                 model_names.append(f'{model_name}-DINO-{dino}')
 
@@ -193,21 +193,6 @@ def handle_single_args_setting(args):
     result_df['relation'] = 'no_reference'
     result_df['triplet_generator'] = args.triplet_generator
 
-    if args.memory_profile:
-        hp = heap.heap()
-        print(hp)
-        print(hp.byrcs)
-        # print('By CLODO:')
-        # print(hp.byrcs[0].byclodo)
-        # print()
-        # print('By size:')
-        # print(hp.byrcs[0].bysize)
-        # print()
-        # print('By ID:')
-        # print(hp.byrcs[0].byid)
-        # print()
-        # import ipdb; ipdb.set_trace()
-        
     return result_df
 
 

@@ -32,6 +32,7 @@ parser = argparse.ArgumentParser()
 
 DEFAULT_SEED = 33
 parser.add_argument('--seed', type=int, default=DEFAULT_SEED, help='Random seed to run with')
+parser.add_argument('--replications', type=int, default=1, help='Number of replications to run')
 
 DEFAULT_DATASET_PATH = '/home/gd1279/scratch/containment_support/containment_both_new_baskets'
 parser.add_argument('-d', '--dataset-path', type=str, default=DEFAULT_DATASET_PATH, help='Path to dataset')
@@ -40,7 +41,7 @@ parser.add_argument('--shuffle-habituation-stimuli', action='store_true', help='
 parser.add_argument('--quinn-stimuli', action='store_true', help='Run using Quinn stimuli')
 parser.add_argument('--tsne', action='store_true', help='Run t-SNE on embeddings')
 
-parser.add_argument('--aggregate-results', action='store_true', help='Aggregate results')
+# parser.add_argument('--aggregate-results', action='store_true', help='Aggregate results')
 
 # TODO: add flags for separating the results by bowl (reference) color, or for running with different target objects
 
@@ -56,6 +57,7 @@ parser.add_argument('--flipping', action='append',
     choices=FLIPPING_OPTIONS, help='Use one of the flipping models Emin created')
 parser.add_argument('--dino', action='append',
     choices=DINO_OPTIONS, help='Use one of the DINO models Emin created')
+parser.add_argument('--unpooled-output', action='store_true', help='Use unpooled model outputs')
 
 parser.add_argument('-o', '--output-file', type=str, help='Output file to write to')
 
@@ -77,55 +79,70 @@ parser.add_argument('-b', '--batch-size', type=int, default=BATCH_SIZE, help='Ba
 #     return args
 
 
-def handle_single_args_setting(args):    
+def handle_single_args_setting(args):  
     model_kwarg_dicts = []
     model_names = []
     for model_name in args.model:
         if args.saycam:
-            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=False, saycam=args.saycam))
+            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=False, saycam=args.saycam, unpooled_output=args.unpooled_output))
             model_names.append(f'{model_name}-saycam({args.saycam})')
         
         if args.imagenet:
-            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=True))
+            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=True, unpooled_output=args.unpooled_output))
             model_names.append(f'{model_name}-imagenet')
 
         if args.untrained:
-            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=False))
+            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=False, unpooled_output=args.unpooled_output))
             model_names.append(f'{model_name}-random')
 
         if model_name == RESNEXT and args.flipping and len(args.flipping) > 0:
             for flip_type in args.flipping:
                 model_kwarg_dicts.append(dict(name=model_name, device=args.device, 
-                    pretrained=False, flip=flip_type))
+                    pretrained=False, flip=flip_type, unpooled_output=args.unpooled_output))
 
                 model_names.append(f'{model_name}-saycam(S)-{flip_type}')
 
         if model_name == RESNEXT and args.dino and len(args.dino) > 0:
             for dino in args.dino:
                 model_kwarg_dicts.append(dict(name=model_name, device=args.device, 
-                    pretrained=False, dino=dino))
+                    pretrained=False, dino=dino, unpooled_output=args.unpooled_output))
 
                 model_names.append(f'{model_name}-DINO-{dino}')
 
-    dataset = ContainmentSupportDataset(args.dataset_path, shuffle_habituation_stimuli=args.shuffle_habituation_stimuli,
-        scene_types=QUINN_SCENE_TYPES if args.quinn_stimuli else SCENE_TYPES, random_seed=args.seed)
+    rep_iter = trange(args.replications) if (args.tqdm and args.replications > 1) else range(args.replications)
+    results = []
+    for _ in rep_iter:
+        torch.manual_seed(args.seed)
 
-    all_model_results = run_containment_support_task_multiple_models(
-        model_names, model_kwarg_dicts, dataset, batch_size=args.batch_size, 
-        tsne_mode=args.tsne, aggregate_results=args.aggregate_results)
+        dataset = ContainmentSupportDataset(args.dataset_path, shuffle_habituation_stimuli=args.shuffle_habituation_stimuli,
+            scene_types=QUINN_SCENE_TYPES if args.quinn_stimuli else SCENE_TYPES, random_seed=args.seed)
+
+        all_model_results = run_containment_support_task_multiple_models(
+            model_names, model_kwarg_dicts, dataset, batch_size=args.batch_size, 
+            tsne_mode=args.tsne, aggregate_results=args.aggregate_results)
+
+        if args.tsne:
+            all_model_results['seed'] = args.seed
+            results.append(all_model_results)
+
+        else:
+            result_df = containment_support_results_to_df(all_model_results, dataset)
+            result_df = result_df.assign(seed=args.seed, unpooled_output=args.unpooled_output)
+            results.append(result_df)
+
+        args.seed += 1
 
     output_file = validate_output_path(args)
 
     if args.tsne:
         with gzip.open(output_file, 'wb') as f:
-            pickle.dump(all_model_results, f, protocol=pickle.HIGHEST_PROTOCOL)
-
-    elif not args.aggregate_results:
-        result_df = containment_support_results_to_df(all_model_results, dataset)
-        result_df.to_csv(output_file)
+            if len(results) == 1: 
+                results = results[0]
+            pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     else:
-        raise NotImplementedError('Aggregate results not implemented yet')
+        output_df = pd.concat(results)
+        output_df.to_csv(output_file)
 
 
 def containment_support_results_to_df(all_model_results: typing.Dict[str, np.ndarray], dataset: ContainmentSupportDataset):

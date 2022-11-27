@@ -42,10 +42,9 @@ parser.add_argument('--validation-proportion', type=float, default=DEFAULT_VALID
 parser.add_argument('--patience-epochs', type=int, default=DEFAULT_PATIENCE_EPOCHS, help='# Epochs to use for patience')
 parser.add_argument('--patience-margin', type=float, default=DEFAULT_PATIENCE_MARGIN, help='Improvement margin to use for patience')
 
-group = parser.add_mutually_exclusive_group(required=True)
-group.add_argument('--by-target-object', action='store_true', help='Whether to test by target object')
-group.add_argument('--by-reference-object', action='store_true', help='Whether to test by reference object')
-group.add_argument('--test-proportion', type=float, default=None, help='Proportion of dataset to use for testing')
+parser.add_argument('--by-target-object', action='store_true', help='Whether to test by target object')
+parser.add_argument('--by-reference-object', action='store_true', help='Whether to test by reference object')
+parser.add_argument('--test-proportion', type=float, default=None, help='Proportion of dataset to use for testing')
 
 parser.add_argument('--n-test-proportion-random-seeds', type=int, default=DEFAULT_N_TEST_PROPORTION_RANDOM_SEEDS, help='Number of processes to use')
 parser.add_argument('--base-model-name', type=str, default='', help='Base name for the models')
@@ -60,6 +59,7 @@ parser.add_argument('--flipping', action='append',
     choices=FLIPPING_OPTIONS, help='Use one of the flipping models Emin created')
 parser.add_argument('--dino', action='append',
     choices=DINO_OPTIONS, help='Use one of the DINO models Emin created')
+parser.add_argument('--unpooled-output', action='store_true', help='Use unpooled model outputs')
 
 parser.add_argument('-o', '--output-file', type=str, help='Output file to write to')
 
@@ -86,28 +86,28 @@ def handle_single_args_setting(args):
     model_names = []
     for model_name in args.model:
         if args.saycam:
-            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=False, saycam=args.saycam))
+            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=False, saycam=args.saycam, unpooled_output=args.unpooled_output))
             model_names.append(f'{model_name}-saycam({args.saycam})')
         
         if args.imagenet:
-            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=True))
+            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=True, unpooled_output=args.unpooled_output))
             model_names.append(f'{model_name}-imagenet')
 
         if args.untrained:
-            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=False))
+            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=False, unpooled_output=args.unpooled_output))
             model_names.append(f'{model_name}-random')
 
         if model_name == RESNEXT and args.flipping and len(args.flipping) > 0:
             for flip_type in args.flipping:
                 model_kwarg_dicts.append(dict(name=model_name, device=args.device, 
-                    pretrained=False, flip=flip_type))
+                    pretrained=False, flip=flip_type, unpooled_output=args.unpooled_output))
 
                 model_names.append(f'{model_name}-saycam(S)-{flip_type}')
 
         if model_name == RESNEXT and args.dino and len(args.dino) > 0:
             for dino in args.dino:
                 model_kwarg_dicts.append(dict(name=model_name, device=args.device, 
-                    pretrained=False, dino=dino))
+                    pretrained=False, dino=dino, unpooled_output=args.unpooled_output))
 
                 model_names.append(f'{model_name}-DINO-{dino}')
 
@@ -118,7 +118,9 @@ def handle_single_args_setting(args):
         args.n_epochs, args.lr, args.by_target_object, args.by_reference_object, args.test_proportion, args.n_test_proportion_random_seeds,
         args.batch_size, args.validation_proportion, args.patience_epochs, args.patience_margin, args.seed)
 
-    return pd.DataFrame.from_records(all_model_results)
+    result_df = pd.DataFrame.from_records(all_model_results)
+    result_df = result_df.assign(global_seed=args.seed, unpooled_output=args.unpooled_output)
+    return result_df
 
 
 if __name__ == '__main__':
