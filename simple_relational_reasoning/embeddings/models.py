@@ -8,7 +8,9 @@ from torch import nn
 import torchvision.models as models
 
 sys.path.append(os.path.abspath('.'))
+sys.path.append(os.path.abspath('./silicon_menagerie'))
 sys.path.append(os.path.abspath('..'))
+sys.path.append(os.path.abspath('../silicon_menagerie'))
 from silicon_menagerie.utils import load_model as emin_load_model
 
 CHECKPOINT_FOLDER = r'/home/gd1279/scratch/SAYcam-models'
