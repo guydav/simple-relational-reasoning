@@ -124,7 +124,7 @@ def build_model(model_name: str, device: str, pretrained: bool = True, saycam: t
         saycam = saycam.upper()
         
         assert(saycam in SAYCAM_n_out)
-        assert(model_name in SAYCAM_MODELS)
+        assert(model_name in BASELINE_MODELS)
         
         checkpoint = torch.load(os.path.join(CHECKPOINT_FOLDER, f'TC-{saycam}-{model_name}.tar'))
         
