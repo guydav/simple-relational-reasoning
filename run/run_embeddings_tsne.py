@@ -11,16 +11,17 @@ import os
 import sys
 from tqdm import tqdm, trange
 
-sys.path.append(os.path.abspath('.'))
-sys.path.append(os.path.abspath('..'))
-
 import numpy as np
 import pandas as pd
 import torch
 
+sys.path.append(os.path.abspath('.'))
+sys.path.append(os.path.abspath('..'))
+
+from run_utils import args_to_model_configurations
 from simple_relational_reasoning.embeddings.stimuli import STIMULUS_GENERATORS
 from simple_relational_reasoning.embeddings.triplets import TRIPLET_GENERATORS, RELATIONS, ABOVE_BELOW_RELATION, BETWEEN_RELATION, DEFAULT_MULTIPLE_HABITUATION_RADIUS
-from simple_relational_reasoning.embeddings.models import MODELS, RESNEXT, FLIPPING_OPTIONS, DINO_OPTIONS
+from simple_relational_reasoning.embeddings.models import ALL_MODELS, RESNEXT, FLIPPING_OPTIONS, DINO_OPTIONS
 from simple_relational_reasoning.embeddings.task import run_multiple_models_multiple_generators, BATCH_SIZE
 from simple_relational_reasoning.embeddings.tables import multiple_results_to_df
 
@@ -102,7 +103,7 @@ parser.add_argument('-t', '--triplet-generator', type=str, default='tsne',
 
 parser.add_argument('--base-model-name', type=str, default='', help='Base name for the models')
 
-parser.add_argument('-m', '--model', type=str, action='append', choices=MODELS,
+parser.add_argument('-m', '--model', type=str, action='append', choices=ALL_MODELS,
                     help='Which models to run')
 
 parser.add_argument('--saycam', type=str, default=None, help='Which SAYcam model to use')
@@ -195,34 +196,7 @@ def handle_single_args_setting(args):
         for k in MULTIPLE_OPTION_REWRITE_FIELDS + SINGLE_OPTION_FIELDS_TO_DF:
             print(' ' * 26 + k + ': ' + str(var_args[k]))
     
-    model_kwarg_dicts = []
-    model_names = []
-    for model_name in args.model:
-        if args.saycam:
-            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=False, saycam=args.saycam, unpooled_output=args.unpooled_output))
-            model_names.append(f'{model_name}-saycam({args.saycam})')
-        
-        if args.imagenet:
-            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=True, unpooled_output=args.unpooled_output))
-            model_names.append(f'{model_name}-imagenet')
-
-        if args.untrained:
-            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=False, unpooled_output=args.unpooled_output))
-            model_names.append(f'{model_name}-random')
-
-        if model_name == RESNEXT and args.flipping and len(args.flipping) > 0:
-            for flip_type in args.flipping:
-                model_kwarg_dicts.append(dict(name=model_name, device=args.device, 
-                    pretrained=False, flip=flip_type, unpooled_output=args.unpooled_output))
-
-                model_names.append(f'{model_name}-saycam(S)-{flip_type}')
-
-        if model_name == RESNEXT and args.dino and len(args.dino) > 0:
-            for dino in args.dino:
-                model_kwarg_dicts.append(dict(name=model_name, device=args.device, 
-                    pretrained=False, dino=dino, unpooled_output=args.unpooled_output))
-
-                model_names.append(f'{model_name}-DINO-{dino}')
+    model_kwarg_dicts, model_names = args_to_model_configurations(args)
 
     var_args['stimulus_generator_kwargs'] = {s.split('=')[0]: s.split('=')[1] for s in args.stimulus_generator_kwargs}
 

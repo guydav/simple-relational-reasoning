@@ -9,16 +9,16 @@ import sys
 from tqdm import tqdm, trange
 import typing
 
-sys.path.append(os.path.abspath('.'))
-sys.path.append(os.path.abspath('..'))
-
-from simple_relational_reasoning.embeddings.containment_support_dataset import ContainmentSupportDataset
-
 import numpy as np
 import pandas as pd
 import torch
 
-from simple_relational_reasoning.embeddings.models import MODELS, RESNEXT, FLIPPING_OPTIONS, DINO_OPTIONS
+sys.path.append(os.path.abspath('.'))
+sys.path.append(os.path.abspath('..'))
+
+from run_utils import args_to_model_configurations
+from simple_relational_reasoning.embeddings.containment_support_dataset import ContainmentSupportDataset
+from simple_relational_reasoning.embeddings.models import ALL_MODELS, RESNEXT, FLIPPING_OPTIONS, DINO_OPTIONS
 from simple_relational_reasoning.embeddings.containment_support_dataset import DEFAULT_VALIDATION_PROPORTION
 from simple_relational_reasoning.embeddings.containment_support_linear_decoding import run_containment_support_linear_decoding_multiple_models, \
     BATCH_SIZE, DEFAULT_PATIENCE_EPOCHS, DEFAULT_PATIENCE_MARGIN, DEFAULT_N_TEST_PROPORTION_RANDOM_SEEDS
@@ -49,7 +49,7 @@ parser.add_argument('--test-proportion', type=float, default=None, help='Proport
 parser.add_argument('--n-test-proportion-random-seeds', type=int, default=DEFAULT_N_TEST_PROPORTION_RANDOM_SEEDS, help='Number of processes to use')
 parser.add_argument('--base-model-name', type=str, default='', help='Base name for the models')
 
-parser.add_argument('-m', '--model', type=str, action='append', choices=MODELS,
+parser.add_argument('-m', '--model', type=str, action='append', choices=ALL_MODELS,
                     help='Which models to run')
 
 parser.add_argument('--saycam', type=str, default=None, help='Which SAYcam model to use')
@@ -82,34 +82,7 @@ parser.add_argument('-b', '--batch-size', type=int, default=BATCH_SIZE, help='Ba
 
 
 def handle_single_args_setting(args):    
-    model_kwarg_dicts = []
-    model_names = []
-    for model_name in args.model:
-        if args.saycam:
-            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=False, saycam=args.saycam, unpooled_output=args.unpooled_output))
-            model_names.append(f'{model_name}-saycam({args.saycam})')
-        
-        if args.imagenet:
-            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=True, unpooled_output=args.unpooled_output))
-            model_names.append(f'{model_name}-imagenet')
-
-        if args.untrained:
-            model_kwarg_dicts.append(dict(name=model_name, device=args.device, pretrained=False, unpooled_output=args.unpooled_output))
-            model_names.append(f'{model_name}-random')
-
-        if model_name == RESNEXT and args.flipping and len(args.flipping) > 0:
-            for flip_type in args.flipping:
-                model_kwarg_dicts.append(dict(name=model_name, device=args.device, 
-                    pretrained=False, flip=flip_type, unpooled_output=args.unpooled_output))
-
-                model_names.append(f'{model_name}-saycam(S)-{flip_type}')
-
-        if model_name == RESNEXT and args.dino and len(args.dino) > 0:
-            for dino in args.dino:
-                model_kwarg_dicts.append(dict(name=model_name, device=args.device, 
-                    pretrained=False, dino=dino, unpooled_output=args.unpooled_output))
-
-                model_names.append(f'{model_name}-DINO-{dino}')
+    model_kwarg_dicts, model_names = args_to_model_configurations(args)
 
     dataset = ContainmentSupportDataset(args.dataset_path)
 
