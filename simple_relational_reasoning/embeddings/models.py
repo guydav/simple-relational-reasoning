@@ -187,7 +187,7 @@ def build_model(model_name: str, device: str, pretrained: bool = True, saycam: t
             model.embedding_dim = MODEL_EMBEDDING_DIMENSIONS[(model_name, unpooled_output)]  # type: ignore
             model.fc = nn.Identity()  # type: ignore
             if unpooled_output:
-                mode.avgpool = nn.Identity()  # type: ignore
+                model.avgpool = nn.Identity()  # type: ignore
             model = model.to(device)
         
     if model is None:
