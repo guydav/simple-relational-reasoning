@@ -1,3 +1,3 @@
 [submodule "silicon-menagerie"]
-	path = silicon-menagerie
+	path = silicon_menagerie
 	url = https://github.com/eminorhan/silicon-menagerie.git
