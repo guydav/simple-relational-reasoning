@@ -42,7 +42,7 @@ parser.add_argument('--shuffle-habituation-stimuli', action='store_true', help='
 parser.add_argument('--quinn-stimuli', action='store_true', help='Run using Quinn stimuli')
 parser.add_argument('--tsne', action='store_true', help='Run t-SNE on embeddings')
 
-# parser.add_argument('--aggregate-results', action='store_true', help='Aggregate results')
+parser.add_argument('--aggregate-results', action='store_true', help='Aggregate results')
 
 # TODO: add flags for separating the results by bowl (reference) color, or for running with different target objects
 
