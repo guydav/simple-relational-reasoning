@@ -18,9 +18,13 @@ VGG = 'vgg'
 MOBILENET = 'mobilenet'
 RESNEXT = 'resnext'
 VIT = 'vitb14'
-MODELS = (RESNET, VGG, MOBILENET, RESNEXT, VIT)
 
-SAYCAM_models = (MOBILENET, RESNEXT)
+ALL_MODELS = (RESNET, VGG, MOBILENET, RESNEXT, VIT)
+
+BASELINE_MODELS = (MOBILENET, RESNEXT)
+FLIPPING_MODELS = (RESNEXT,)
+DINO_MODELS = (RESNEXT, VIT)
+
 SAYCAM_n_out = {'S': 2765, 'SAY':6269}
 FLIPPING_n_out = 2575
 
@@ -67,7 +71,7 @@ class VitWrapper(nn.Module):
 def build_model(model_name: str, device: str, pretrained: bool = True, saycam: typing.Union[None, bool, str] = None, flip: typing.Optional[str] = None, 
     dino: typing.Optional[str] = None, unpooled_output: bool = False):
     model_name = model_name.lower()
-    assert(model_name in MODELS)
+    assert(model_name in ALL_MODELS)
     model = None
     
     if dino:
@@ -120,7 +124,7 @@ def build_model(model_name: str, device: str, pretrained: bool = True, saycam: t
         saycam = saycam.upper()
         
         assert(saycam in SAYCAM_n_out)
-        assert(model_name in SAYCAM_models)
+        assert(model_name in SAYCAM_MODELS)
         
         checkpoint = torch.load(os.path.join(CHECKPOINT_FOLDER, f'TC-{saycam}-{model_name}.tar'))
         
