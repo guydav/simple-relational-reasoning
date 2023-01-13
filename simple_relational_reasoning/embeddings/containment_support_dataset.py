@@ -39,6 +39,7 @@ class DecodingDatasets(typing.NamedTuple):
     val: TensorDataset
     test: TensorDataset
     n_classes: int
+    test_configurations: typing.List[typing.Dict[str, typing.Union[int, str]]]
 
 
 class ContainmentSupportDataset:
@@ -175,8 +176,11 @@ class ContainmentSupportDataset:
             else:
                 train_indices.append(i)
 
+        test_configurations = [dict(configuration_index=self.dataset_configuration_indices[i], reference_object=self.dataset_reference_objects[i], target_object=self.dataset_target_objects[i]) for i in test_indices]
+
         train_indices = np.array(train_indices)
         test_indices = np.array(test_indices)
+        
 
         train_indices, validation_indices = self._split_indices(train_indices, validation_proportion)
         
@@ -184,5 +188,6 @@ class ContainmentSupportDataset:
             TensorDataset(*self._indices_to_X_y(train_indices)), 
             TensorDataset(*self._indices_to_X_y(validation_indices)), 
             TensorDataset(*self._indices_to_X_y(test_indices)),  # type: ignore
-            3
+            n_classes=3,
+            test_configurations=test_configurations,
         )

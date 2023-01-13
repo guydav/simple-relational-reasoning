@@ -48,7 +48,7 @@ def containment_support_linear_decoding_single_model_single_feature(
     patience_epochs: int = DEFAULT_PATIENCE_EPOCHS, patience_margin: float = DEFAULT_PATIENCE_MARGIN,
     batch_size: int = BATCH_SIZE, 
     device: typing.Optional[torch.device] = None, 
-    ) -> typing.Dict[str, typing.Any]:
+    ) -> typing.Tuple[typing.Dict[str, typing.Any], typing.List[typing.Dict[str, typing.Union[str, int]]]]:
     
     if device is None:
         device = next(model.parameters()).device
@@ -146,6 +146,7 @@ def containment_support_linear_decoding_single_model_single_feature(
 
     test_losses = []
     test_accs = []
+    per_example_test_correct = []
     for X, y in test_dataloader:
         X = X.to(device)
         y = y.to(device)
@@ -155,7 +156,9 @@ def containment_support_linear_decoding_single_model_single_feature(
             logits = best_decoder(embeddings)
             loss = criterion(logits, y)
             test_losses.append(loss.item())
-            test_accs.append((logits.argmax(dim=1) == y).float().mean().item())
+            correct = (logits.argmax(dim=1) == y)
+            test_accs.append(correct.float().mean().item())
+            per_example_test_correct.append(correct.detach().cpu())
 
     test_loss = np.mean(test_losses)
     test_acc = np.mean(test_accs)
@@ -167,11 +170,17 @@ def containment_support_linear_decoding_single_model_single_feature(
     
     train_min_epoch = np.argmin(train_losses)
     val_min_epoch = np.argmin(val_losses)
-    return dict(
+    summary_results = dict(
         train_min_loss=train_losses[train_min_epoch], train_min_acc=train_accuracies[train_min_epoch], train_min_epoch=train_min_epoch + 1,
         val_min_loss=val_losses[val_min_epoch], val_min_acc=val_accuracies[val_min_epoch], val_min_epoch=val_min_epoch + 1,
         test_loss=test_loss, test_acc=test_acc, test_epoch=val_min_epoch + 1,
     )
+
+    per_example_test_correct = torch.cat(per_example_test_correct, dim=0).squeeze().numpy()
+    for i, config in enumerate(datasets.test_configurations):
+        config['correct'] = per_example_test_correct[i]
+
+    return summary_results, datasets.test_configurations
 
 
 def run_containment_support_linear_decoding_single_model_multiple_features(
@@ -180,12 +189,13 @@ def run_containment_support_linear_decoding_single_model_multiple_features(
     test_proportion: typing.Optional[float] = None, n_test_proportion_random_seeds: int = DEFAULT_N_TEST_PROPORTION_RANDOM_SEEDS,
     batch_size: int = BATCH_SIZE, validation_proportion: float = DEFAULT_VALIDATION_PROPORTION,
     patience_epochs: int = DEFAULT_PATIENCE_EPOCHS, patience_margin: float = DEFAULT_PATIENCE_MARGIN,
-    random_seed: int = DEFAULT_RANDOM_SEED, ):
+    random_seed: int = DEFAULT_RANDOM_SEED) -> typing.Tuple[typing.List[typing.Dict[str, typing.Any]], typing.List[typing.Dict[str, typing.Union[int, str]]]]:
 
     if by_target_object is None and by_reference_object is None and test_proportion is None:
         raise ValueError('test_reference_object, test_target_object, and test_proportion cannot all be None')
 
     model_results = []
+    model_per_example_results = []
 
     decoding_dataset_kwarg_names = []
     decoding_dataset_kwarg_value_sets = []
@@ -209,8 +219,10 @@ def run_containment_support_linear_decoding_single_model_multiple_features(
         print(f'Running decoding with {kwarg_dict}')
         
         decoding_datasets = dataset.generate_decoding_datasets(validation_proportion=validation_proportion, **kwarg_dict)
-        feature_results = containment_support_linear_decoding_single_model_single_feature(model, decoding_datasets, n_epochs, lr, patience_epochs, patience_margin, batch_size)
+        feature_results, per_example_results = containment_support_linear_decoding_single_model_single_feature(model, decoding_datasets, n_epochs, lr, patience_epochs, patience_margin, batch_size)
         feature_results.update(kwarg_dict)
+        for result in per_example_results:
+            result.update(kwarg_dict)
 
         test_type = ''
         if by_target_object:
@@ -221,9 +233,13 @@ def run_containment_support_linear_decoding_single_model_multiple_features(
             test_type += f'{"_" if len(test_type) else ""}configuration'
         feature_results['test_type'] = test_type
 
-        model_results.append(feature_results)
+        for result in per_example_results:
+            result['test_type'] = test_type
 
-    return model_results
+        model_results.append(feature_results)
+        model_per_example_results.extend(per_example_results)
+
+    return model_results, model_per_example_results
 
 
 def run_containment_support_linear_decoding_multiple_models(
@@ -234,9 +250,10 @@ def run_containment_support_linear_decoding_multiple_models(
     test_proportion: typing.Optional[float] = None, n_test_proportion_random_seeds: int = DEFAULT_N_TEST_PROPORTION_RANDOM_SEEDS,
     batch_size: int = BATCH_SIZE, validation_proportion: float = DEFAULT_VALIDATION_PROPORTION,
     patience_epochs: int = DEFAULT_PATIENCE_EPOCHS, patience_margin: float = DEFAULT_PATIENCE_MARGIN,
-    random_seed: int = DEFAULT_RANDOM_SEED, ):
+    random_seed: int = DEFAULT_RANDOM_SEED) -> typing.Tuple[typing.List[typing.Dict[str, typing.Any]], typing.List[typing.Dict[str, typing.Union[int, str]]]]:
 
     all_model_results = []
+    all_model_per_example_results = []
 
     if by_target_object is None and by_reference_object is None and test_proportion is None:
             raise ValueError('test_reference_object, test_target_object, and test_proportion cannot all be None')
@@ -245,17 +262,21 @@ def run_containment_support_linear_decoding_multiple_models(
         print(f'Starting model {name}')
         model = build_model(**model_kwargs)
 
-        model_results = run_containment_support_linear_decoding_single_model_multiple_features(
+        model_results, model_per_example_results = run_containment_support_linear_decoding_single_model_multiple_features(
             model, dataset, n_epochs, lr, by_target_object, by_reference_object, test_proportion, n_test_proportion_random_seeds,
             batch_size, validation_proportion, patience_epochs, patience_margin, random_seed)
 
         for feature_result in model_results:
             feature_result['model'] = name
 
+        for per_example_result in model_per_example_results:
+            per_example_result['model'] = name
+
         all_model_results.extend(model_results)
+        all_model_per_example_results.extend(model_per_example_results)
 
         del model
 
         torch.cuda.empty_cache()
         
-    return all_model_results
+    return all_model_results, all_model_per_example_results

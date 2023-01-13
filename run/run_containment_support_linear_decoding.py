@@ -86,14 +86,18 @@ def handle_single_args_setting(args):
 
     dataset = ContainmentSupportDataset(args.dataset_path)
 
-    all_model_results = run_containment_support_linear_decoding_multiple_models(
+    all_model_results, all_model_per_example_results = run_containment_support_linear_decoding_multiple_models(
         model_names, model_kwarg_dicts, dataset, 
         args.n_epochs, args.lr, args.by_target_object, args.by_reference_object, args.test_proportion, args.n_test_proportion_random_seeds,
         args.batch_size, args.validation_proportion, args.patience_epochs, args.patience_margin, args.seed)
 
     result_df = pd.DataFrame.from_records(all_model_results)
     result_df = result_df.assign(global_seed=args.seed, unpooled_output=args.unpooled_output)
-    return result_df
+
+    per_example_df = pd.DataFrame.from_records(all_model_per_example_results)
+    per_example_df = per_example_df.assign(global_seed=args.seed, unpooled_output=args.unpooled_output)
+
+    return result_df, per_example_df
 
 
 if __name__ == '__main__':
@@ -113,9 +117,7 @@ if __name__ == '__main__':
     for k, v in main_var_args.items():
         print(' ' * 26 + k + ': ' + str(v))
 
-    out_df = handle_single_args_setting(main_args)
-    # out_df = pd.concat(dataframes)
-    # out_df.reset_index(drop=True, inplace=True)
+    out_df, out_per_example_df = handle_single_args_setting(main_args)
     output_file = main_args.output_file
 
     output_folder, _ = os.path.split(output_file)
@@ -124,3 +126,7 @@ if __name__ == '__main__':
     while os.path.exists(output_file):
         output_file += '_1'
     out_df.to_csv(output_file)
+
+    per_example_output_file = output_file.replace('.csv', '_per_example.csv')
+    out_per_example_df.to_csv(per_example_output_file)
+
