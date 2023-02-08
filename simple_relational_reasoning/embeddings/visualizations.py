@@ -3,6 +3,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import typing
 
 from collections import defaultdict
 
@@ -25,6 +26,9 @@ DEFAULT_YLIM = (0, 1.05)
 
 
 PLOT_PRETTY_NAMES = {
+    'above_below': 'Above/Below',
+    'n_target_types': 'Target Types',
+    'n_habituation_stimuli': 'Habituation Stimuli',
     'mobilenet': 'MobileNetV2',
     'resnext': 'ResNeXt',
     'random': 'Untrained',
@@ -39,12 +43,15 @@ PLOT_PRETTY_NAMES = {
     'h': 'Horizontal',
     'hv': 'Both',
     'effective_angle': 'Stimulus Angle',
+    'dino': 'DINO',
 }
 
 PLOT_PRETTY_NAMES_BY_FIELD = {
     'n_habituation_stimuli': {
-        1: 'One habituation stimulus',
-        4: 'Four habituation stimuli',
+        # 1: 'One habituation stimulus',
+        # 4: 'Four habituation stimuli',
+        1: '1',
+        4: '4',
     },
     'triplet_generator': {
         'equidistant': 'Equidistant',
@@ -99,7 +106,7 @@ def save_plot(save_path, bbox_inches='tight', should_print=False):
             print(WRAPFIGURE_TEMPLATE.format(save_path=save_path, label_name=save_path_no_ext.replace('/', '-').replace('_', '-')))
             print('')
         
-        if not save_path.startswith(SAVE_PATH_PREFIX):
+        if not os.path.isabs(save_path) and not save_path.startswith(SAVE_PATH_PREFIX):
             save_path = os.path.join(SAVE_PATH_PREFIX, save_path)
         
         folder, filename = os.path.split(save_path)
@@ -107,9 +114,9 @@ def save_plot(save_path, bbox_inches='tight', should_print=False):
         plt.savefig(save_path, bbox_inches=bbox_inches, facecolor=plt.gcf().get_facecolor(), edgecolor='none')
 
 
-def plot_prettify(text, field_name=None):
+def plot_prettify(text, field_name=None) -> typing.Union[str, typing.List[str]]:
     if isinstance(text, (list, tuple)):
-        return [plot_prettify(t) for t in text]
+        return [plot_prettify(t) for t in text]  # type: ignore
 
     if isinstance(text, int) and text > 1000:
         return f'{text // 1000}k ($2^{{ {int(np.log2(text))} }}$)'

@@ -24,3 +24,4 @@ containment_support_outputs/*.pkl.gz
 .DS_Store?
 containment_support_outputs/v3_flapless_stimuli_tsne.pkl.gz
 
+containment_support_outputs/dataframes/containment_support_df.csv

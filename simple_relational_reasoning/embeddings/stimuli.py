@@ -184,7 +184,7 @@ class StimulusGenerator:
         self.margin_buffer = margin_buffer
         self.dtype = dtype
         if rng is None:
-            rng = np.random.RandomState()
+            rng = np.random.default_rng()
         self.rng = rng
         self.n_target_types = 1
     
