@@ -31,19 +31,22 @@ PLOT_PRETTY_NAMES = {
     'n_habituation_stimuli': 'Habituation Stimuli',
     'mobilenet': 'MobileNetV2',
     'resnext': 'ResNeXt',
+    'vitb14': 'ViT-B/14',
     'random': 'Untrained',
     'saycam': 'SAYcam',
     'saycam(S)': 'SAYcam',
     'imagenet': 'ImageNet',
     'Imagenet': 'ImageNet',
-    1: 'Same Target',
-    2: 'Different Targets',
+    1: 'Identical\nTargets',
+    2: 'Different\nTargets',
     's': 'Neither',
     'v': 'Vertical',
     'h': 'Horizontal',
     'hv': 'Both',
     'effective_angle': 'Stimulus Angle',
     'dino': 'DINO',
+    'high_containment_vs_behind': 'Containment\nvs. Behind',
+    'high_containment_vs_support': 'Containment\nvs. Support',
 }
 
 PLOT_PRETTY_NAMES_BY_FIELD = {
@@ -69,6 +72,18 @@ PLOT_PRETTY_NAMES_BY_FIELD = {
         'ShortBox': 'Short Box',
         'ShortBoxNoFlaps': 'Flapless Short Box',
         'WoodenBasket': 'Wooden Basket',
+    },
+    'matched_behind': {
+        False: 'Mismatched\nStimuli', 
+        True: 'Well-Matched\nStimuli',
+    },
+    'trained': {
+        False: 'Untrained',
+        True: 'Trained',
+    },
+    'unpooled_output': {
+        False: 'Pooled',
+        True: 'Pre-pooling',
     }
 }
 
@@ -142,6 +157,9 @@ def plot_prettify(text, field_name=None) -> typing.Union[str, typing.List[str]]:
 
 def filter_and_group(df, filter_dict, group_by_fields, 
                      orders=DEFAULT_ORDERS):
+    if group_by_fields is None:
+        group_by_fields = []
+
     filtered_df = df.copy(deep=True)
     group_by_fields = group_by_fields[:]
     if 'metric' in group_by_fields:
@@ -160,6 +178,9 @@ def filter_and_group(df, filter_dict, group_by_fields,
             else:
                 filtered_df = filtered_df[filtered_df[filter_name].eq(filter_value)]
             
+    if len(group_by_fields) == 0:
+        return filtered_df
+    
     return filtered_df.groupby(group_by_fields)
 
 
