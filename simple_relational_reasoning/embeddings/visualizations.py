@@ -1,12 +1,10 @@
+from collections import defaultdict
 import itertools
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import os
 import typing
-
-from collections import defaultdict
-
 
 DEFAULT_ORDERS = {
     'model_name': ['mobilenet', 'resnext'],
@@ -84,7 +82,8 @@ PLOT_PRETTY_NAMES_BY_FIELD = {
     'unpooled_output': {
         False: 'Pooled',
         True: 'Pre-pooling',
-    }
+    },
+    'seed': {seed: str(seed - 32) for seed in range(33, 43)}
 }
 
 
@@ -155,6 +154,9 @@ def plot_prettify(text, field_name=None) -> typing.Union[str, typing.List[str]]:
     return text.lower().replace('_', ' ').title()
 
 
+ALL = 'all'
+
+
 def filter_and_group(df, filter_dict, group_by_fields, 
                      orders=DEFAULT_ORDERS):
     if group_by_fields is None:
@@ -167,6 +169,9 @@ def filter_and_group(df, filter_dict, group_by_fields,
     
     if filter_dict is not None:
         for filter_name, filter_value in filter_dict.items():
+            if filter_value == ALL:
+                continue
+            
             if isinstance(filter_value, (list, tuple)):
                 filtered_df = filtered_df[filtered_df[filter_name].isin(filter_value)]
                 if filter_name in orders:

@@ -1,0 +1,5 @@
+,dino,model,high_containment_vs_behind,high_containment_vs_support
+0,ImageNet,resnext,0.877197265625,0.958984375
+1,ImageNet,vitb14,0.2841796875,0.871826171875
+2,saycam(S),resnext,0.8193359375,0.93994140625
+3,saycam(S),vitb14,0.4169921875,0.5244140625
