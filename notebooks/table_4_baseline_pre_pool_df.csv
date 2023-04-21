@@ -1,0 +1,7 @@
+,training,model,high_containment_vs_behind,high_containment_vs_support
+0,random,mobilenet,0.500830078125,0.7428955078125
+1,random,resnext,0.3648193359375,0.5888427734375
+2,ImageNet,mobilenet,0.75927734375,0.994384765625
+3,ImageNet,resnext,0.738037109375,0.910888671875
+4,saycam(S),mobilenet,0.73681640625,0.921630859375
+5,saycam(S),resnext,0.857421875,0.873291015625

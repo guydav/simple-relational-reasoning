@@ -10,23 +10,16 @@ DEFAULT_MLP_SIZES = [32, 32]
 
 
 class CNNModel(BaseObjectModel):
-    def __init__(self, object_generator, conv_output_size,
+    def __init__(self, dataset,
                  conv_sizes=DEFAULT_CONV_SIZES, conv_activation_class=nn.ReLU,
-                 conv_kernel_size=3, conv_stride=1, conv_padding=1,
-                 mlp_sizes=DEFAULT_MLP_SIZES, mlp_activation_class=nn.ReLU,
-                 output_size=2, output_activation_class=None,
+                 conv_kernel_size=3, conv_stride=1, conv_padding=1, conv_input_size=None,
+                 mlp_sizes=DEFAULT_MLP_SIZES, mlp_activation_class=nn.ReLU, output_activation_class=None,
                  loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
-                 batch_size=32, train_epoch_size=1024, validation_epoch_size=1024, test_epoch_size=1024,
-                 regenerate_every_epoch=False,
-                 train_dataset=None, validation_dataset=None, test_dataset=None,
-                 train_log_prefix=None, validation_log_prefix=None, test_log_prefix=None):
-        super(CNNModel, self).__init__(object_generator, loss=loss, optimizer_class=optimizer_class,
-                                       lr=lr, batch_size=batch_size, train_epoch_size=train_epoch_size,
-                                       validation_epoch_size=validation_epoch_size, test_epoch_size=test_epoch_size,
-                                       regenerate_every_epoch=regenerate_every_epoch,
-                                       dataset_class=SpatialObjectGeneratorDataset,
-                                       train_dataset=train_dataset, validation_dataset=validation_dataset,
-                                       test_dataset=test_dataset, train_log_prefix=train_log_prefix,
+                 batch_size=32, train_log_prefix=None, validation_log_prefix=None, test_log_prefix=None):
+        super(CNNModel, self).__init__(dataset, loss=loss,
+                                       optimizer_class=optimizer_class,
+                                       lr=lr, batch_size=batch_size,
+                                       train_log_prefix=train_log_prefix,
                                        validation_log_prefix=validation_log_prefix,
                                        test_log_prefix=test_log_prefix)
 
@@ -59,9 +52,11 @@ class CNNModel(BaseObjectModel):
             # TODO: normalization? pooling?
             conv_input_size = size
 
+        # remove the last pooling layer to replace it with an average pool, to get some degree of invariance
+        conv_layers[-1] = nn.AdaptiveAvgPool2d((1, 1))
         self.conv_module = nn.Sequential(*conv_layers)
 
-        mlp_input_size = conv_output_size
+        mlp_input_size = conv_sizes[-1]
         mlp_layers = []
         for size in mlp_sizes:
             mlp_layers.append(nn.Linear(mlp_input_size, size))
@@ -70,24 +65,11 @@ class CNNModel(BaseObjectModel):
 
         self.mlp_module = nn.Sequential(*mlp_layers)
 
-        self.output_size = output_size
         self.output_layer = nn.Linear(mlp_input_size, self.output_size)
 
         if output_activation_class is None:
             output_activation_class = nn.Identity
         self.output_activation = output_activation_class()
-
-        self.train_dataset = self._convert_dataset_to_spatial(self.train_dataset)
-        self.validation_dataset = self._convert_dataset_to_spatial(self.validation_dataset)
-        self.test_dataset = self._convert_dataset_to_spatial(self.test_dataset)
-
-    def _convert_dataset_to_spatial(self, dataset):
-        if not isinstance(dataset, SpatialObjectGeneratorDataset) and dataset.epoch_size > 0:
-            spatial_dataset = SpatialObjectGeneratorDataset(self.object_generator, dataset.epoch_size)
-            spatial_dataset.labels = dataset.labels.clone()
-            spatial_dataset.objects = dataset.objects.clone()
-            spatial_dataset.convert_objects()
-            return spatial_dataset
 
     def embed(self, x):
         return x
@@ -100,5 +82,5 @@ class CNNModel(BaseObjectModel):
         return self.output_activation(self.output_layer(x))
 
 
-class FixedCNNModel(CNNModel):
+class SimplifiedCNNModel(CNNModel):
     pass

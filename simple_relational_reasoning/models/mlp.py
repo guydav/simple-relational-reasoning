@@ -5,20 +5,13 @@ from simple_relational_reasoning.models.base import BaseObjectModel, ObjectCombi
 
 
 class MLPModel(BaseObjectModel):
-    def __init__(self, object_generator, embedding_size, embedding_activation_class,
+    def __init__(self, dataset, embedding_size, embedding_activation_class,
                  prediction_sizes=None, prediction_activation_class=None,
-                 output_size=2, output_activation_class=None,
-                 loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
-                 batch_size=32, train_epoch_size=1024, validation_epoch_size=1024, test_epoch_size=1024,
-                 regenerate_every_epoch=False,
-                 train_dataset=None, validation_dataset=None, test_dataset=None,
-                 train_log_prefix=None, validation_log_prefix=None, test_log_prefix=None):
-        super(MLPModel, self).__init__(object_generator, loss=loss, optimizer_class=optimizer_class,
-                                       lr=lr, batch_size=batch_size, train_epoch_size=train_epoch_size,
-                                       validation_epoch_size=validation_epoch_size, test_epoch_size=test_epoch_size,
-                                       regenerate_every_epoch=regenerate_every_epoch,
-                                       train_dataset=train_dataset, validation_dataset=validation_dataset,
-                                       test_dataset=test_dataset, train_log_prefix=train_log_prefix,
+                 output_activation_class=None, loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
+                 batch_size=32, train_log_prefix=None, validation_log_prefix=None, test_log_prefix=None):
+        super(MLPModel, self).__init__(dataset, oss=loss, optimizer_class=optimizer_class,
+                                       lr=lr, batch_size=batch_size,
+                                       train_log_prefix=train_log_prefix,
                                        validation_log_prefix=validation_log_prefix,
                                        test_log_prefix=test_log_prefix)
 
@@ -40,7 +33,6 @@ class MLPModel(BaseObjectModel):
             self.prediction_module = nn.Sequential(*prediction_layers)
             output_layer_input_size = in_size
 
-        self.output_size = output_size
         self.output_layer = nn.Linear(output_layer_input_size, self.output_size)
 
         if output_activation_class is None:
@@ -58,23 +50,15 @@ class MLPModel(BaseObjectModel):
 
 
 class CombinedObjectMLPModel(BaseObjectModel):
-    def __init__(self, object_generator,
+    def __init__(self, dataset,
                  embedding_size=None, embedding_activation_class=nn.ReLU,
                  object_combiner=ObjectCombinationMethod.MEAN,
                  prediction_sizes=None, prediction_activation_class=nn.ReLU,
-                 output_size=2, output_activation_class=None,
-                 loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
-                 batch_size=32, train_epoch_size=1024, validation_epoch_size=1024, test_epoch_size=1024,
-                 regenerate_every_epoch=False,
-                 train_dataset=None, validation_dataset=None, test_dataset=None,
-                 train_log_prefix=None, validation_log_prefix=None, test_log_prefix=None):
-        super(CombinedObjectMLPModel, self).__init__(object_generator, loss=loss, optimizer_class=optimizer_class,
-                                                     lr=lr, batch_size=batch_size, train_epoch_size=train_epoch_size,
-                                                     validation_epoch_size=validation_epoch_size,
-                                                     test_epoch_size=test_epoch_size,
-                                                     regenerate_every_epoch=regenerate_every_epoch,
-                                                     train_dataset=train_dataset, validation_dataset=validation_dataset,
-                                                     test_dataset=test_dataset, train_log_prefix=train_log_prefix,
+                 output_activation_class=None, loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
+                 batch_size=32, train_log_prefix=None, validation_log_prefix=None, test_log_prefix=None):
+        super(CombinedObjectMLPModel, self).__init__(dataset, loss=loss, optimizer_class=optimizer_class,
+                                                     lr=lr, batch_size=batch_size,
+                                                     train_log_prefix=train_log_prefix,
                                                      validation_log_prefix=validation_log_prefix,
                                                      test_log_prefix=test_log_prefix)
 
@@ -104,7 +88,6 @@ class CombinedObjectMLPModel(BaseObjectModel):
 
             self.prediction_module = nn.Sequential(*prediction_layers)
 
-        self.output_size = output_size
         self.output_layer = nn.Linear(output_layer_input_size, self.output_size)
 
         if output_activation_class is None:

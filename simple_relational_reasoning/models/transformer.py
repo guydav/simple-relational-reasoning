@@ -102,25 +102,16 @@ class TransformerModel(BaseObjectModel):
                  transformer_mlp_sizes=TRANSFORMER_MLP_SIZES, transformer_mlp_activation_class=nn.ReLU,
                  transformer_mlp_activation_output=False, object_combiner=ObjectCombinationMethod.MEAN,
                  mlp_sizes=DEFAULT_MLP_SIZES, mlp_activation_class=nn.ReLU,
-                 output_size=2, output_activation_class=None,
-                 loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
-                 batch_size=32, train_epoch_size=1024, validation_epoch_size=1024, test_epoch_size=1024,
-                 regenerate_every_epoch=False,
-                 train_dataset=None, validation_dataset=None, test_dataset=None,
-                 train_log_prefix=None, validation_log_prefix=None, test_log_prefix=None):
+                 output_activation_class=None, loss=F.cross_entropy, optimizer_class=torch.optim.Adam, lr=1e-4,
+                 batch_size=32, train_log_prefix=None, validation_log_prefix=None, test_log_prefix=None):
 
         super(TransformerModel, self).__init__(object_generator, loss=loss, optimizer_class=optimizer_class,
-                                               lr=lr, batch_size=batch_size, train_epoch_size=train_epoch_size,
-                                               validation_epoch_size=validation_epoch_size,
-                                               test_epoch_size=test_epoch_size,
-                                               regenerate_every_epoch=regenerate_every_epoch,
-                                               train_dataset=train_dataset, validation_dataset=validation_dataset,
-                                               test_dataset=test_dataset, train_log_prefix=train_log_prefix,
+                                               lr=lr, batch_size=batch_size, train_log_prefix=train_log_prefix,
                                                validation_log_prefix=validation_log_prefix,
                                                test_log_prefix=test_log_prefix)
 
-        self.embedding_module = nn.Identity()
         self.embedding_size = self.object_size
+        self.embedding_module = nn.Identity()
 
         if embedding_size is not None:
             self.embedding_size = embedding_size
@@ -157,7 +148,6 @@ class TransformerModel(BaseObjectModel):
             self.mlp_module = nn.Sequential(*mlp_layers)
 
         # Output/prediction layer from the transformer output
-        self.output_size = output_size
         self.output_layer = nn.Linear(mlp_input_size, self.output_size)
 
         if output_activation_class is None:
