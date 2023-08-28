@@ -7,6 +7,7 @@ import typing
 
 from abc import abstractmethod
 from collections import defaultdict, namedtuple
+from enum import Enum
 from IPython.display import display, Markdown
 from tqdm.notebook import tqdm
 
@@ -102,8 +103,14 @@ TaskResults = namedtuple('TaskResults', ('mean', 'std', 'n'))
 BATCH_SIZE = 32
 
 
+class SimilarityMetric(Enum):
+    COSINE = 'cosine'
+    EUCLIDEAN = 'euclidean'
+
+
 def quinn_embedding_task_single_generator(
-    model, triplet_generator, metrics=METRICS, N=1024, batch_size=BATCH_SIZE, use_tqdm=False, device=None, tsne_mode=False):
+    model, triplet_generator, metrics=METRICS, N=1024, batch_size=BATCH_SIZE, use_tqdm=False, device=None, tsne_mode=False,
+    similarity_metric=SimilarityMetric.COSINE):
     
     if device is None:
         device = next(model.parameters()).device
@@ -149,13 +156,19 @@ def quinn_embedding_task_single_generator(
                 test_embeddings = e[:, -2:]
                 e = torch.cat((average_habituation_embedding, test_embeddings), dim=1)
 
-            embedding_pairwise_cosine = cos(e[:, :, None, :], e[:, None, :, :])  # shape (B, 3, 3)
-            triplet_cosines = embedding_pairwise_cosine[:, triangle_indices[0], triangle_indices[1]] # shape (B, 3)
+            if similarity_metric == similarity_metric.COSINE:
+                embedding_pairwise_similarities = cos(e[:, :, None, :], e[:, None, :, :])  # shape (B, 3, 3)
+            elif similarity_metric == similarity_metric.EUCLIDEAN:
+                embedding_pairwise_similarities = torch.cdist(e, e, p=2) # shape (B, 3, 3)
+            else:
+                raise ValueError(f'Unknown similarity metric {similarity_metric}')
+
+            triplet_similarities = embedding_pairwise_similarities[:, triangle_indices[0], triangle_indices[1]] # shape (B, 3)
 
             # triplet_cosines
 
             for metric in metrics:
-                model_results[metric.name].append(metric(triplet_cosines).cpu())
+                model_results[metric.name].append(metric(triplet_similarities).cpu())
 
     if not tsne_mode:
         for metric in metrics:
@@ -173,12 +186,14 @@ def quinn_embedding_task_single_generator(
 
 def quinn_embedding_task_multiple_generators(
     model, condition_names, triplet_generators, 
-    metrics=METRICS, N=1024, batch_size=BATCH_SIZE, tsne_mode=False):
+    metrics=METRICS, N=1024, batch_size=BATCH_SIZE, tsne_mode=False,
+    similarity_metric=SimilarityMetric.COSINE):
     
     all_results = {}
     for condition_name, triplet_gen in zip(condition_names, triplet_generators):
         results = quinn_embedding_task_single_generator(model, triplet_gen, metrics=metrics,
-                                                        N=N, batch_size=batch_size, tsne_mode=tsne_mode)
+                                                        N=N, batch_size=batch_size, tsne_mode=tsne_mode, 
+                                                        similarity_metric=similarity_metric)
 
         if tsne_mode:
             data, results = results
@@ -192,7 +207,8 @@ def quinn_embedding_task_multiple_generators(
 
 def run_multiple_models_multiple_generators(model_names, model_kwarg_dicts, 
                                             condition_names, condition_generators, N, 
-                                            batch_size=BATCH_SIZE, tsne_mode=False):
+                                            batch_size=BATCH_SIZE, tsne_mode=False,
+                                            similarity_metric=SimilarityMetric.COSINE):
     all_model_results = {}
     
     for name, model_kwargs in zip (model_names, model_kwarg_dicts):
@@ -200,7 +216,8 @@ def run_multiple_models_multiple_generators(model_names, model_kwarg_dicts,
         model = build_model(**model_kwargs)
 
         all_model_results[name] = quinn_embedding_task_multiple_generators(
-            model, condition_names, condition_generators, N=N, batch_size=batch_size, tsne_mode=tsne_mode)
+            model, condition_names, condition_generators, N=N, batch_size=batch_size, 
+            tsne_mode=tsne_mode, similarity_metric=similarity_metric)
 
         del model
 

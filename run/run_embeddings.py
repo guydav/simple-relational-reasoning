@@ -19,7 +19,7 @@ from run_utils import args_to_model_configurations
 from simple_relational_reasoning.embeddings.stimuli import STIMULUS_GENERATORS
 from simple_relational_reasoning.embeddings.triplets import TRIPLET_GENERATORS, RELATIONS, ABOVE_BELOW_RELATION, BETWEEN_RELATION, DEFAULT_MULTIPLE_HABITUATION_RADIUS
 from simple_relational_reasoning.embeddings.models import ALL_MODELS, RESNEXT, FLIPPING_OPTIONS, DINO_OPTIONS
-from simple_relational_reasoning.embeddings.task import run_multiple_models_multiple_generators, BATCH_SIZE
+from simple_relational_reasoning.embeddings.task import run_multiple_models_multiple_generators, BATCH_SIZE, SimilarityMetric
 from simple_relational_reasoning.embeddings.tables import multiple_results_to_df
 
 matplotlib.rcParams['figure.dpi'] = 100
@@ -91,6 +91,9 @@ parser.add_argument('--flipping', action='append',
 parser.add_argument('--dino', action='append',
     choices=DINO_OPTIONS, help='Use one of the DINO models Emin created')
 parser.add_argument('--unpooled-output', action='store_true', help='Use unpooled model outputs')
+
+parser.add_argument('--similarity-metric', type=str, default=SimilarityMetric.COSINE.value, choices=[m.value for m in SimilarityMetric],
+                    help='Which similarity metric to use')
 
 parser.add_argument('-o', '--output-file', type=str, help='Output file to write to')
 
@@ -184,7 +187,8 @@ def handle_single_args_setting(args):
 
         all_model_results.append(run_multiple_models_multiple_generators(
             model_names, model_kwarg_dicts, args.stimulus_generators, 
-            triplet_generators, args.n_examples, args.batch_size))
+            triplet_generators, args.n_examples, args.batch_size,
+            similarity_metric=SimilarityMetric(args.similarity_metric),))
 
         del triplet_generators
 
